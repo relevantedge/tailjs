@@ -1,18 +1,30 @@
-import type { TrackerClientConfiguration } from "@tailjs/client/external";
-import { CLIENT_CONFIG } from "@tailjs/client/external";
+// import type { TrackerClientConfiguration } from "@tailjs/client/external";
+// import { CLIENT_CONFIG } from "@tailjs/client/external";
 
+import { type TrackerClientConfiguration } from "@tailjs/client/external";
 import {
+  JsonSchemaAdapter,
+  SchemaDefinition,
   UserConsent,
-  type ViewEvent,
-  type ViewTimingData,
+  type DataPurposes,
 } from "@tailjs/types";
-import { AllRequired, JsonObject } from "@tailjs/util";
+import {
+  add2,
+  AllRequired,
+  ellipsis,
+  forEach2,
+  get2,
+  JsonObject,
+  required,
+  throwError,
+} from "@tailjs/util";
 import { ClientIdGenerator } from ".";
 import {
   CryptoProvider,
   EngineHost,
+  TrackerEnvironmentSettings,
   TrackerExtension,
-  VariableStorageCoordinatorSettings,
+  VariableStorageMappings,
 } from "./shared";
 
 /** Gives a hint what a string might be for methods that serialize results to strings */
@@ -42,11 +54,12 @@ export type RequestHandlerConfiguration = {
   host: EngineHost;
 
   /**
-   * The JSON schemas defining the available events and variables.
-   * The tracker will not work without the core schema, but it is perfectly fine
-   * to change the data classifications of the fields.
+   * The schemas defining the available events and variables.
+   * If the tail.js core schema is not included here, it will automatically be added.
+   *
+   * Reasons for explicitly including it includes overriding the classifications and purposes of the properties.
    */
-  schemas?: (string | JsonObject)[];
+  schemas?: SchemaDefinition[];
 
   /**
    * Extensions that may enable events to be stored in a database,
@@ -74,12 +87,6 @@ export type RequestHandlerConfiguration = {
   cookies?: CookieConfiguration;
 
   /**
-   * Whether events that are not defined in a schema can be accepted.
-   * BE AWARE this partially disables the otherwise strong privacy and data compliance guarantees.
-   */
-  allowUnknownEventTypes?: boolean;
-
-  /**
    * Either the path to an alternative script to use instead of the default minified one.
    * If true, a version of the script that outputs activity to the browser console and contains
    * a source map is used. Paths are resolved using the engine host, in particular, paths in the reserved
@@ -95,12 +102,6 @@ export type RequestHandlerConfiguration = {
    * since it enables fingerprinting.
    */
   json?: boolean;
-
-  /**
-   * Common tags that will be added to all collected events. This can be used to differentiate between different
-   * server nodes in a clustered environment, or the purpose of environment (like dev, qa, staging or production).
-   */
-  environmentTags?: string[];
 
   /**
    * This is used to add entropy to temporary keys used for short-term communication and
@@ -131,7 +132,24 @@ export type RequestHandlerConfiguration = {
    *
    * @default Anonymous/Necessary
    */
-  defaultConsent?: UserConsent<boolean>;
+  defaultConsent?: UserConsent;
+
+  /**
+   * Configured whether the two purposes personalization and security should be treated
+   * as separate purposes, or just considered synonymous with functionality and necessary respectively.
+   *
+   * The default is to not treat them separately, and this follows the common options in cookie
+   * disclaimers.
+   *
+   * Google Consent Mode v2 has separate flags for personalization and security, which is why
+   * you might want to enable the distinction.
+   *
+   * When a purpose is not treated separately, the become synonymous with their counterpart,
+   * and both are set if either is set when the user gives or updates their consent.
+   * That is, consent for inactive purposes cannot be controlled independently if not active.
+   *
+   */
+  additionalPurposes?: Pick<DataPurposes, "personalization" | "security">;
 
   /**
    * Whether device cookies should be split by purpose (performance, functionality etc.) or just be shared in one,
@@ -153,7 +171,7 @@ export type RequestHandlerConfiguration = {
    * Mappings of on or more backends that provides variables in the different scopes.
    * If a variable storage is not configured for a scope (such as User) this data will not get stored anywhere.
    */
-  storage?: VariableStorageCoordinatorSettings["mappings"];
+  storage?: VariableStorageMappings;
 
   /**
    * The session timeout in minutes.
@@ -162,48 +180,168 @@ export type RequestHandlerConfiguration = {
    */
   sessionTimeout?: number;
 
-  /**
-   * The device session timeout in minutes after the user has closed all tabs and browser windows related to the website.
-   * If a user closes all tabs and windows related to your website and then comes back before this timeout it will not trigger a new device session.
-   * In particular, this controls when the {@link ViewEvent.landingPage} is set.
-   *
-   * The difference between the session and device session timeouts is that device sessions are not reset as long as tabs or windows are open even if the user put their computer to sleep for days
-   * (cf. the importance of {@link ViewTimingData.visibleTime} and {@link ViewTimingEvent.interactiveTime}).
-   *
-   * @default 10
-   */
-  deviceSessionTimeout?: number;
+  /** Settings for the tracker environment. */
+  environment?: TrackerEnvironmentSettings;
 };
 
-export const DEFAULT: Omit<
-  AllRequired<RequestHandlerConfiguration>,
-  | "schemas"
-  | "backends"
-  | "host"
-  | "extensions"
-  | "endpoint"
-  | "scriptPath"
-  | "environmentTags"
-  | "crypto"
-  | "encryptionKeys"
-  | "storage"
-  | "clientIdGenerator"
-> = {
+export const DEFAULT:
+  | Omit<
+      AllRequired<RequestHandlerConfiguration>,
+      | "schemas"
+      | "backends"
+      | "host"
+      | "extensions"
+      | "endpoint"
+      | "scriptPath"
+      | "environmentTags"
+      | "crypto"
+      | "encryptionKeys"
+      | "storage"
+      | "clientIdGenerator"
+      | "additionalPurposes"
+      | "defaultConsent"
+      | "environment"
+    > &
+      Pick<
+        Required<RequestHandlerConfiguration>,
+        "environment" | "defaultConsent"
+      > = {
   trackerName: "tail",
   cookies: {
     namePrefix: ".tail",
     secure: true,
   },
-  allowUnknownEventTypes: true,
   debugScript: false,
   sessionTimeout: 30,
-  deviceSessionTimeout: 10,
-  client: CLIENT_CONFIG as any,
+  client: {
+    scriptBlockerAttributes: {
+      "data-cookieconsent": "ignore",
+    },
+  } satisfies Partial<TrackerClientConfiguration> as any,
   clientEncryptionKeySeed: "tailjs",
   cookiePerPurpose: false,
   json: false,
   defaultConsent: {
-    level: "anonymous",
-    purposes: "necessary",
+    classification: "anonymous",
+    purposes: {}, // Necessary only.
+  },
+
+  environment: {
+    idLength: 12,
   },
 };
+
+export type SchemaPatchFunction = (
+  schema: SchemaDefinition | undefined
+) => void;
+
+export type SchemaFormat = "native" | "json-schema";
+export class SchemaBuilder {
+  private readonly _collected: {
+    source: string | JsonObject | SchemaDefinition;
+    type: SchemaFormat;
+  }[] = [];
+
+  private readonly _patches = new Map<string, SchemaPatchFunction[]>();
+  private readonly _coreSchema: SchemaDefinition | undefined;
+
+  public constructor(
+    initialSchemas?: SchemaDefinition[],
+    coreSchema?: SchemaDefinition
+  ) {
+    this._coreSchema = coreSchema;
+    if (initialSchemas?.length) {
+      this._collected.push(
+        ...initialSchemas.map(
+          (schema) => ({ source: schema, type: "native" } as const)
+        )
+      );
+    }
+  }
+
+  public registerSchema(path: string, type?: SchemaFormat): this;
+  public registerSchema(definition: SchemaDefinition): this;
+  public registerSchema(
+    definition: Record<string, any>,
+    type: SchemaFormat
+  ): this;
+  public registerSchema(source: any, type: SchemaFormat = "native") {
+    this._collected.push({ source, type });
+    return this;
+  }
+
+  /**
+   * Can be used to patch another schema, e.g. to change privacy settings.
+   *
+   * If the intended target schema is not present, `undefined` is passed which gives an opportunity to do nothing or throw an error.
+   */
+  public patchSchema(namespace: string, patch: SchemaPatchFunction) {
+    get2(this._patches, namespace, () => []).push(patch);
+  }
+
+  private _applyPatches(schemas: SchemaDefinition[]) {
+    const usedPatches = new Set<SchemaPatchFunction>();
+    for (const schema of schemas) {
+      forEach2(this._patches.get(schema.namespace), (patch) => {
+        usedPatches.add(patch);
+        patch(schema);
+      });
+    }
+    forEach2(this._patches, ([, patches]) =>
+      forEach2(patches, (patch) => !usedPatches.has(patch) && patch(undefined))
+    );
+  }
+
+  public async build(host: EngineHost): Promise<SchemaDefinition[]> {
+    let schemas: SchemaDefinition[] = [];
+    for (let { source, type } of this._collected) {
+      if (typeof source === "string") {
+        source = JSON.parse(
+          required(
+            await host.readText(source),
+            `The schema definition file "${source}" does not exist.`
+          )
+        ) as JsonObject;
+      }
+      if (type === "json-schema") {
+        schemas.push(...JsonSchemaAdapter.parse(source));
+        continue;
+      }
+      if (!("namespace" in source)) {
+        throwError(
+          `The definition ${ellipsis(
+            JSON.stringify(source),
+            40,
+            true
+          )} is not a tail.js schema definition. The namespace property is not present.`
+        );
+      }
+      schemas.push(source as SchemaDefinition);
+    }
+    const usedNamespaces = new Set<string>();
+    for (const schema of schemas) {
+      if (!add2(usedNamespaces, schema.namespace)) {
+        throwError(
+          `A schema with the namespace '${schema.namespace}' has been registered more than once.`
+        );
+      }
+    }
+
+    if (this._coreSchema) {
+      const coreSchema =
+        schemas.find(
+          (schema) => schema.namespace === this._coreSchema?.namespace
+        ) ?? this._coreSchema;
+
+      if (schemas[0] !== coreSchema) {
+        schemas = [
+          coreSchema,
+          ...schemas.filter((schema) => schema !== coreSchema),
+        ];
+      }
+    }
+
+    this._applyPatches(schemas);
+    return schemas;
+  }
+}

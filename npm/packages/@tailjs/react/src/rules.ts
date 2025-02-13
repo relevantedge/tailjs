@@ -1,32 +1,42 @@
 import { Component, FunctionComponent } from "react";
 import { Nullish } from "./internal";
+import { concat2 } from "@tailjs/util";
 
 export type ExcludeRule = (type: any) => boolean;
 
 export type IncludeExcludeRules =
-  | (RegExp | string | FunctionComponent<any> | Component<any> | Nullish)[]
-  | ExcludeRule;
+  | (
+      | RegExp
+      | string
+      | FunctionComponent<any>
+      | Component<any>
+      | Nullish
+      | { match: ExcludeRule }
+    )[];
 
 const parseRules = (
   rules: IncludeExcludeRules | Nullish,
   invert = false
 ): ExcludeRule | undefined => {
   if (rules == null) return undefined;
-  if (typeof rules === "function") return rules;
 
-  let matchers: RegExp[] | undefined;
+  let expressions: RegExp[] | undefined;
   let names: Set<string> | undefined;
+  let matchers: ExcludeRule[] | undefined;
   let set: Set<any> | undefined;
   for (const rule of rules) {
+    if (!rule) continue;
     if (typeof rule === "string") {
       (names ??= new Set()).add(rule);
     } else if (rule instanceof RegExp) {
-      (matchers ??= []).push(rule);
+      (expressions ??= []).push(rule);
+    } else if ("match" in rule) {
+      (matchers ??= []).push(rule.match);
     } else {
       (set ??= new Set()).add(rule);
     }
   }
-  if (!matchers && !names && !set) {
+  if (!expressions && !names && !set && !matchers) {
     return undefined;
   }
   return (type: any) =>
@@ -37,13 +47,14 @@ const parseRules = (
           (typeof type === "string"
             ? names?.has(type)
             : names?.has(type.name) || names?.has(type.displayName)) ||
-          matchers?.some((matcher) =>
+          expressions?.some((matcher) =>
             typeof type === "string"
               ? type.match(matcher)
               : (type.name?.match(matcher) ||
                   type.displayName?.match(matcher)) &&
                 (set ??= new Set()).add(type)
           ) ||
+          matchers?.some((matcher) => matcher(type)) ||
           false))
     );
 };
@@ -52,23 +63,15 @@ export const concatRules = (
   first: IncludeExcludeRules | Nullish,
   second: IncludeExcludeRules | Nullish
 ): IncludeExcludeRules | undefined =>
-  first
-    ? second
-      ? Array.isArray(first) && Array.isArray(second)
-        ? first.concat(second)
-        : ((first = parseRules(first)),
-          (second = parseRules(second)),
-          (type) => first!(type) || second!(type))
-      : first
-    : second ?? undefined;
+  first || second ? concat2(first, second) : undefined;
 
 export const compileIncludeExcludeRules = (
   include: IncludeExcludeRules | Nullish,
   exclude: IncludeExcludeRules | Nullish
 ): ExcludeRule | undefined => {
-  include = parseRules(include, true);
-  exclude = parseRules(exclude, false);
-  if (!include) return exclude ?? undefined;
-  if (!exclude) return include;
-  return (el): boolean => !(include as any)(el) || (exclude as any)(el);
+  const includeRule = parseRules(include, true);
+  const excludeRule = parseRules(exclude, false);
+  if (!includeRule) return excludeRule ?? undefined;
+  if (!excludeRule) return includeRule;
+  return (el): boolean => !includeRule(el) || excludeRule(el);
 };

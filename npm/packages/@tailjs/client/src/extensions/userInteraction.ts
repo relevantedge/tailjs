@@ -16,10 +16,9 @@ import {
   createTimeout,
   ellipsis,
   equalsAny,
-  forEach,
-  get,
+  forEach2,
   isObject,
-  map,
+  map2,
   nil,
   parseUri,
   push,
@@ -53,7 +52,6 @@ import {
   matchExHash,
   nextId,
   normalizedAttribute,
-  overlay,
   tagName,
   trackerConfig,
   trackerFlag,
@@ -113,13 +111,13 @@ export const userInteraction: TrackerExtensionFactory = {
     const stripPositions = <T = any>(el: any, hitTest: boolean): T =>
       hitTest
         ? el
-        : (map(el, ([key]) =>
+        : (map2(el, ([key]) =>
             key === "rect" ||
             //key === "pos"  Changed so pos is always included.
             key === "viewport"
               ? remove(el, key)
               : isObject(el[key]) &&
-                map(el[key], (item) => stripPositions(item, hitTest))
+                map2(el[key], (item) => stripPositions(item, hitTest))
           ),
           el);
     const trackDocument = (document: Document) => {
@@ -143,12 +141,12 @@ export const userInteraction: TrackerExtensionFactory = {
             const boundary = getBoundaryData(el);
             const components = boundary?.component;
             if (!ev.button && components?.length && !clickables) {
-              forEach(
+              forEach2(
                 el.querySelectorAll("a,button"),
                 (clickable) =>
                   isClickable(clickable) &&
                   ((clickables ??= []).length > 3
-                    ? stop() // If there are more than two clickables, there is presumably not any missed click intent.
+                    ? stop() // If there are more than three clickables, there is presumably not any missed click intent.
                     : clickables.push({
                         ...getElementInfo(clickable, true),
                         component: forAncestorsOrSelf(
@@ -224,7 +222,7 @@ export const userInteraction: TrackerExtensionFactory = {
                   tracker.events.registerEventPatchSource(
                     intentEvent,
                     () => ({
-                      clicks: get(activeEventClicks, containerElement!),
+                      clicks: activeEventClicks.get(containerElement!),
                     }),
                     true,
                     containerElement
@@ -248,7 +246,10 @@ export const userInteraction: TrackerExtensionFactory = {
               host,
               scheme,
               source: href,
-            } = parseUri(link.href, false, true);
+            } = parseUri(link.href, {
+              delimiters: false,
+              requireAuthority: true,
+            });
             if (
               link.host === location.host &&
               link.pathname === location.pathname &&
@@ -288,7 +289,6 @@ export const userInteraction: TrackerExtensionFactory = {
               const originalUrl = link.href;
               const internalUrl = isInternalUrl(originalUrl);
               if (internalUrl) {
-                // Detecting internal navigation is not that hard.
                 // If the page loads in a new tab, it will pick up this value as the referrer,
                 //   and we will know navigation happened.
                 pushNavigationSource(navigationEvent.clientId, () =>

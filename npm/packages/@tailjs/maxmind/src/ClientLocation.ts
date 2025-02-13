@@ -1,5 +1,6 @@
 import {
   NextPatchExtension,
+  SchemaBuilder,
   type Tracker,
   type TrackerEnvironment,
   type TrackerExtension,
@@ -26,6 +27,23 @@ export class ClientLocation implements TrackerExtension {
     this._mmdb = mmdb;
   }
 
+  registerTypes(schema: SchemaBuilder): void {
+    schema.registerSchema({
+      namespace: "urn:tailjs:maxmind",
+      variables: {
+        session: {
+          mx: {
+            visibility: "trusted-only",
+            primitive: "string",
+          },
+          country: {
+            primitive: "string",
+          },
+        },
+      },
+    });
+  }
+
   public async patch(
     events: TrackedEvent[],
     next: NextPatchExtension,
@@ -46,14 +64,13 @@ export class ClientLocation implements TrackerExtension {
       // The new consent may influence how much data gets tracked.
       const clientHash = env.hash(ip + JSON.stringify(tracker.consent));
       if (
-        (await tracker.get([{ scope: "session", key: "mx" }]).value) !==
+        (await tracker.get({ scope: "session", key: "mx" }).value()) !==
         clientHash
       ) {
         const location = this.filterNames(this._reader?.get(ip));
-        tracker.requestItems.set(
-          ClientLocation.name,
-          this.filterNames(location, this._language)
-        );
+        tracker
+          .getRequestItems(this)
+          .set(ClientLocation.name, this.filterNames(location, this._language));
 
         if (location) {
           events = [
@@ -110,16 +127,12 @@ export class ClientLocation implements TrackerExtension {
           {
             scope: "session",
             key: "mx",
-            classification: "anonymous",
-            purposes: "necessary",
             value: clientHash,
             force: true,
           },
           {
             scope: "session",
             key: "country",
-            classification: "anonymous",
-            purposes: "necessary",
             value: country,
             force: true,
           },

@@ -9,12 +9,12 @@ import {
   KeyValuePairsToObject,
   MaybeUndefined,
   MethodOverloads,
-  Minus,
   NotFunction,
   Nullish,
   PrettifyIntersection,
   Primitives,
-  RecordType,
+  SimpleObject,
+  Subtract,
   UnionToIntersection,
   count,
   forEach,
@@ -28,6 +28,7 @@ import {
   isSet,
   map,
   obj,
+  structuralEquals,
   throwError,
 } from ".";
 
@@ -36,7 +37,6 @@ type ReadonlyMapLike<K = any, V = any> = {
   get(key: K): V | undefined;
 };
 
-// #region Shared types
 type MapLike<K = any, V = any> = ReadonlyMapLike<K, V> & {
   set(key: K, value: V): any;
   delete(key: K): any;
@@ -53,7 +53,7 @@ type SetLike<K = any> = ReadonlySetLike<K> & {
 };
 
 type ReadonlyPropertyContainer<K extends any = any, V extends any = any> =
-  | RecordType
+  | SimpleObject
   | readonly any[]
   | ReadonlyMapLike<K, V>
   | ReadonlySetLike<K>;
@@ -93,17 +93,12 @@ export type ValueType<
     ? V | If<Extends<Context, "get" | "set">, undefined>
     : T extends ReadonlySetLike<K>
     ? boolean
-    : T[K] | If<And<Extends<T, RecordType>, Extends<Context, "set">>, undefined>
+    :
+        | T[K]
+        | If<And<Extends<T, SimpleObject>, Extends<Context, "set">>, undefined>
   : never;
 
-// #endregion
-
-// #region get
-
-const updateSingle = (target: any, key: any, value: any) =>
-  setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
-
-const setSingle = (target: any, key: any, value: any) => {
+const set = (target: any, key: any, value: any) => {
   if (target.constructor === Object || isArray(target)) {
     value === undefined ? delete target[key] : (target[key] = value);
     return value;
@@ -139,7 +134,24 @@ export const setSingleIfNotDefined = (
   if (currentValue != null) {
     throwError(error(key, currentValue, value, target));
   }
-  return setSingle(target, key, value);
+  return set(target, key, value);
+};
+
+export const tryAdd: {
+  <T extends PropertyContainer, K extends KeyType<T>>(
+    target: T,
+    key: K,
+    value: Wrapped<ValueType<T, K, "set">>,
+    conflict?: (current: ValueType<T, K>) => void
+  ): boolean;
+} = (target, key, value, conflict) => {
+  const current = get(target, key);
+  if (current != null) {
+    conflict?.(current as any);
+    return false;
+  }
+  set(target, key, unwrap(value));
+  return true;
 };
 
 export const get: {
@@ -174,7 +186,6 @@ export const get: {
   init?: Wrapped<R>
 ) => {
   if (!target) return undefined as any;
-  if (target.constructor === Object && init == null) return target[key as any];
 
   let value = (target as any).get
     ? (target as any).get(key)
@@ -184,14 +195,10 @@ export const get: {
 
   if (value === undefined && init != null) {
     (value = isFunction(init) ? (init as any)() : init) != null &&
-      setSingle(target, key, value);
+      set(target, key, value);
   }
   return value;
 };
-
-// #endregion
-
-// #region set and update
 
 type UpdateFunction<
   T extends ReadonlyPropertyContainer,
@@ -272,7 +279,7 @@ type MergeResult_<Updates> = Updates extends Iterable<
   ? KeyValuePairsToObject<Item>
   : Updates;
 
-type MergeResult<T, Updates> = T extends RecordType
+type MergeResult<T, Updates> = T extends SimpleObject
   ? PrettifyIntersection<
       T &
         UnionToIntersection<
@@ -299,7 +306,7 @@ type SettableKeyType<T extends PropertyContainer> = T extends readonly any[]
   ? // `KeyType<T>` won't do.
     // If this `keyof` constraint is not set TypeScript will only constrain values for readonly tuple items to T[number] and not T[K].
     keyof T
-  : T extends RecordType
+  : T extends SimpleObject
   ? keyof any
   : KeyType<T>;
 
@@ -308,7 +315,7 @@ type SettableValueType<T extends PropertyContainer, K> = K extends KeyType<T>
       | ValueType<T, K>
       // `undefined` removes elements from maps and sets so also allowed.
       | (T extends MapLike | SetLike ? undefined : never)
-  : T extends RecordType
+  : T extends SimpleObject
   ? any
   : never;
 
@@ -347,7 +354,7 @@ type KeyValueTupleToRecord<Item> = Item extends readonly [infer K, infer V]
     }
   : Item extends readonly (infer KV)[]
   ? { [P in KV & keyof any]: KV }
-  : Item extends RecordType
+  : Item extends SimpleObject
   ? Item
   : never;
 
@@ -446,8 +453,32 @@ const createSetOrUpdateFunction =
     return target;
   };
 
-export const assign = createSetOrUpdateFunction<true, false>(setSingle);
-export const update = createSetOrUpdateFunction<false, false>(updateSingle);
+export const assign = createSetOrUpdateFunction<true, false>(set);
+export const update: <
+  T extends PropertyContainer | Nullish,
+  K extends KeyType<T>
+>(
+  target: T,
+  key: K,
+  update: (current: ValueType<T, K> | undefined) => ValueType<T, K> | undefined
+) => T = (target, key, update) => {
+  let value: any;
+  if (hasMethod(target, "set")) {
+    (value = update(target.get(key))) === undefined
+      ? target.delete(key)
+      : target.set(key, value);
+  } else if (hasMethod(target, "add")) {
+    value = target.has(key);
+    update(value) ? target.add(key) : target.delete(key);
+  } else if (target) {
+    value = (target as any)[key] = update((target as any)[key]);
+    if (value === undefined && isPlainObject(target)) {
+      delete target[key];
+    }
+  }
+
+  return target;
+};
 export const assignIfUndefined = createSetOrUpdateFunction<false, true>(
   setSingleIfNotDefined
 );
@@ -458,21 +489,17 @@ export const swap = <T extends PropertyContainer, K extends KeyType<T>>(
   value: ValueType<T, K>
 ): ValueType<T, K, "get"> => {
   const current = get(target, key) as any;
-  if (value !== current) setSingle(target, key, value);
+  if (value !== current) set(target, key, value);
   return current as any;
 };
-
-// #endregion
 
 export const add = <T extends PropertyContainer<any, boolean>>(
   target: T,
   key: KeyType<T>
 ) =>
   target instanceof Set || target instanceof WeakSet
-    ? target.has(key)
-      ? false
-      : (target.add(key), true)
-    : get(target, key) !== assign(target, key, true as any);
+    ? !target.has(key) && (target.add(key), true)
+    : !get(target, key) && (set(target, key, true), true);
 
 export const has = <T extends ReadonlyPropertyContainer>(
   target: T,
@@ -494,7 +521,7 @@ type RemoveDeepArgs<
         | RemoveDeepArgs<
             ValueType<T>,
             [...Current, KeyType<T>[] | KeyType<T>],
-            Minus<Depth, 1>
+            Subtract<Depth, 1>
           >
   : Current;
 
@@ -514,7 +541,7 @@ type RemoveDeepValue<
     : never
   : never;
 
-type KeysArg<T extends PropertyContainer | Nullish> = T extends RecordType
+type KeysArg<T extends PropertyContainer | Nullish> = T extends SimpleObject
   ? readonly (keyof T | undefined)[]
   : readonly (KeyType<T> | undefined)[];
 
@@ -538,7 +565,7 @@ export const del: {
   <T extends PropertyContainer | undefined, K extends KeysArg<T>>(
     target: T,
     ...keys: K
-  ): T extends RecordType ? { [P in Exclude<keyof T, K[number]>]: T[P] } : T;
+  ): T extends SimpleObject ? { [P in Exclude<keyof T, K[number]>]: T[P] } : T;
 } = (target: any, ...keys: any) =>
   target &&
   (assign(target, map(keys, (key) => [key, undefined]) as any) as any);
@@ -672,7 +699,7 @@ type PropertyList =
   | undefined
   | readonly [defaults: Partial<PropertyDescriptor>, ...items: PropertyList[]]
   | readonly (readonly [key: keyof any, value: any])[]
-  | RecordType;
+  | SimpleObject;
 
 export const define: {
   <T, P extends readonly PropertyList[]>(
@@ -891,7 +918,7 @@ export const diff = <T>(
 
   if (isPlainObject(updated)) {
     forEach(updated, ([key, value]) => {
-      if (value === previous[key]) {
+      if (structuralEquals(value, previous[key], -1)) {
         // No changes.
         return;
       }

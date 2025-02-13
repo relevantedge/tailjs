@@ -10,6 +10,8 @@ export * from "./Tag";
 export * from "./Personalization";
 export * from "./DataClassification";
 export * from "./DataPurposes";
+export * from "./DataAccess";
+export * from "./DataUsage";
 export * from "./UserConsent";
 export * from "./Session";
 export * from "./Scoped";

@@ -1,36 +1,34 @@
 import { Nullish } from "@tailjs/util";
 import {
-  RestrictVariableTargets,
-  StripPatchFunctions,
+  ReadOnlyVariableGetter,
+  ServerScoped,
   TrackedEvent,
-  VariableGetter,
-  VariableSetter,
+  VariableValueSetter,
 } from "..";
 
-export type PostVariableGetter<
-  T = any,
-  K extends string = string
-> = RestrictVariableTargets<
-  StripPatchFunctions<VariableGetter<T, K, false>>,
-  true
+export type VariableGetRequest<Scoped extends boolean = true> = ServerScoped<
+  ReadOnlyVariableGetter & {
+    /**
+     * Callbacks polling for changes to this variable will not get notified when this flag is set.
+     */
+    passive?: boolean;
+  },
+  Scoped
 >;
 
-export type PostVariableSetter<
-  T = any,
-  K extends string = string
-> = RestrictVariableTargets<
-  StripPatchFunctions<VariableSetter<T, K, false>>,
-  true
+export type VariableSetRequest<Scoped extends boolean = true> = ServerScoped<
+  VariableValueSetter,
+  Scoped
 >;
 
-export interface PostRequest {
+export interface PostRequest<Scoped extends boolean = true> {
   /** New events to add. */
   events?: TrackedEvent[];
 
   /** Results from variable operations. */
   variables?: {
-    get?: readonly (PostVariableGetter | Nullish)[];
-    set?: readonly (PostVariableSetter | Nullish)[];
+    get?: readonly (VariableGetRequest<Scoped> | Nullish)[];
+    set?: readonly (VariableSetRequest<Scoped> | Nullish)[];
   };
 
   /**

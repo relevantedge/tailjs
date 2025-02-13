@@ -12,22 +12,24 @@ import defaultSchema from "@tailjs/types/schema";
 
 import clientScripts from "@tailjs/client/script";
 import {
-  dataClassification,
-  DataPurpose,
-  DataPurposeFlags,
-  dataPurposes,
+  CORE_SCHEMA_NS,
+  DataPurposeName,
+  DataPurposes,
   isPassiveEvent,
+  JsonSchemaAdapter,
   PostRequest,
   PostResponse,
+  SignInEvent,
   TrackedEvent,
+  TypeResolver,
   UserConsent,
-  VariableScope,
+  ValidationError,
+  VariableGetResponse,
+  VariableResultStatus,
 } from "@tailjs/types";
 
-import { SchemaManager } from "@tailjs/json-schema";
-
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
-import { DefaultCryptoProvider } from "./lib";
+import { DefaultCryptoProvider } from ".";
 
 import {
   CallbackResponse,
@@ -36,13 +38,16 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
+  getDefaultLogSourceName,
   InMemoryStorage,
   isValidationError,
   ParseResult,
-  ParsingVariableStorage,
   PostError,
   RequestHandlerConfiguration,
+  SchemaBuilder,
+  serializeLogMessage,
   TrackedEventBatch,
+  trackedResponseVariables,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
@@ -50,11 +55,12 @@ import {
   TrackerInitializationOptions,
   TrackerPostOptions,
   TrackerServerConfiguration,
-  ValidationError,
+  trackerVariableKey,
+  ValidationErrorResult,
   VariableStorageCoordinator,
 } from "./shared";
 
-import { TrackerClientConfiguration } from "@tailjs/client";
+import type { TrackerClientConfiguration } from "@tailjs/client";
 import {
   createTransport,
   decodeUtf8,
@@ -63,31 +69,31 @@ import {
   httpEncode,
 } from "@tailjs/transport";
 import {
-  array,
+  concat2,
   createLock,
   deferred,
   DeferredAsync,
-  forEach,
-  forEachAsync,
+  distinct2,
+  filter2,
+  formatError,
+  hasKeys2,
+  indent2,
   isJsonObject,
   isJsonString,
   isPlainObject,
   isString,
-  join,
-  JsonObject,
-  map,
+  join2,
+  map2,
   match,
-  merge,
-  MINUTE,
-  obj,
+  merge2,
+  obj2,
   parseQueryString,
   parseUri,
   PickRequired,
-  rank,
-  RecordType,
   ReplaceProperties,
-  required,
-  some,
+  SimpleObject,
+  skip2,
+  throwError,
   unwrap,
 } from "@tailjs/util";
 import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
@@ -95,7 +101,6 @@ import {
   generateClientBootstrapScript,
   generateClientExternalNavigationScript,
 } from "./lib";
-import { SignInEvent } from "packages/@tailjs/types/dist";
 
 const scripts = {
   main: {
@@ -133,7 +138,7 @@ export class RequestHandler {
     | TrackerExtension
     | Promise<TrackerExtension>)[];
   private readonly _lock = createLock();
-  private readonly _schema: SchemaManager;
+  private _schema: TypeResolver = null!;
   private readonly _trackerName: string;
 
   private _extensions: TrackerExtension[];
@@ -142,7 +147,7 @@ export class RequestHandler {
 
   private readonly _clientConfig: TrackerClientConfiguration;
   private readonly _config: RequestHandlerConfiguration;
-  private readonly _defaultConsent: UserConsent<true>;
+  private readonly _defaultConsent: UserConsent;
 
   public readonly instanceId: string;
 
@@ -151,7 +156,7 @@ export class RequestHandler {
     consent: string;
     session: string;
 
-    deviceByPurpose: Record<DataPurpose, string>;
+    deviceByPurpose: Record<DataPurposeName, string>;
     device: string;
   };
 
@@ -170,19 +175,15 @@ export class RequestHandler {
       client,
       clientIdGenerator,
       defaultConsent,
-    } = (config = merge({}, DEFAULT, config));
+    } = (config = merge2({}, [config, DEFAULT], { overwrite: false }));
 
     this._config = Object.freeze(config);
 
     this._trackerName = trackerName;
     this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
 
-    this._defaultConsent = {
-      level: dataClassification(defaultConsent.level),
-      purposes: dataPurposes(defaultConsent.purposes),
-    };
-
-    this._extensionFactories = map(extensions);
+    this._defaultConsent = defaultConsent;
+    this._extensionFactories = filter2(extensions);
 
     this._cookies = new CookieMonster(cookies);
     this._clientIdGenerator =
@@ -192,18 +193,10 @@ export class RequestHandler {
       consent: cookies.namePrefix + ".consent",
       session: cookies.namePrefix + ".session",
       device: cookies.namePrefix + ".device",
-      deviceByPurpose: obj(
-        dataPurposes.pure.map(
-          ([name, flag]) =>
-            [
-              flag,
-              cookies.namePrefix +
-                (flag === DataPurposeFlags.Necessary
-                  ? ""
-                  : "," + dataPurposes.format(name)),
-            ] as const
-        )
-      ),
+      deviceByPurpose: obj2(DataPurposes.names, (purpose) => [
+        purpose,
+        cookies.namePrefix + (purpose === "necessary" ? "" : "," + purpose),
+      ]),
     };
 
     this._clientConfig = Object.freeze({
@@ -272,110 +265,170 @@ export class RequestHandler {
     await this._lock(async () => {
       if (this._initialized) return;
 
-      let { host, crypto, environmentTags, encryptionKeys, schemas, storage } =
-        this._config;
-
-      schemas ??= [];
-
-      if (
-        !schemas.find(
-          (schema) => isPlainObject(schema) && schema.$id === "urn:tailjs:core"
-        )
-      ) {
-        schemas.unshift(defaultSchema);
-      }
-
-      for (const [schema, i] of rank(schemas)) {
-        if (isString(schema)) {
-          schemas[i] = JSON.parse(
-            required(
-              await host.readText(schema),
-              () => `The schema path '${schema}' does not exists`
-            )
-          );
-        }
-      }
-
-      if (!storage) {
-        storage = {
-          default: {
-            storage: new InMemoryStorage({
-              [VariableScope.Session]:
-                (this._config.sessionTimeout ?? 30) * MINUTE,
-            }),
-            schema: "*",
-          },
-        };
-      }
-
-      (this as any)._schema = SchemaManager.create(schemas as JsonObject[]);
-
-      (this as any).environment = new TrackerEnvironment(
+      let {
         host,
-        crypto ?? new DefaultCryptoProvider(encryptionKeys),
-        new ParsingVariableStorage(
-          new VariableStorageCoordinator({
-            schema: this._schema,
-            mappings: storage,
-          })
-        ),
-        environmentTags
-      );
-
-      (this as any).instanceId = this.environment.nextId("request-handler-id");
-
-      if (this._config.debugScript) {
-        if (typeof this._config.debugScript === "string") {
-          this._script =
-            (await this.environment.readText(
-              this._config.debugScript,
-              async (_, newText) => {
-                const updated = await newText();
-                if (updated) {
-                  this._script = updated;
+        crypto,
+        encryptionKeys,
+        schemas,
+        storage,
+        environment,
+        sessionTimeout,
+      } = this._config;
+      try {
+        // Initialize extensions. Defaults + factories.
+        this._extensions = [
+          Timestamps,
+          new TrackerCoreEvents(),
+          new CommerceExtension(),
+          ...filter2(
+            await Promise.all(
+              this._extensionFactories.map(async (factory) => {
+                let extension: TrackerExtension | null = null;
+                try {
+                  return await factory();
+                } catch (e) {
+                  this._logExtensionError(extension, "factory", e);
+                  return null;
                 }
-                return true;
-              }
-            )) ?? undefined;
-        } else {
-          this._script =
-            (await this.environment.readText("js/tail.debug.map.js")) ??
-            scripts.debug;
+              })
+            )
+          ),
+        ];
+
+        // Initialize type resolver from core and extension schemas.
+        const schemaBuilder = new SchemaBuilder(schemas, defaultSchema);
+        for (const extension of this._extensions) {
+          extension.registerTypes?.(schemaBuilder);
         }
-      }
+        this._schema = new TypeResolver(
+          (await schemaBuilder.build(host)).map((schema) => ({ schema }))
+        );
 
-      await this.environment.storage.initialize?.(this.environment);
+        // Initialize environment.
+        if (!sessionTimeout) {
+          return throwError("A session timeout is not configured.");
+        }
 
-      this._extensions = [
-        Timestamps,
-        new TrackerCoreEvents(),
-        new CommerceExtension(),
-        ...(await Promise.all(
-          this._extensionFactories.map(async (factory) => {
-            let extension: TrackerExtension | null = null;
+        storage ??= {};
+        for (const extension of this._extensions) {
+          extension.patchStorageMappings?.(storage);
+        }
+        storage.session ??= {
+          storage: new InMemoryStorage(),
+        };
+        storage.device ??= {
+          storage: new InMemoryStorage(),
+        };
+
+        (storage.ttl ??= {})["session"] ??= sessionTimeout * 60 * 1000;
+        (storage.ttl ??= {})["device"] ??= 10 * 1000; // 10 seconds is enough to sort out race conditions.
+
+        (this as any).environment = new TrackerEnvironment(
+          host,
+          crypto ?? new DefaultCryptoProvider(encryptionKeys),
+          new VariableStorageCoordinator(
+            {
+              storage: storage,
+              errorLogger: (message) =>
+                this.environment.log(this.environment.storage, message),
+            },
+            this._schema
+          ),
+          environment
+        );
+
+        this.environment._setLogInfo(
+          ...this._extensions.map((source) => ({ source, group: "extensions" }))
+        );
+
+        (this as any).instanceId =
+          this.environment.nextId("request-handler-id");
+
+        if (this._config.debugScript) {
+          if (typeof this._config.debugScript === "string") {
+            this._script =
+              (await this.environment.readText(
+                this._config.debugScript,
+                async (_, newText) => {
+                  const updated = await newText();
+                  if (updated) {
+                    this._script = updated;
+                  }
+                  return true;
+                }
+              )) ?? undefined;
+          } else {
+            this._script =
+              (await this.environment.readText("js/tail.debug.map.js")) ??
+              scripts.debug;
+          }
+        }
+
+        // Initialize storage and extensions with the tracker environment.
+
+        await this.environment.storage.initialize?.(this.environment);
+
+        await Promise.all(
+          this._extensions.map(async (extension) => {
             try {
-              extension = await factory();
-              if (extension?.initialize) {
-                await extension.initialize?.(this.environment);
-                this.environment.log(
-                  extension,
-                  `The extension ${extension.id} was initialized.`
-                );
-              }
-              return extension;
+              await extension.initialize?.(this.environment);
             } catch (e) {
-              this._logExtensionError(
-                extension,
-                extension ? "update" : "factory",
-                e
-              );
-              return null;
+              this._logExtensionError(extension, "initialize", e);
+              throw e;
             }
+
+            return extension;
           })
-        )),
-      ].filter((item) => item != null) as TrackerExtension[];
+        );
+
+        this.environment.log(this, "Request handler initialized.", "info");
+      } catch (error) {
+        host.log(
+          serializeLogMessage({
+            level: "error",
+            message:
+              "An error occurred while initializing the request handler.",
+            error,
+          })
+        );
+        throw error;
+      }
 
       this._initialized = true;
+    });
+  }
+
+  private _validateEvents(
+    tracker: Tracker,
+    events: ParseResult[]
+  ): ParseResult[] {
+    return map2(events, (ev) => {
+      if (isValidationError(ev)) return ev;
+      try {
+        const eventType = this._schema.getEventType(ev);
+
+        const { trustedContext, consent } =
+          tracker._getConsentStateForSession(ev.session) ?? tracker;
+
+        ev = eventType.validate(ev, undefined, {
+          trusted: trustedContext,
+        }) as TrackedEvent;
+
+        return (
+          eventType.censor(ev, {
+            trusted: trustedContext,
+            consent: consent,
+          }) ?? skip2
+        );
+      } catch (e) {
+        return {
+          error:
+            e instanceof ValidationError
+              ? `Invalid data for '${ev.type}' event:\n${indent2(e.message)}`
+              : formatError(e),
+          source: ev,
+        };
+      }
     });
   }
 
@@ -388,27 +441,17 @@ export class RequestHandler {
     let events = eventBatch;
     await this.initialize();
 
-    const validateEvents = (events: ParseResult[]): ParseResult[] =>
-      map(events, (ev) =>
-        isValidationError(ev)
-          ? ev
-          : (this._config.allowUnknownEventTypes &&
-              !this._schema.getType(ev.type) &&
-              ev) ||
-            this._schema.patch(ev.type, ev, tracker.consent)
-      );
-
-    let parsed = validateEvents(eventBatch);
-
+    let parsed = this._validateEvents(tracker, eventBatch);
     const sourceIndices = new Map<{}, number>();
-
     parsed.forEach((item, i) => {
       sourceIndices.set(item, i);
     });
 
     await tracker._applyExtensions(options);
 
-    const validationErrors: (ValidationError & { sourceIndex?: number })[] = [];
+    const validationErrors: (ValidationErrorResult & {
+      sourceIndex?: number;
+    })[] = [];
 
     function collectValidationErrors(parsed: ParseResult[]) {
       const events: TrackedEvent[] = [];
@@ -434,11 +477,14 @@ export class RequestHandler {
       results: ParseResult[]
     ): Promise<TrackedEvent[]> => {
       const extension = patchExtensions[index];
-      const events = collectValidationErrors(validateEvents(results));
+      const events = collectValidationErrors(
+        this._validateEvents(tracker, results)
+      );
       if (!extension) return events;
       try {
         return collectValidationErrors(
-          validateEvents(
+          this._validateEvents(
+            tracker,
             await extension.patch!(
               events,
               async (events) => {
@@ -474,7 +520,7 @@ export class RequestHandler {
       );
     }
 
-    if (validationErrors.length || some(extensionErrors)) {
+    if (validationErrors.length || hasKeys2(extensionErrors)) {
       throw new PostError(validationErrors, extensionErrors);
     }
 
@@ -501,13 +547,7 @@ export class RequestHandler {
     const headers = Object.fromEntries(
       Object.entries((sourceHeaders ??= {}))
         .filter(([, v]) => !!v)
-        .map(
-          ([k, v]) =>
-            [k.toLowerCase(), Array.isArray(v) ? v.join(",") : v] as [
-              string,
-              string
-            ]
-        )
+        .map(([k, v]) => [k.toLowerCase(), join2(v, ",")] as [string, string])
     );
 
     let trackerInitializationOptions: TrackerInitializationOptions | undefined;
@@ -515,18 +555,20 @@ export class RequestHandler {
     let trackerSettings = deferred(async () => {
       clientIp ??=
         headers["x-forwarded-for"]?.[0] ??
-        obj(parseQueryString(headers["forwarded"]))?.["for"] ??
+        obj2(parseQueryString(headers["forwarded"]))?.["for"] ??
         undefined;
 
       let clientEncryptionKey: string | undefined;
       if (this._config.clientEncryptionKeySeed) {
-        !this._config.json &&
-          (clientEncryptionKey = await this._clientIdGenerator.generateClientId(
-            this.environment,
-            request,
-            true,
-            this._config.clientEncryptionKeySeed
-          ));
+        clientEncryptionKey = this.environment.hash(
+          (this._config.clientEncryptionKeySeed || "") +
+            (await this._clientIdGenerator.generateClientId(
+              this.environment,
+              request,
+              true
+            )),
+          64
+        );
       }
 
       return {
@@ -545,20 +587,25 @@ export class RequestHandler {
           ])
         ),
         clientIp,
-        clientId: await this._clientIdGenerator.generateClientId(
-          this.environment,
-          request,
-          false,
-          this._config.clientEncryptionKeySeed || ""
+        anonymousSessionReferenceId: this.environment.hash(
+          await this._clientIdGenerator.generateClientId(
+            this.environment,
+            request,
+            false
+          ),
+          128
         ),
         trustedContext,
         requestHandler: this,
         defaultConsent: this._defaultConsent,
         cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
-        clientEncryptionKey,
+        clientEncryptionKey: this._config.json
+          ? undefined
+          : clientEncryptionKey,
         transport: this._config.json
           ? defaultJsonTransport
           : createTransport(clientEncryptionKey),
+        cookieTransport: createTransport(clientEncryptionKey), // Cookies are always encrypted.
       } as PickRequired<TrackerServerConfiguration, "transport"> & {
         clientEncryptionKey?: string;
       };
@@ -583,7 +630,7 @@ export class RequestHandler {
       response: Partial<
         ReplaceProperties<
           CallbackResponse,
-          { body: CallbackResponse["body"] | RecordType }
+          { body: CallbackResponse["body"] | SimpleObject }
         >
       > | null,
 
@@ -639,7 +686,7 @@ export class RequestHandler {
 
         switch (method.toUpperCase()) {
           case "GET": {
-            if ((queryValue = join(query?.[INIT_SCRIPT_QUERY])) != null) {
+            if ((queryValue = join2(query?.[INIT_SCRIPT_QUERY])) != null) {
               // This is set by most modern browsers.
               // It prevents external scripts to try to get a hold of the storage key via XHR.
               const secDest = headers["sec-fetch-dest"];
@@ -672,7 +719,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
+            if ((queryValue = join2(query?.[CLIENT_SCRIPT_QUERY])) != null) {
               return result({
                 status: 200,
                 body: await this._getClientScripts(resolveTracker, false),
@@ -685,7 +732,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
+            if ((queryValue = join2(query?.[CONTEXT_NAV_QUERY])) != null) {
               // The user navigated via the context menu in their browser.
               // If the user has an active session we respond with a small script, that will push the request ID
               // that caused the navigation to the other browser tabs.
@@ -695,7 +742,7 @@ export class RequestHandler {
               trackerInitializationOptions = { passive: true };
 
               const [, requestId, targetUri] =
-                match(join(queryValue), /^([0-9]*)(.+)$/) ?? [];
+                match(join2(queryValue), /^([0-9]*)(.+)$/) ?? [];
               if (!targetUri) return result({ status: 400 });
 
               if (
@@ -729,10 +776,18 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
+            if ((queryValue = join2(query?.[SCHEMA_QUERY])) != null) {
+              let serialized: string;
+              if (queryValue === "native") {
+                serialized = JSON.stringify(this._schema.definitions, null, 2);
+              } else {
+                serialized = new JsonSchemaAdapter(
+                  CORE_SCHEMA_NS + ":runtime"
+                ).serialize(this._schema.schemas);
+              }
               return result({
                 status: 200,
-                body: this._schema.schema.definition,
+                body: serialized,
                 headers: {
                   "content-type": "application/json",
                 },
@@ -773,7 +828,7 @@ export class RequestHandler {
           }
 
           case "POST": {
-            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
+            if ((queryValue = join2(query?.[EVENT_HUB_QUERY])) != null) {
               body = await unwrap(body);
 
               if (body == null || (!isJsonObject(body) && body.length === 0)) {
@@ -784,9 +839,10 @@ export class RequestHandler {
               }
 
               try {
-                let postRequest: PostRequest;
+                let postRequest: PostRequest<true>;
                 let json = false;
                 if (
+                  this._config.json ||
                   headers["content-type"] === "application/json" ||
                   isJsonString(body) ||
                   isJsonObject(body)
@@ -804,7 +860,9 @@ export class RequestHandler {
                   json = true;
                   postRequest = isJsonObject(body)
                     ? body
-                    : JSON.parse(decodeUtf8(body));
+                    : JSON.parse(
+                        typeof body === "string" ? body : decodeUtf8(body)
+                      );
                 } else {
                   const { transport: cipher } = await trackerSettings();
                   postRequest = cipher[1](body)!;
@@ -818,18 +876,18 @@ export class RequestHandler {
 
                 trackerInitializationOptions = {
                   deviceId: postRequest.deviceId,
-                  deviceSessionId: postRequest.deviceId,
+                  deviceSessionId: postRequest.deviceSessionId,
                 };
 
                 const resolvedTracker = await resolveTracker();
 
-                const response: PostResponse = {};
+                let response: PostResponse<true> = {};
 
                 if (postRequest.events) {
                   // This returns a response that may have changed variables in it.
                   // A mechanism for pushing changes without using cookies is still under development,
                   // so this does nothing for the client atm.
-                  await resolvedTracker.post(postRequest.events, {
+                  response = await resolvedTracker.post(postRequest.events, {
                     passive: postRequest.events.every(isPassiveEvent),
                     deviceSessionId: postRequest.deviceSessionId,
                     deviceId: postRequest.deviceId,
@@ -838,18 +896,43 @@ export class RequestHandler {
 
                 if (postRequest.variables) {
                   if (postRequest.variables.get) {
-                    (response.variables ??= {}).get = await resolvedTracker.get(
-                      postRequest.variables.get,
-                      { client: true }
-                    ).all;
+                    (response.variables ??= {}).get = (
+                      await resolvedTracker
+                        .get(postRequest.variables.get, { trusted: false })
+                        .all()
+                    ).map((result, i) => {
+                      if (result && postRequest.variables!.get![i]?.passive) {
+                        (result as VariableGetResponse).passive = true;
+                      }
+                      return result;
+                    });
                   }
                   if (postRequest.variables.set) {
-                    (response.variables ??= {}).set = await resolvedTracker.set(
-                      postRequest.variables.set,
-                      { client: true }
-                    ).all;
+                    (response.variables ??= {}).set = await resolvedTracker
+                      .set(postRequest.variables.set, { trusted: false })
+                      .all();
                   }
                 }
+                // It's better that the client explicitly requests the variables it wants to know about if changed.
+                // const responseVariables = distinct2(
+                //   map2(
+                //     concat2(response.variables?.get, response.variables?.set),
+                //     (result) => (result ? trackerVariableKey(result) : skip2)
+                //   )
+                // );
+                // resolvedTracker
+                //   .getChangedVariables()
+                //   .forEach((variable, key) => {
+                //     if (
+                //       !responseVariables?.has(key) &&
+                //       trackedResponseVariables.has(key)
+                //     ) {
+                //       ((response.variables ??= {}).get ??= []).push({
+                //         status: VariableResultStatus.Success,
+                //         ...variable,
+                //       });
+                //     }
+                //   });
 
                 return result(
                   response.variables
@@ -886,12 +969,32 @@ export class RequestHandler {
           body: "Bad request.",
         });
       }
-    } catch (ex) {
-      console.error("Unexpected error while processing request.", ex);
+    } catch (error) {
+      this.environment.log(this, {
+        level: "error",
+        message: "Unexpected error while processing request.",
+        error,
+      });
+      console.error("Unexpected error while processing request.", error);
       return result({
         status: 500,
-        body: ex.toString(),
+        body: error.toString(),
       });
+    } finally {
+      try {
+        await resolveTracker.resolved?.dispose();
+      } catch (error) {
+        this.environment.log(this, {
+          level: "error",
+          message: "Unexpected error while processing request.",
+          error,
+        });
+        console.error("Unexpected error while processing request.", error);
+        return result({
+          status: 500,
+          body: error.toString(),
+        });
+      }
     }
 
     return { tracker: resolveTracker, response: null };
@@ -916,27 +1019,24 @@ export class RequestHandler {
       trackerScript.push(PLACEHOLDER_SCRIPT(trackerRef, true));
     }
 
-    const inlineScripts: string[] = [trackerScript.join("")];
+    const inlineScripts: string[] = [join2(trackerScript)];
     const otherScripts: ClientScript[] = [];
 
-    await forEachAsync(
-      this._extensions.map(
-        async (extension) =>
-          extension.getClientScripts && extension.getClientScripts(tracker)
-      ),
-      async (scripts) =>
-        forEach(array(await scripts), (script) => {
-          if ("inline" in script) {
-            // Prevent errors from preempting other scripts.
-            script.inline = wrapTryCatch(script.inline);
+    for (const extension of this._extensions) {
+      const scripts =
+        extension.getClientScripts && extension.getClientScripts(tracker);
+      for (const script of scripts ?? []) {
+        if ("inline" in script) {
+          // Prevent errors from preempting other scripts.
+          script.inline = wrapTryCatch(script.inline);
 
-            if (script.allowReorder !== false) {
-              inlineScripts.push(script.inline);
-              return;
-            }
+          if (script.allowReorder !== false) {
+            inlineScripts.push(script.inline);
+            return;
           }
-        })
-    );
+        }
+      }
+    }
 
     if (html) {
       const keyPrefix = this._clientConfig.key
@@ -947,11 +1047,12 @@ export class RequestHandler {
         const pendingEvents = tracker.resolved.clientEvents;
         pendingEvents.length &&
           inlineScripts.push(
-            `${trackerRef}(${keyPrefix}${pendingEvents
-              .map((event) =>
-                typeof event === "string" ? event : JSON.stringify(event)
-              )
-              .join(", ")});`
+            `${trackerRef}(${keyPrefix}${join2(
+              pendingEvents,
+              (event) =>
+                typeof event === "string" ? event : JSON.stringify(event),
+              ", "
+            )});`
           );
       }
       if (initialCommands) {
@@ -974,8 +1075,9 @@ export class RequestHandler {
       });
     }
 
-    const js = [{ inline: inlineScripts.join("") }, ...otherScripts]
-      .map((script, i) => {
+    const js = join2(
+      [{ inline: join2(inlineScripts) }, ...otherScripts],
+      (script) => {
         if ("inline" in script) {
           return html
             ? `<script${nonce ? ` nonce="${nonce}"` : ""}>${
@@ -984,15 +1086,18 @@ export class RequestHandler {
             : script.inline;
         } else {
           return html
-            ? `<script src='${script.src}?${INIT_SCRIPT_QUERY}${
+            ? `<script${map2(
+                this._config.client?.scriptBlockerAttributes,
+                ([key, value]) => ` ${key}="${value.replaceAll('"', "&quot;")}"`
+              )?.join("")} src='${script.src}?${INIT_SCRIPT_QUERY}${
                 BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : ""
               }'${script.defer !== false ? " defer" : ""}></script>`
             : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify(
                 { src: script.src, async: script.defer }
               )}))}catch(e){console.error(e);}`;
         }
-      })
-      .join("");
+      }
+    );
 
     return js;
   }
@@ -1004,9 +1109,11 @@ export class RequestHandler {
   ) {
     this.environment.log(extension, {
       level: "error",
-      message: `An error occurred when invoking the method '${method}' on an extension.`,
+      message: `An error occurred when invoking the method '${method}' on the extension ${getDefaultLogSourceName(
+        extension
+      )}.`,
       group: "extensions",
-      error,
+      error: error,
     });
   }
 }

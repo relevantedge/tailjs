@@ -4,6 +4,7 @@ const { compilerOptions } = require("./tsconfig");
 export default {
   preset: "ts-jest/presets/default-esm",
   //verbose: true,
+  automock: false,
   transform: {
     "^.+\\.ts?$": ["@swc/jest"], //["ts-jest", { useESM: true }],
   },

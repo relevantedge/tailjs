@@ -9,12 +9,22 @@ export interface PackageEnvironment {
   qualifiedName: string;
   workspace: string;
   config: Record<string, any>;
+  workspaceConfig: Record<string, any>;
   externalTargets: string[];
   updatePackage: (
     update: (current: Record<string, any>) => Record<string, any> | false | void
   ) => void;
 }
 
+const getPackageJson = (cwd: string) => {
+  const packageJson = path.join(cwd, "package.json");
+  return {
+    config: fs.existsSync(path.join(cwd, "package.json"))
+      ? JSON.parse(fs.readFileSync(packageJson, "utf-8"))
+      : {},
+    path: packageJson,
+  };
+};
 export let resolvedEnv: PackageEnvironment;
 export const env = async (): Promise<PackageEnvironment> => {
   if (resolvedEnv) {
@@ -22,23 +32,21 @@ export const env = async (): Promise<PackageEnvironment> => {
   }
 
   const cwd = process.cwd();
-  const packageJson = path.join(cwd, "package.json");
-  let config = fs.existsSync(path.join(cwd, "package.json"))
-    ? JSON.parse(fs.readFileSync(packageJson, "utf-8"))
-    : null;
+
+  const workspace = (await findWorkspaceDir(cwd))!;
+  let { config, path: packageJson } = getPackageJson(cwd);
 
   const name = path.basename(cwd);
   return (resolvedEnv = {
     path: cwd,
     name,
     qualifiedName: "@tailjs/" + name,
-    workspace: (await findWorkspaceDir(process.cwd()))!,
+    workspace: workspace,
     externalTargets: (await getExternalTargets())
       .filter((target) => target.libs[name] || target.libs["*"])
       .map((target) => target.path),
-    get config() {
-      return config;
-    },
+    config,
+    workspaceConfig: getPackageJson(workspace).config,
     updatePackage: (update) => {
       if (!config) {
         throw new Error("No package.json");

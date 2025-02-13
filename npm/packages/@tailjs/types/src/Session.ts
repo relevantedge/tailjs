@@ -9,6 +9,13 @@ import type { DataClassification, SignOutEvent, Uuid, UserConsent } from ".";
  */
 export interface Session {
   /**
+   * If a non-anonymous session started as an anonymous session, this is the anonymous session ID.
+   * Since an anonymous session is not necessarily unique to a device, processing logic may decide
+   * whether and how to stitch the anonymous and non-anonymous session together.
+   */
+  anonymousSessionId?: Uuid;
+
+  /**
    * The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards).
    * Sessions are reset when an authenticated user logs out (triggered by the {@link SignOutEvent}).
    *
@@ -31,15 +38,13 @@ export interface Session {
   deviceId?: Uuid;
 
   /**
-   * The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again.
-   * This means that device sessions can both be significantly shorter and longer that "normal" sessions
-   * in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results),
-   * but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.
+   * The unique ID of the user's device session ID. A device session starts when the user enters the site like a normal server session, but unlike
+   * server sessions, device sessions stay active as long as the user has tabs related to the site open.
+   * This means that device sessions survives when the user puts their computer to sleep, or leaves tabs open in the background on their phone.
    *
-   * Aggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions.
-   * It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.
+   * After the user has completely left the site, device sessions time out in the same way as server sessions.
    *
-   * It is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.
+   * @privacy indirect, performance, functionality
    */
   deviceSessionId?: Uuid;
 
@@ -60,14 +65,28 @@ export interface Session {
    *
    * The IP address of the device where the session is active.
    *
-   * @privacy indirect, infrastructure
+   * @privacy indirect, necessary
    */
   clientIp?: string;
 
   /**
-   * This value indicates that an old device session "woke up" with an old device session ID and took over a new one.
-   * This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session).
+   * Indicates that multiple clients are active in the same anonymous session.
+   */
+  collision?: boolean;
+
+  /**
+   * Whether the session is using anonymous tracking.
+   */
+  anonymous?: boolean;
+
+  /**
    *
+   * This value indicates that an old device session "woke up" with an old device session ID and took over a new one.
+   * This may happen when background tabs are suspended.
+   *
+   * Post-processing can decide how to tie them together when the same tab participates in two sessions (which goes against the definition of a device session).
+   *
+   * @privacy indirect, performance, functionality
    */
   expiredDeviceSessionId?: string;
 }

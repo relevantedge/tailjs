@@ -1,24 +1,26 @@
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
 
 import { createTransport } from "@tailjs/transport";
-import { SessionInfo, isTrackedEvent, requireFound } from "@tailjs/types";
+import { isTrackedEvent } from "@tailjs/types";
 import {
   F,
   FOREVER,
   T,
-  array,
+  array2,
   assign,
   filter,
-  flatMap,
+  flatMap2,
+  forEach2,
   isArray,
   isJsonString,
   isString,
-  map,
+  map2,
   nil,
   now,
   push,
   remove,
   sort,
+  stop2,
   throwError,
   tryCatch,
   type Nullish,
@@ -26,8 +28,8 @@ import {
 import {
   Listener,
   Tracker,
-  TrackerCommand,
   TrackerClientConfiguration,
+  TrackerCommand,
   TrackerExtension,
   TrackerExtensionFactory,
   defaultExtensions,
@@ -122,12 +124,10 @@ export const initializeTracker = (
       event.timestamp ??= now();
 
       insertArgs = T;
-      let skip = F;
-      map(extensions, ([, extension]) => {
-        if (skip || extension.decorate?.(event) === F) {
-          skip = T;
-        }
-      });
+      const skip = forEach2(
+        extensions,
+        ([, extension]) => extension.decorate?.(event) === F && stop2(true)
+      );
 
       return skip ? undefined : event;
     },
@@ -177,7 +177,7 @@ export const initializeTracker = (
     let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
 
     commands = filter(
-      flatMap(commands, (command) =>
+      flatMap2(commands, (command) =>
         isString(command) ? httpDecode<TrackerCommand>(command) : command
       ),
       (command) => {
@@ -259,9 +259,9 @@ export const initializeTracker = (
             if (isTrackedEvent(command)) {
               events.post(command);
             } else if (isGetCommand(command)) {
-              variables.get(...array(command.get));
+              variables.get(array2(command.get));
             } else if (isSetCommand(command)) {
-              variables.set(...array(command.set));
+              variables.set(array2(command.set));
             } else if (isListenerCommand(command)) {
               push(listeners, command.listener);
             } else if (isExtensionCommand(command)) {
@@ -293,7 +293,7 @@ export const initializeTracker = (
                   ERR_INVALID_COMMAND,
                   command,
                   "Loaded extensions:",
-                  extensions.map((extension) => extension[2].id)
+                  map2(extensions, (extension) => extension[2].id)
                 );
             }
           },
@@ -327,25 +327,24 @@ export const initializeTracker = (
     // Make sure we have a session on the server before posting anything.
     // As part of this, we also get the device session ID.
     if (event === "ready") {
-      const session = requireFound(
-        (
-          await variables.get(
-            {
-              scope: "session",
-              key: SCOPE_INFO_KEY,
-              refresh: true,
-            },
-            {
-              scope: "session",
-              key: CONSENT_INFO_KEY,
-              // Refresh the consent status at every new page view in the case the server made changes in the background.
-              // After that, cache it indefinitely since it is presumably only changed by the client until the next page view (in any tab).
-              refresh: true,
-              cache: FOREVER,
-            }
-          )
-        )[0]
-      ).value as SessionInfo;
+      const [session, consent] = await variables
+        .get([
+          {
+            scope: "session",
+            key: SCOPE_INFO_KEY,
+            refresh: true,
+          },
+          {
+            scope: "session",
+            key: CONSENT_INFO_KEY,
+            // Refresh the consent status at every new page view in the case the server made changes in the background.
+            // After that, cache it indefinitely since it is presumably only changed by the client until the next page view (in any tab).
+            refresh: true,
+            cache: FOREVER,
+          },
+        ])
+        .values(true);
+
       trackerContext.deviceSessionId = session.deviceSessionId;
 
       if (!session.hasUserAgent) {
@@ -360,7 +359,7 @@ export const initializeTracker = (
       // Now we accept commands.
       ready = true;
       tracker(
-        ...map(defaultExtensions, (extension) => ({ extension })),
+        ...map2(defaultExtensions, (extension) => ({ extension })),
         ...queuedCommands
       );
       tracker({ set: { scope: "view", key: "loaded", value: true } });

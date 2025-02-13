@@ -1,7 +1,12 @@
-import type { TrackedEvent } from "@tailjs/types";
-import { DeferredAsync, MaybePromise } from "@tailjs/util";
-import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
-import { SignInEvent } from "packages/@tailjs/types/dist";
+import type { SignInEvent, TrackedEvent } from "@tailjs/types";
+import { DeferredAsync, MaybePromiseLike } from "@tailjs/util";
+import type {
+  ParseResult,
+  SchemaBuilder,
+  Tracker,
+  TrackerEnvironment,
+  VariableStorageMappings,
+} from "./shared";
 
 export type NextPatchExtension = (
   events: ParseResult[]
@@ -12,6 +17,10 @@ export type TrackedEventBatch = (TrackedEvent & Record<string, any>)[];
 export type TrackerExtensionContext = {
   passive: boolean;
 };
+
+export interface TrackerEnvironmentInitializable {
+  initialize?(environment: TrackerEnvironment): MaybePromiseLike<void>;
+}
 
 /**
  * Tracker extensions enable the engine to interface with external systems, typically to store the collected events somewhere.
@@ -30,30 +39,39 @@ export type TrackerExtensionContext = {
  *
  * Extensions may do anything from altering, updating and/or adding events before they are processed by other extensions.
  *
- * An extension
+ * Be aware this interface my be split into separate interfaces for the different purposes in the future, but the
+ * methods will keep their signatures to make this non-breaking.
  */
-export interface TrackerExtension {
+export interface TrackerExtension extends TrackerEnvironmentInitializable {
   readonly id: string;
 
-  initialize?(environment: TrackerEnvironment): MaybePromise<void>;
+  /** This method is called before the extension is initialized allowing it to export is variable types and similar. */
+  registerTypes?(schema: SchemaBuilder): void;
+
+  /**
+   * Allows the extension to update the RequestHandler's storage mappings as an alternative to configuration.
+   *
+   * This may be convenient if an extension both comes with event and variable logic (e.g. @tailjs/ravendb).
+   */
+  patchStorageMappings?(mappings: VariableStorageMappings): void;
 
   apply?(
     tracker: Tracker,
     context: TrackerExtensionContext
-  ): MaybePromise<void>;
+  ): MaybePromiseLike<void>;
 
   patch?(
     events: TrackedEvent[],
     next: NextPatchExtension,
     tracker: Tracker,
     context: TrackerExtensionContext
-  ): MaybePromise<ParseResult[]>;
+  ): MaybePromiseLike<ParseResult[]>;
 
   post?(
     events: TrackedEventBatch,
     tracker: Tracker,
     context: TrackerExtensionContext
-  ): MaybePromise<void>;
+  ): MaybePromiseLike<void>;
 
   getClientScripts?(
     tracker: DeferredAsync<Tracker>

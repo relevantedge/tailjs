@@ -4,21 +4,19 @@ import {
   ClientResponseCookie,
   EventLogger,
   RequestHandler,
-  Tracker,
   bootstrap,
 } from "@tailjs/engine";
-import onHeaders from "on-headers";
+import { deferred } from "@tailjs/util";
 import {
   NativeHost,
-  TrackerFromRequest,
   TailJsMiddlewareConfiguration,
   TailJsMiddlewareConfigurationSource,
   TailJsMiddlewareRequest,
   TailJsMiddlewareResponse,
-  TailJsServerContext,
   TailJsRouteRequest,
+  TailJsServerContext,
+  TrackerFromRequest,
 } from ".";
-import { deferred } from "@tailjs/util";
 
 let globalResolvers: TailJsMiddlewareConfigurationSource[] = [];
 let globalResolversSealed = false;
@@ -95,13 +93,16 @@ export const createServerContext: {
     finalConfig = await resolveConfig([globalResolvers, config], {});
     globalResolversSealed = true;
 
-    const host = new NativeHost(finalConfig!.resourcesPath ?? "./res");
+    const host = new NativeHost({
+      rootPath: finalConfig!.resourcesPath ?? "./res",
+    });
     finalConfig!.extensions ??= [
       (console.warn(
         "tailjs: No extensions has been configured. Events are only logged to the console."
       ),
       new EventLogger({ group: "events", minimal: true, console: true })),
     ];
+
     return bootstrap({
       ...finalConfig,
       host,

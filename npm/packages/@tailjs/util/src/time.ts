@@ -1,7 +1,7 @@
 import {
   F,
   MAX_SAFE_INTEGER,
-  MaybePromise,
+  MaybePromiseLike,
   T,
   isBoolean,
   isFunction,
@@ -56,7 +56,7 @@ export const createTimer = (
 export type ClockCallback = (
   elapsed: number,
   delta: number
-) => MaybePromise<any>;
+) => MaybePromiseLike<any>;
 
 export interface Clock {
   readonly active: boolean;
@@ -85,7 +85,7 @@ export const createTimeout = (
   (trigger: true): true;
   (): boolean;
 } => {
-  let handle: number;
+  let handle: any;
   let currentCallback: (() => void) | undefined;
 
   const stickyTimeout = (arg?: any, timeout = defaultTimeout) => {
@@ -95,7 +95,7 @@ export const createTimeout = (
     clearTimeout(handle);
     if (isBoolean(arg)) {
       arg && (timeout < 0 ? isNotFalse : isTrue)(currentCallback?.())
-        ? stickyTimeout(currentCallback)
+        ? stickyTimeout(currentCallback, timeout)
         : (currentCallback = undefined);
     } else {
       currentCallback = arg;

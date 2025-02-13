@@ -1,4 +1,9 @@
-import type { IterableOrSelf, Nullish, ParsableRegExp } from "@tailjs/util";
+import type {
+  IterableOrSelf,
+  MaybeArray,
+  Nullish,
+  ParsableRegExp,
+} from "@tailjs/util";
 
 /**
  * Defines a mapping from HTML element attributes to tags based on their names.
@@ -14,7 +19,7 @@ import type { IterableOrSelf, Nullish, ParsableRegExp } from "@tailjs/util";
 
 export type TagMappings = Record<
   string,
-  IterableOrSelf<
+  MaybeArray<
     | ParsableRegExp
     | { selector?: string; prefix?: string; match: ParsableRegExp }
   >
@@ -120,4 +125,7 @@ export interface TrackerClientConfiguration {
    * This is controlled by the request handler's configuration and cannot be set independently.
    */
   json?: boolean;
+
+  /** These attributes will be added to scripts to avoid CMP/script blockers to prevent them from executing. */
+  scriptBlockerAttributes?: Record<string, string>;
 }

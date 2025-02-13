@@ -24,8 +24,6 @@
 
       "@tailjs/express": ["packages/@tailjs/express/src"],
 
-      "@tailjs/json-schema": ["packages/@tailjs/json-schema/src"],
-
       "@tailjs/maxmind": ["packages/@tailjs/maxmind/src"],
 
       "@tailjs/next": ["packages/@tailjs/next/src"],
@@ -54,6 +52,5 @@
     },
     "types": ["jest"]
   },
-
-  "exclude": ["**/dist", "*config.js"]
+  "include": ["**/src/**/*", "**/tests/**/*", "constants/**/*"]
 }

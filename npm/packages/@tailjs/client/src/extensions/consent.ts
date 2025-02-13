@@ -2,15 +2,13 @@ import { CONSENT_INFO_KEY } from "@constants";
 
 import {
   ConsentEvent,
-  DataUsageAttributes,
-  ParsableDataUsageAttributes,
+  DataPurposeName,
+  DataPurposes,
+  DataUsage,
   UserConsent,
-  dataClassification,
-  dataPurposes,
-  dataUsageEquals,
-  parseDataUsage,
+  VariablePollCallback,
 } from "@tailjs/types";
-import { Clock, F, Nullish, T, clock, map, restrict } from "@tailjs/util";
+import { Clock, F, Nullish, T, clock, map2, restrict } from "@tailjs/util";
 import {
   ConsentCommand,
   TrackerExtensionFactory,
@@ -21,16 +19,20 @@ import { debug, document, window } from "../lib";
 export const consent: TrackerExtensionFactory = {
   id: "consent",
   setup(tracker) {
-    const getCurrentConsent = async (result?: any) =>
-      (await tracker.variables.get({
-        scope: "session",
-        key: CONSENT_INFO_KEY,
-        result,
-      }).value) as UserConsent | undefined;
+    const getCurrentConsent = async (
+      callback?: VariablePollCallback<UserConsent>
+    ) =>
+      (await tracker.variables
+        .get({
+          scope: "session",
+          key: CONSENT_INFO_KEY,
+          poll: callback,
+          refresh: !callback,
+          passive: !callback,
+        })
+        .value()) as UserConsent | undefined;
 
-    const updateConsent = async <
-      C extends ParsableDataUsageAttributes | Nullish
-    >(
+    const updateConsent = async <C extends UserConsent | Nullish>(
       consent: C
     ): Promise<
       C extends Nullish
@@ -40,22 +42,15 @@ export const consent: TrackerExtensionFactory = {
       if (!consent) return undefined as any;
 
       let current = await getCurrentConsent();
-      if (
-        !current ||
-        dataUsageEquals(current, (consent = parseDataUsage(consent) as any))
-      ) {
+
+      if (!current || DataUsage.equals(current, consent)) {
         return [false, current] as any;
       }
-
-      const userConsent = {
-        level: dataClassification.lookup(consent!.classification)!,
-        purposes: dataPurposes.lookup(consent!.purposes)!,
-      };
 
       await tracker.events.post(
         restrict<ConsentEvent>({
           type: "consent",
-          consent: userConsent,
+          consent,
         }),
         {
           async: false,
@@ -64,7 +59,7 @@ export const consent: TrackerExtensionFactory = {
           },
         }
       );
-      return [true, userConsent] as any;
+      return [true, consent] as any;
     };
 
     (() => {
@@ -76,22 +71,21 @@ export const consent: TrackerExtensionFactory = {
       // we detect changes by keeping track of the last element in the array.
       // This also handles the situation where someone replaces the data layer.
 
-      const GCMv2Mappings = {
+      const GCMv2Mappings: Record<string, DataPurposeName> = {
         // Performance
-        analytics_storage: 4,
+        analytics_storage: "performance",
         // Functionality
-        functionality_storage: 2,
+        functionality_storage: "functionality",
 
         // This should be covered with normal "functionality".
         // No distinction between functionality and personalization in common cookie CMP, e.g. CookieBot.
-        // Not sure why Google thinks this is a different.
+        // Not sure why Google thinks this is a different, but tail.js can be configured to treat this purpose separately.
         //
-        // Tail.js ignores it for now instead of adding even more things to think about when categorizing data.
-        personalization_storage: 0,
+        personalization_storage: "personalization",
 
-        ad_storage: 8, // Targeting
+        ad_storage: "marketing", // Targeting
 
-        security_storage: 16, // Security
+        security_storage: "security", // Security
       };
 
       let dataLayerHead: any;
@@ -113,25 +107,28 @@ export const consent: TrackerExtensionFactory = {
               }
 
               let item: any;
-              let purposes = 1;
               while (
                 n-- &&
                 ((item = layer[n]) !== previousHead || !previousHead) // Check all items if we have not captured the previous head.
               ) {
+                const purposes: DataPurposes = {};
+                let anonymous = true;
                 // Read from the end of the buffer to see if there is any ["consent", "update", ...] entry
                 // since last time we checked.
                 if (item?.[0] === "consent" && item[1] === "update") {
-                  map(
+                  map2(
                     GCMv2Mappings,
                     ([key, code]) =>
-                      item[2][key] === "granted" && (purposes |= code)
+                      item[2][key] === "granted" &&
+                      ((purposes[code] = true),
+                      (anonymous &&=
+                        // Security is considered "necessary" for some external purpose by tail.js
+                        // and does not deactivate anonymous tracking by itself.
+                        code === "security" || code === "necessary"))
                   );
 
                   return {
-                    classification:
-                      purposes > 1
-                        ? 1 // Indirect
-                        : 0, // Anonymous (cookie-less)
+                    classification: anonymous ? "anonymous" : "direct",
                     purposes,
                   };
                 }
@@ -149,15 +146,21 @@ export const consent: TrackerExtensionFactory = {
         if (isUpdateConsentCommand(command)) {
           const getter = command.consent.get;
           if (getter) {
-            getCurrentConsent(getter);
+            getCurrentConsent((current, _, previous) => {
+              return current ? getter(current, previous) : true;
+            });
           }
 
-          const setter = parseDataUsage(command.consent.set);
+          const setter = command.consent.set;
           setter &&
-            (async () =>
-              (setter.callback ?? (() => {}))(
-                ...(await updateConsent(setter))
-              ))();
+            (async () => {
+              if ("consent" in setter) {
+                const [updated, consent] = await updateConsent(setter.consent);
+                setter.callback?.(updated, consent);
+              } else {
+                updateConsent(setter);
+              }
+            })();
 
           const externalSource = command.consent.externalSource;
 
@@ -166,25 +169,24 @@ export const consent: TrackerExtensionFactory = {
             const poller = (externalConsentSources[key] ??= clock({
               frequency: externalSource.frequency ?? 1000,
             }));
-            let previousConsent: DataUsageAttributes | undefined;
+            let previousConsent: DataUsage | undefined;
 
             const pollConsent = async () => {
               if (!document.hasFocus()) return;
 
-              const externalConsent = externalSource.poll();
+              const newConsent = externalSource.poll(previousConsent);
 
-              if (!externalConsent) return;
+              if (!newConsent) return;
 
-              const consent = parseDataUsage({
-                ...previousConsent,
-                ...externalConsent,
-              });
-              if (consent && !dataUsageEquals(previousConsent, consent)) {
-                const [updated, current] = await updateConsent(consent);
+              if (
+                newConsent &&
+                !DataUsage.equals(previousConsent, newConsent)
+              ) {
+                const [updated, current] = await updateConsent(newConsent);
                 if (updated) {
                   debug(current, "Consent was updated from " + key);
                 }
-                previousConsent = consent;
+                previousConsent = newConsent;
               }
             };
             poller.restart(externalSource.frequency, pollConsent).trigger();

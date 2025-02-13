@@ -1,4 +1,5 @@
 import {
+  ComponentClickIntentEvent,
   type ActivatedComponent,
   type ActivatedContent,
   type ConfiguredComponent,
@@ -10,18 +11,18 @@ import {
   MaybeUndefined,
   Nullish,
   T,
-  array,
+  array2,
   concat,
   filter,
+  filter2,
   flatMap,
-  forEach,
-  get,
+  forEach2,
   isString,
-  join,
-  map,
+  join2,
+  map2,
   max,
   push,
-  remove,
+  set2,
   some,
   unshift,
   update,
@@ -48,7 +49,7 @@ export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 export const componentDomConfiguration = Symbol("DOM configuration");
 
 export const parseActivationTags = (el: Element) =>
-  parseTags(el, undefined, (el) => map(array(get(boundaryData, el)?.tags)));
+  parseTags(el, undefined, (el) => filter2(array2(boundaryData.get(el)?.tags)));
 
 const hasComponentOrContent = (boundary?: BoundaryData<true> | null) =>
   boundary?.component || boundary?.content;
@@ -58,11 +59,11 @@ export const parseBoundaryTags = (el: Element) => {
   return parseTags(
     el,
     (ancestor) =>
-      ancestor !== el && !!hasComponentOrContent(get(boundaryData, ancestor)),
+      ancestor !== el && !!hasComponentOrContent(boundaryData.get(ancestor)),
     (el) => {
-      entry = get(boundaryData, el)!;
+      entry = boundaryData.get(el)!;
       return (
-        (entry = get(boundaryData, el)) &&
+        (entry = boundaryData.get(el)) &&
         flatMap(concat(entry.component, entry.content, entry), "tags")
       );
     }
@@ -81,7 +82,7 @@ const stripRects = (
         rect: undefined,
         content:
           (content = component.content) &&
-          map(content, (content) => ({ ...content, rect: undefined })),
+          map2(content, (content) => ({ ...content, rect: undefined })),
       };
 
 const enum IncludeState {
@@ -103,7 +104,7 @@ export const getComponentContext = (
   let includeState = IncludeState.Secondary;
   let rect: Rectangle | undefined;
   forAncestorsOrSelf(el, (el) => {
-    const entry = get(boundaryData, el);
+    const entry = boundaryData.get(el);
 
     if (!entry) {
       return;
@@ -111,7 +112,7 @@ export const getComponentContext = (
 
     if (hasComponentOrContent(entry)) {
       const components = filter(
-        array(entry.component),
+        array2(entry.component),
         (entry) =>
           includeState === IncludeState.Secondary ||
           (!directOnly &&
@@ -128,7 +129,7 @@ export const getComponentContext = (
       entry.content &&
         unshift(
           collectedContent,
-          ...map(entry.content, (item) => ({
+          ...map2(entry.content, (item) => ({
             ...item,
             rect,
             ...tags,
@@ -138,7 +139,7 @@ export const getComponentContext = (
       components?.length &&
         (unshift(
           collected,
-          ...map(
+          ...map2(
             components,
             (item) => (
               (includeState = max(
@@ -165,7 +166,7 @@ export const getComponentContext = (
     }
 
     const area = entry.area || trackerProperty(el, "area");
-    area && unshift(collected, ...map(array(area)));
+    area && unshift(collected, area);
   });
 
   let areaPath: string[] | undefined;
@@ -176,17 +177,17 @@ export const getComponentContext = (
     push(collected, stripRects({ id: "", rect, content: collectedContent }));
   }
 
-  forEach(collected, (item) => {
+  forEach2(collected, (item) => {
     if (isString(item)) {
       push((areaPath ??= []), item);
     } else {
-      item.area ??= join(areaPath, "/");
+      item.area ??= join2(areaPath, "/");
       unshift((components ??= []), item);
     }
   });
 
   return components || areaPath
-    ? { components: components, area: join(areaPath, "/") }
+    ? { components: components, area: join2(areaPath, "/") }
     : undefined;
 };
 
@@ -202,9 +203,9 @@ export const components: TrackerExtensionFactory = {
         ? (undefined as any)
         : ({
             ...data,
-            component: array(data.component),
-            content: array(data.content),
-            tags: array(data.tags),
+            component: array2(data.component),
+            content: array2(data.content),
+            tags: array2(data.tags),
           } as BoundaryData<true>);
 
     const registerComponent = ({
@@ -229,21 +230,28 @@ export const components: TrackerExtensionFactory = {
         )
       );
 
-      impressions(el, get(boundaryData, el));
+      impressions(el, boundaryData.get(el));
     };
 
     return {
       decorate(eventData) {
         // Strip tracking configuration.
-        forEach((eventData as UserInteractionEvent).components, (component) =>
-          remove(component as any, "track")
+        forEach2(
+          (eventData as UserInteractionEvent).components,
+          (component) => {
+            set2(component as any, "track", undefined);
+            forEach2(
+              (eventData as ComponentClickIntentEvent).clickables,
+              (clickable) => set2(clickable as any, "track", undefined)
+            );
+          }
         );
       },
       processCommand(cmd) {
         return isDataBoundaryCommand(cmd)
           ? (registerComponent(cmd), T)
           : isScanComponentsCommand(cmd)
-          ? (map(
+          ? (forEach2(
               scanAttributes(cmd.scan.attribute, cmd.scan.components),
               registerComponent
             ),

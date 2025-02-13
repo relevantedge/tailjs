@@ -1,23 +1,23 @@
 import { CLIENT_STATE_CHANNEL_ID } from "@constants";
 
-import { Uuid } from "@tailjs/types";
+import { UuidV4, VariableGetRequest, extractKey } from "@tailjs/types";
 import {
-  MaybeUndefined,
-  Nullish,
-  assign,
-  clear,
+  PartialRecord,
+  assign2,
   clock,
-  concat,
+  concat2,
   createEvent,
-  filter,
-  forEach,
-  map,
+  filter2,
+  forEach2,
+  isString,
+  map2,
   now,
-  obj,
+  obj2,
   replace,
+  set2,
+  skip2,
 } from "@tailjs/util";
 import {
-  GetterIntellisense,
   HEARTBEAT_FREQUENCY,
   NOT_INITIALIZED,
   VARIABLE_CACHE_DURATION,
@@ -27,10 +27,9 @@ import {
 } from ".";
 import {
   ClientVariable,
-  ClientVariableGetter,
-  ClientVariableResults,
-  LocalVariableScope,
-  toNumericVariableEnums,
+  ClientVariableKey,
+  anyVariableScope,
+  stringToVariableKey,
   variableKeyToString,
 } from "..";
 
@@ -40,16 +39,24 @@ export interface TabState {
   viewId?: string;
 }
 
-interface StateVariableMetadata {
-  cache: [timestamp: number, expires: number];
+export interface StateVariableMetadata {
+  cache?: [timestamp: number, ttl?: number];
 }
 
-export type StateVariable = ClientVariable & StateVariableMetadata;
+export type StateVariable<
+  T extends {} = any,
+  LocalScope extends boolean = boolean
+> = ClientVariable<T, LocalScope> & StateVariableMetadata;
+
+export type StateVariableEntry = [
+  key: ClientVariableKey,
+  variable: StateVariable | undefined
+];
 
 export interface State {
-  knownTabs: Record<string, TabState>;
+  knownTabs: Map<string, TabState>;
   /** All variables except local. */
-  variables: Record<string, StateVariable>;
+  variables: Map<string, StateVariable>;
 }
 
 let localId = 0;
@@ -62,7 +69,7 @@ export const nextLocalId = () =>
   (++localId).toString(36);
 
 const randomValues = (arg: any) => crypto.getRandomValues(arg);
-export const uuidv4 = (): Uuid =>
+export const uuidv4 = (): UuidV4 =>
   replace(
     ([1e7] as any) + -1e3 + -4e3 + -8e3 + -1e11,
     /[018]/g,
@@ -73,7 +80,7 @@ export const uuidv4 = (): Uuid =>
   );
 
 /** All variables, both local and others. */
-let tabVariables: Record<string, StateVariable> = {};
+let tabVariables = new Map<string, StateVariable>();
 
 const tabState: TabState = {
   id: TAB_ID,
@@ -81,21 +88,22 @@ const tabState: TabState = {
 };
 
 const state: State = {
-  knownTabs: {
-    [TAB_ID]: tabState,
-  },
-  variables: {},
+  knownTabs: new Map([[TAB_ID, tabState]]),
+  variables: new Map(),
 };
 
 type StateMessage =
   | { type: "query"; payload?: undefined }
   | {
       type: "set";
-      payload: State;
+      payload: [
+        knownTabs: [string, TabState][],
+        variables: [string, StateVariable][]
+      ];
     }
   | {
       type: "patch";
-      payload: Record<string, StateVariable | undefined>;
+      payload: PartialRecord<string, StateVariable>;
     }
   | {
       type: "tab";
@@ -107,11 +115,16 @@ const [addStateListener, dispatchState] = createEvent<
   | [event: "tab", tab: TabState, self: boolean]
 >();
 
+export type StateVariableChange = readonly [
+  key: ClientVariableKey,
+  current: (ClientVariable & Pick<VariableGetRequest, "passive">) | undefined,
+  previous: ClientVariable | undefined
+];
 const [addVariablesChangedListener, dispatchVariablesChanged] =
   createEvent<
     [
-      changes: [current: StateVariable, previous: StateVariable | undefined][],
-      all: Readonly<typeof tabVariables>,
+      changes: StateVariableChange[],
+      all: ReadonlyMap<string, StateVariable>,
       local: boolean
     ]
   >();
@@ -120,56 +133,82 @@ export { addVariablesChangedListener };
 
 let post: (message: StateMessage, target?: string) => void = NOT_INITIALIZED;
 
-export const tryGetVariable: {
-  <K extends ClientVariableGetter>(key: K | GetterIntellisense[0]):
-    | (ClientVariableResults<[K], true>[0] & StateVariableMetadata)
-    | undefined;
-  <K extends string | Nullish>(key: K): StateVariable | undefined;
-} = (key: any) => tabVariables[variableKeyToString(key)!] as any;
+export const tryGetVariable = (
+  key: ClientVariableKey | string,
+  timestamp = now()
+): StateVariable | undefined => {
+  const variable = tabVariables.get(
+    isString(key) ? key : variableKeyToString(key)
+  );
+  return variable?.cache && variable.cache[0]! + variable.cache[1]! <= timestamp
+    ? undefined
+    : variable;
+};
 
 export const setLocalVariables = (
-  ...variables: ClientVariable<any, string, true, boolean>[]
-) =>
-  updateVariableState(
-    (variables as StateVariable[]).map(
-      (variable: StateVariable) => (
-        (variable.cache = [now(), VARIABLE_CACHE_DURATION]),
-        toNumericVariableEnums(variable)
-      )
-    )
+  ...variables: Omit<
+    ClientVariable<any, true>,
+    "created" | "modified" | "version"
+  >[]
+) => {
+  const timestamp = now();
+  return updateVariableState(
+    map2(variables, (variable) => {
+      (variable as StateVariable).cache = [timestamp];
+      return [
+        extractKey(variable),
+        { ...variable, created: timestamp, modified: timestamp, version: "0" },
+      ];
+    })
   );
+};
 
-const getVariableChanges = (variables: (StateVariable | undefined)[]) =>
-  map(
-    variables,
-    (current) =>
-      current && [current, tabVariables[variableKeyToString(current)]]
-  );
+const getVariableChanges = (
+  variables: (StateVariableEntry | undefined)[] | undefined
+): [
+  key: string,
+  current: StateVariable | undefined,
+  previous: StateVariable | undefined,
+  sourceKey: ClientVariableKey
+][] =>
+  map2(variables, (current) => {
+    if (!current) return skip2;
+    const key = variableKeyToString(current[0]);
+    const previous = tabVariables.get(key);
+    return previous !== current[1]
+      ? [key, current[1], previous, current[0]]
+      : skip2;
+  }) ?? [];
 
 export const updateVariableState = (
-  updates: (StateVariable | undefined)[] | undefined
+  updates: (StateVariableEntry | undefined)[] | undefined
 ) => {
-  const changes = map(
-    updates,
-    (variable) => variable && [variableKeyToString(variable), variable]
-  );
+  // Collect now before updating the state, but dispatch after the state has changed.
+  const changes = getVariableChanges(updates);
   if (!changes?.length) return;
 
-  // Collect now before updating the state, but dispatch after the state has changed.
-  const changedEventData = getVariableChanges(updates!);
+  const timestamp = now();
+  forEach2(changes, ([, current, previous]) => {
+    if (current && !current.cache) {
+      current.cache = previous?.cache ?? [timestamp, VARIABLE_CACHE_DURATION];
+    }
+  });
+  assign2(tabVariables, changes);
 
-  assign(tabVariables, changes);
-  const sharedChanges = filter(
+  const sharedChanges = filter2(
     changes,
-    (variable) => variable[1].scope > LocalVariableScope.Tab
+    ([, , , key]) => anyVariableScope.compare(key.scope, "tab") > 0
   );
 
   if (sharedChanges.length) {
-    assign(state.variables, sharedChanges);
-    post({ type: "patch", payload: obj(sharedChanges) });
+    post({ type: "patch", payload: obj2(sharedChanges) });
   }
 
-  dispatchVariablesChanged(changedEventData, tabVariables, true);
+  dispatchVariablesChanged(
+    map2(changes, ([, current, previous, key]) => [key, current, previous]),
+    tabVariables,
+    true
+  );
 };
 
 addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
@@ -188,26 +227,22 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
             .toString(36)
             .padStart(2, "0");
 
-      tabVariables = obj(
-        concat(
-          // Whatever view variables we already had in case of bf navigation.
-          filter(
-            tabVariables,
-            ([, variable]) => variable.scope === LocalVariableScope.View
-          ),
-          map(localState?.[1], (variable) => [
+      tabVariables = new Map(
+        concat2(
+          filter2(tabVariables, ([, variable]) => variable?.scope === "view"),
+          map2(localState?.[1], (variable) => [
             variableKeyToString(variable),
             variable,
           ])
         )
-      )!;
+      );
     } else {
       sessionStorage.setItem(
         CLIENT_STATE_CHANNEL_ID,
         httpEncrypt([
           TAB_ID,
-          map(tabVariables, ([, variable]) =>
-            variable.scope !== LocalVariableScope.View ? variable : undefined
+          map2(tabVariables, ([, variable]) =>
+            variable && variable.scope !== "view" ? variable : skip2
           ),
         ])
       );
@@ -234,36 +269,55 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
       const [sender, { type, payload }] = message;
 
       if (type === "query") {
-        !initTimeout.active && post({ type: "set", payload: state }, sender);
+        !initTimeout.active &&
+          post(
+            {
+              type: "set",
+              payload: [map2(state.knownTabs), map2(state.variables)],
+            },
+            sender
+          );
       } else if (type === "set" && initTimeout.active) {
-        assign(state, payload);
-        assign(tabVariables, payload.variables);
+        state.knownTabs = new Map(payload[0]);
+        state.variables = new Map(payload[1]);
+        tabVariables = new Map(payload[1]);
         initTimeout.trigger();
       } else if (type === "patch") {
         // Collect now before updating the state, but dispatch after the state has changed.
-        const changedEventData = getVariableChanges(map(payload, 1));
+        const changedEventData = getVariableChanges(
+          map2(payload, ([key, value]) => [stringToVariableKey(key), value])
+        );
 
-        assign(state.variables, payload);
-        assign(tabVariables, payload);
+        assign2(state.variables, payload);
+        assign2(tabVariables, payload);
 
-        dispatchVariablesChanged(changedEventData, tabVariables, false);
+        dispatchVariablesChanged(
+          map2(changedEventData, ([, current, previous, key]) => [
+            key,
+            current,
+            previous,
+          ]),
+          tabVariables,
+          false
+        );
       } else if (type === "tab") {
-        assign(state.knownTabs, sender, payload);
+        set2(state.knownTabs, sender, payload);
         payload && dispatchState("tab", payload, false);
       }
     }
   });
 
+  // Add a short delay to allow other tabs to share their information (if any).
   const initTimeout = clock(() => dispatchState("ready", state, true), -25);
 
   const heartbeat = clock({
     callback: () => {
       const timeout = now() - HEARTBEAT_FREQUENCY * 2;
-      forEach(
-        state?.knownTabs,
+      forEach2(
+        state.knownTabs,
         // Remove tabs that no longer responds (presumably closed but may also have been frozen).
         ([tabId, tabState]) =>
-          tabState[0] < timeout && clear(state!.knownTabs, tabId)
+          tabState[0] < timeout && set2(state.knownTabs, tabId, undefined)
       );
       tabState.heartbeat = now();
       post({ type: "tab", payload: tabState });

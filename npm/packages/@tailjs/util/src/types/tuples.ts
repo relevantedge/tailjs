@@ -3,7 +3,7 @@ import type {
   IfNot,
   IsAny,
   IsStrictlyUnknown,
-  Minus,
+  Subtract,
   Nullish,
 } from ".";
 
@@ -11,8 +11,12 @@ export type Empty = readonly [];
 
 export type IsTuple<T> = T extends [] | [any, ...any] ? true : false;
 
+export type ItemOrSelf<T> = T extends readonly any[] ? T[number] : T;
+
 /** A simpler version of {@link MaybeArray} that does not use type inference to simplify function signatures. */
-export type ArrayOrSelf<T> = T | T[];
+export type ArrayOrSelf<T, Readonly extends boolean = true> =
+  | T
+  | (Readonly extends true ? readonly T[] : T[]);
 
 export type ToggleArray<T, Toggle = boolean> = T extends readonly (infer Item)[]
   ? Toggle extends true
@@ -139,7 +143,7 @@ export type VariableTuple<
     : Template["length"]
 > = MaxLength extends 0
   ? readonly []
-  : readonly [Item, ...VariableTuple<Item, Template, Minus<MaxLength, 1>>];
+  : readonly [Item, ...VariableTuple<Item, Template, Subtract<MaxLength, 1>>];
 
 type Navigate<T, K extends keyof any> = K extends ""
   ? T

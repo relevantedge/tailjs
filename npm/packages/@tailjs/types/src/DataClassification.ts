@@ -1,132 +1,64 @@
-import { EnumValue, Nullish, createEnumAccessor, isNumber } from "@tailjs/util";
-import { DataPurposeFlags, DataPurposeValue, dataPurposes } from ".";
+import { createEnumParser } from "@tailjs/util";
 
 /**
- * Defines to which extend a piece of information relates to a natural person (user of your app or website).
+ * Defines to which extend a piece of information relates to a natural individual which is typically someone visiting your app or website.
  *
- * Tail.js requires all data points (data types and their properties) to be classified to prevent any data from being stored or otherwise used beyond a user's consent.
+ * Tail.js requires all data that can be collected to be classified to prevent any data from being stored or otherwise used beyond
+ * an individual's consent.
  *
- * YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
+ * Be aware that de default settings in the tail.js schema *do not* guarantee legal compliance, and you are responsible
+ * for not using the collected data for other purposes than those intended.
  *
  */
-export enum DataClassification {
+const levels = {
   /**
-   * The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.
+   * A "consent" for this data classification means that no data will be stored for any reason.
    *
-   * Tail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.
-   *
-   * Identifying returning visitors will not be possible at this level.
-   * In-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
+   * Likewise, if used in a schema all data with this classification will not be stored.
    */
-  Anonymous = 0,
+  never: "never",
 
   /**
-   * The data may possibly identify the user if put into context with other data, yet not specifically on its own.
+   * The data cannot be linked to a specific individual after they leave the website or app, and their session ends.
    *
-   * Examples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
+   * This does _not_ include seemingly anonymous data such as the hash of an IP address, since that may still be linked back
+   * to an individual using "additional information". As an example, if you want to test if a specific person visited a website at a given time
+   * and you know their IP address at that time by some other means, you can generate a hash with the same algorithm and see if it is
+   * in the data.
    *
-   * Identifying returning visitors will be possible at this level of consent, but not across devices.
-   * Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.
-   *
-   * This level is the default when a user has consented to necessary information being collected via a  cookie disclaimer or similar.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */
-  Indirect = 1,
+   * Tail.js will collect this kind of data in a way that does not use cookies or other information persisted in the individual's device. */
+  anonymous: "anonymous",
 
   /**
-   * The data directly identifies the user on its own.
+   * The data is unlikely to identify an individual by itself, but may link to a specific individual if combined with other data.
    *
-   * Examples are name, username, street address and email address.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * Personalization based on past actions such as purchases will also be possible.
-   *
-   * This level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).
-   *
-   * Please note it is possible to access user data even when nothing is tracked beyond the bla... level
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
+   * Examples are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
    */
-  Direct = 2,
+  indirect: "indirect",
 
   /**
-   * Sensitive data about a user.
+   * The data directly identifies a specific individual.
    *
-   * Examples are data related to health, financial matters, race, political and religious views, and union membership.
-   * If the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * and so will advanced personalization.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
+   * Examples are names, email addresses, user names, customer IDs from a CRM system or order numbers that can be linked
+   * to another system where the persons details are available.
    */
-  Sensitive = 3,
-}
+  direct: "direct",
 
-export const dataClassification = createEnumAccessor(
-  DataClassification,
-  false,
-  "data classification"
+  /**
+   * Not only does the data identify a specific individual but may also reveal sensitive information about the user
+   * such as health data, financial matters, race, political and religious views, or union membership.
+   *
+   * tail.js's default schema does not have any data with this classification. If you intend to capture sensitive data in your events
+   * you may consider pseudonomizing it by hashing it or obfuscating it by some other mechanism.
+   * Whether the data will then classify as "indirect" or still be "sensitive" depends on context, but it will arguably then be
+   * "less sensitive".
+   */
+  sensitive: "sensitive",
+} as const;
+
+export type DataClassification = (typeof levels)[keyof typeof levels];
+
+export const DataClassification = createEnumParser(
+  "data classification",
+  levels
 );
-
-export type DataClassificationValue<Numeric = boolean> = EnumValue<
-  typeof DataClassification,
-  DataClassification,
-  false,
-  Numeric
-> extends infer T
-  ? T
-  : never;
-
-export type DataUsageAttributes<NumericEnums = true> = {
-  classification: DataClassificationValue<NumericEnums>;
-  purposes: DataPurposeValue<NumericEnums>;
-};
-
-export type ParsableDataUsageAttributes = {
-  classification?: DataClassificationValue;
-  level?: DataClassificationValue;
-  purpose?: DataPurposeValue;
-  purposes?: DataPurposeValue;
-};
-
-export const dataUsageEquals = (
-  lhs: ParsableDataUsageAttributes | Nullish,
-  rhs: ParsableDataUsageAttributes | Nullish
-) =>
-  dataClassification.parse(lhs?.classification ?? lhs?.level) ===
-    dataClassification.parse(rhs?.classification ?? rhs?.level) &&
-  dataPurposes.parse(lhs?.purposes ?? lhs?.purposes) ===
-    dataPurposes.parse(rhs?.purposes ?? rhs?.purposes);
-
-export const parseDataUsage = <T extends ParsableDataUsageAttributes | Nullish>(
-  classificationOrConsent: T,
-  defaults?: Partial<DataUsageAttributes<boolean>>
-): T extends {}
-  ? DataUsageAttributes<true> & Omit<T, keyof ParsableDataUsageAttributes>
-  : undefined =>
-  classificationOrConsent == null
-    ? (undefined as any)
-    : isNumber(classificationOrConsent.classification) &&
-      isNumber(classificationOrConsent.purposes)
-    ? classificationOrConsent
-    : {
-        ...classificationOrConsent,
-        level: undefined,
-        purpose: undefined,
-        classification: dataClassification.parse(
-          classificationOrConsent.classification ??
-            classificationOrConsent.level ??
-            defaults?.classification ??
-            DataClassification.Anonymous
-        ),
-        purposes: dataPurposes.parse(
-          classificationOrConsent.purposes ??
-            classificationOrConsent.purpose ??
-            defaults?.purposes ??
-            DataPurposeFlags.Necessary
-        ),
-      };

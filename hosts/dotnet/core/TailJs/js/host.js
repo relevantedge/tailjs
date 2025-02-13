@@ -78,7 +78,7 @@
             return depth ? mapped : JSON.stringify(mapped, null, 2);
         }
         
-        return depth ? src : "" + src;
+        return depth ? src : src?.toString();
     }
     const log = (level) =>
         (...args) => host.Log(JSON.stringify({

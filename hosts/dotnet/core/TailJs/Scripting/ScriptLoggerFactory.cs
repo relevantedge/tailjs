@@ -1,8 +1,5 @@
 ﻿using System.Collections.Concurrent;
-
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
-using Microsoft.Extensions.Options;
 
 namespace TailJs.Scripting;
 
@@ -10,7 +7,7 @@ public class ScriptLoggerFactory : IScriptLoggerFactory
 {
   private readonly ILoggerFactory? _loggerFactory;
 
-  public ILogger DefaultLogger { get; }
+  private readonly ConcurrentDictionary<string, ILogger> _groupLoggers = new();
 
   public ScriptLoggerFactory(ILogger<RequestHandler> defaultLogger, ILoggerFactory? loggerFactory)
   {
@@ -18,7 +15,9 @@ public class ScriptLoggerFactory : IScriptLoggerFactory
     DefaultLogger = defaultLogger;
   }
 
-  private readonly ConcurrentDictionary<string, ILogger> _groupLoggers = new();
+  #region IScriptLoggerFactory Members
+
+  public ILogger DefaultLogger { get; }
 
   public ILogger? GetLogger(string? group)
   {
@@ -38,4 +37,6 @@ public class ScriptLoggerFactory : IScriptLoggerFactory
 
     return logger;
   }
+
+  #endregion
 }

@@ -131,7 +131,7 @@ public class RequestHandler : IRequestHandler
               initialCommands = initialCommands is string
                 ? initialCommands
                 : Environment.HttpEncode(JsonNodeConverter.Serialize(initialCommands)),
-              nonce
+              nonce,
             }
           )
           .AwaitScript(cancellationToken)
@@ -173,10 +173,10 @@ public class RequestHandler : IRequestHandler
             )
           )
           .AppendLine(
-            "async (host, endpoint, encryptionKeys, secure, debugScript, clientKeySeed, extensions, defaultConsent) => {"
+            "async (host, endpoint, encryptionKeys, secure, debugScript, clientKeySeed, extensions, defaultConsent, json) => {"
           )
           .Append(
-            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), defaultConsent: JSON.parse(defaultConsent), extensions: ["
+            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), defaultConsent: defaultConsent ?JSON.parse(defaultConsent):undefined, json, extensions: ["
           )
           .AppendLine(
             string.Join(
@@ -206,7 +206,8 @@ public class RequestHandler : IRequestHandler
               _configuration.ClientScript ?? (object)_configuration.Debug,
               _configuration.ClientKeySeed,
               _trackerExtensions,
-              JsonNodeConverter.Serialize(_configuration.DefaultConsent)
+              JsonNodeConverter.Serialize(_configuration.DefaultConsent),
+              _configuration.UseJson
             )
             .AwaitScript(cancellationToken: cancellationToken)
             .ConfigureAwait(false)!;
@@ -283,7 +284,7 @@ public class RequestHandler : IRequestHandler
             string s => Encoding.UTF8.GetBytes(s),
             ITypedArray<byte> bytes => bytes.GetBytes(),
             Undefined => null,
-            _ => throw new InvalidOperationException("Unexpected content.")
+            _ => throw new InvalidOperationException("Unexpected content."),
           },
           response["headers"].EnumerateScriptValues().ToDictionary(kv => kv.Key, kv => (string)kv.Value!),
           CookieCollection.MapCookies(response["cookies"]),
@@ -323,7 +324,7 @@ public class RequestHandler : IRequestHandler
       {
         sourceInfo ??= new DocumentInfo(specifier);
         return new StringDocument(
-          new DocumentInfo(specifier) { Category = sourceInfo.Value.Category ?? DocumentCategory.Script, },
+          new DocumentInfo(specifier) { Category = sourceInfo.Value.Category ?? DocumentCategory.Script },
           await _resources.ReadTextAsync(specifier).ConfigureAwait(false)
         );
       }

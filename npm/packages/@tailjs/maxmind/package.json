@@ -19,7 +19,7 @@
     "@tailjs/engine": "workspace:*",
     "@tailjs/types": "workspace:*",
     "@tailjs/util": "workspace:*",
-    "@types/node": "^18.19.33",
+    "@types/node": ">=20",
     "maxmind": "^4.3.19",
     "memfs": "^3.5.3",
     "mmdb-lib": "^2.1.0"

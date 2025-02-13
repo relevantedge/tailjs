@@ -1,468 +1,442 @@
 import {
-  ParsedKey,
-  ValidatedVariableGetter,
-  ValidatedVariableSetter,
+  extractKey,
+  filterKeys,
+  ReadOnlyVariableGetter,
   Variable,
-  VariableFilter,
   VariableGetResult,
-  VariableGetResults,
-  VariableGetters,
-  VariableHeader,
   VariableKey,
+  VariableQuery,
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultStatus,
-  VariableScope,
-  VariableScopeValue,
+  VariableServerScope,
   VariableSetResult,
-  VariableSetResults,
-  VariableSetters,
-  formatKey,
-  parseKey,
-  variableScope,
+  VariableValueErrorResult,
+  VariableValueSetter,
 } from "@tailjs/types";
+import { forEach2, forEachAwait2, formatError, keys2 } from "@tailjs/util";
 import {
-  DoubleMap,
-  MaybePromise,
-  Nullish,
-  PartialRecord,
-  Wrapped,
-  forEach,
-  get,
-  map,
-  unwrap,
-  waitAll,
-} from "@tailjs/util";
-import { PartitionItems, mergeKeys } from "../lib";
-
-import {
-  ReadonlyVariableStorage,
+  isTransientErrorObject,
+  isWritableStorage,
+  ReadOnlyVariableStorage,
+  TrackerEnvironment,
   VariableStorage,
-  VariableStorageContext,
-  isWritable,
+  VariableStorageMappings,
+  VariableStorageQuery,
 } from "..";
 
-export type PrefixMapping = {
-  storage: ReadonlyVariableStorage;
-};
-export type PrefixMappings = PartialRecord<
-  VariableScopeValue<true>,
-  Record<string, PrefixMapping>
->;
-
-export type VariableSplitStoragePatchers = {
-  get?(
-    storage: SplitStorageErrorWrapper,
-    getters: (ValidatedVariableGetter | Nullish)[],
-    results: (VariableGetResult | undefined)[],
-    context: VariableStorageContext | undefined
-  ): Promise<(VariableGetResult | undefined)[]>;
-
-  set?(
-    storage: SplitStorageErrorWrapper,
-    setters: (ValidatedVariableSetter | Nullish)[],
-    results: (VariableSetResult | undefined)[],
-    context: VariableStorageContext | undefined
-  ): Promise<(VariableSetResult | undefined)[]>;
+export type WithTrace<T, Trace> = T & {
+  [traceSymbol]: Trace & { source: WithTrace<T, Trace> };
 };
 
-export class VariableSplitStorage implements VariableStorage {
-  private readonly _mappings = new DoubleMap<
-    [VariableScope, string],
-    ReadonlyVariableStorage
-  >();
-  private _cachedStorages: Map<
-    ReadonlyVariableStorage,
-    Set<VariableScope>
-  > | null = null;
+export type CopyTrace<T, Source> = T & {
+  [traceSymbol]: Source extends { [traceSymbol]: infer Trace }
+    ? Trace
+    : undefined;
+};
 
-  private readonly _errorWrappers = new Map<
-    ReadonlyVariableStorage,
-    SplitStorageErrorWrapper
-  >();
+export type AddSourceTrace<Source, Trace> = Trace extends undefined
+  ? Source & { [traceSymbol]?: undefined }
+  : Source & { [traceSymbol]: [AddSourceTrace<Source, Trace>, Trace] };
 
-  private readonly _patchers: VariableSplitStoragePatchers | undefined;
+const unknownSource = (key: { scope: string; source?: string | null }): any =>
+  ({
+    status: VariableResultStatus.BadRequest,
+    ...extractKey(key as any as VariableKey),
+    [traceSymbol]: key[traceSymbol],
+    error: `The scope ${key.scope} has no source with the ID '${key.source}'.`,
+  } satisfies WithTrace<VariableValueErrorResult, any>);
+
+type SplitFields = Pick<VariableKey, "source" | "scope">;
+
+const traceSymbol = Symbol();
+export const addSourceTrace = <Item, Trace>(
+  item: Item,
+  trace: Trace
+): AddSourceTrace<Item, Trace> => (
+  (item[traceSymbol] = [item, trace]), item as any
+);
+
+export const withTrace = <Item, Trace>(
+  item: Item,
+  trace: Trace
+): WithTrace<Item, Trace> => (
+  (trace["source"] = item), (item[traceSymbol] = trace), item as any
+);
+
+export const copyTrace = <Item, Trace>(
+  item: Item,
+  trace: { [traceSymbol]: Trace }
+): WithTrace<Item, Trace> => (
+  (item[traceSymbol] = trace[traceSymbol]), item as any
+);
+
+export const clearTrace = <Item>(
+  item: Item
+): Item extends { [traceSymbol]: any }
+  ? Omit<Item, typeof traceSymbol>
+  : Item => {
+  if (item?.[traceSymbol]) {
+    delete item[traceSymbol];
+  }
+  return item as any;
+};
+
+export const getTrace = <Trace>(item: { [traceSymbol]: Trace }): Trace =>
+  item[traceSymbol];
+
+const mergeTrace = <Target extends {}, Trace>(
+  target: Target,
+  {
+    source,
+    scope,
+    [traceSymbol]: trace,
+  }: { [traceSymbol]?: Trace } & SplitFields
+): WithTrace<Target & SplitFields, Trace> =>
+  Object.assign(target, { source, scope, [traceSymbol]: trace }) as any;
+
+export interface VariableSplitStorageSettings {
+  includeStackTraces?: boolean;
+}
+
+export interface StorageMappingSettings {
+  /** Default time to live for variables in milliseconds. (Document will be deleted roughly after this time) */
+  ttl: number | undefined;
+}
+export class VariableSplitStorage implements VariableStorage, Disposable {
+  private readonly _mappings: Record<
+    string,
+    Record<
+      string,
+      { storage: ReadOnlyVariableStorage; settings: StorageMappingSettings }
+    >
+  >;
+  private readonly _settings: VariableSplitStorageSettings | undefined;
 
   constructor(
-    mappings: Wrapped<PrefixMappings>,
-    patchers?: VariableSplitStoragePatchers
+    mappings: VariableStorageMappings,
+    settings?: VariableSplitStorageSettings
   ) {
-    this._patchers = patchers;
-    forEach(unwrap(mappings), ([scope, mappings]) =>
-      forEach(
-        mappings,
-        ([prefix, { storage }]) => (
-          this._errorWrappers.set(
-            storage,
-            new SplitStorageErrorWrapperImpl(storage)
-          ),
-          this._mappings.set([1 * scope, prefix], storage as any)
-        )
-      )
-    );
-  }
+    this._mappings = {};
+    this._settings = settings;
+    const defaultStorage = mappings.default;
+    for (const scope of VariableServerScope.levels) {
+      const defaultScopeTtl = mappings.ttl?.[scope] ?? undefined;
 
-  protected _keepPrefix(storage: ReadonlyVariableStorage) {
-    return storage instanceof VariableSplitStorage;
-  }
-
-  private _mapKey<K extends VariableKey<true> | undefined>(
-    source: K
-  ): K extends undefined
-    ? undefined
-    : ParsedKey & {
-        storage: ReadonlyVariableStorage;
-        source: K;
-      } {
-    if (!source) return undefined as any;
-
-    const parsed = parseKey(source.key);
-    let storage = this._mappings.get([+source.scope, parsed.prefix]);
-
-    if (!storage) {
-      return undefined!;
-    }
-
-    return {
-      ...parsed,
-      storage,
-      source,
-    } as any;
-  }
-
-  private get _storageScopes() {
-    if (!this._cachedStorages) {
-      this._cachedStorages = new Map();
-      this._mappings.forEach((storage, [scope]) =>
-        get(this._cachedStorages!, storage, () => new Set()).add(scope)
-      );
-    }
-    return this._cachedStorages;
-  }
-
-  public async renew(
-    scope: VariableScope,
-    scopeIds: string[],
-    context?: VariableStorageContext
-  ): Promise<void> {
-    await waitAll(
-      ...map(
-        this._storageScopes,
-        ([storage, mappedScopes]) =>
-          isWritable(storage) &&
-          mappedScopes.has(scope) &&
-          storage.renew(scope, scopeIds, context)
-      )
-    );
-  }
-
-  private _splitKeys<K extends readonly (VariableKey<true> | Nullish)[]>(
-    keys: K
-  ): Map<ReadonlyVariableStorage, PartitionItems<K, Nullish>> {
-    const partitions = new Map<
-      ReadonlyVariableStorage,
-      PartitionItems<K, Nullish>
-    >();
-
-    keys.forEach((sourceKey, sourceIndex) => {
-      if (!sourceKey) return;
-
-      const mappedKey = this._mapKey(sourceKey);
-      if (!mappedKey) {
-        throw new Error(
-          `No storage is mapped for the key ${formatKey(sourceKey)}.`
-        );
+      const scopeMappings =
+        mappings[scope] ?? (defaultStorage && { storage: defaultStorage });
+      if (!scopeMappings) {
+        continue;
       }
-      const { storage, key } = mappedKey;
-      const keepPrefix = this._keepPrefix(storage);
-      (get(partitions, storage, () => [] as any) as any).push([
-        sourceIndex,
-        !keepPrefix && key !== sourceKey.key
-          ? { ...sourceKey, key: key }
-          : sourceKey,
-      ]);
-    });
 
-    return partitions;
+      if (scopeMappings.storage) {
+        (this._mappings[scope] ??= {})[""] = {
+          storage: scopeMappings.storage,
+          settings: { ttl: scopeMappings.ttl ?? defaultScopeTtl },
+        };
+      }
+      forEach2(scopeMappings.prefixes, ([prefix, config]) => {
+        if (!config) return;
+        (this._mappings[scope] ??= {})[prefix] = {
+          storage: config.storage,
+          settings: { ttl: config.ttl ?? defaultScopeTtl },
+        };
+      });
+    }
   }
 
-  private _splitFilters(filters: VariableFilter<true>[]) {
-    const partitions = new Map<
-      ReadonlyVariableStorage,
-      VariableFilter<true>[]
+  private async _splitApply<
+    T extends { scope: string; source?: string | null },
+    R
+  >(
+    keys: T[],
+    action: (
+      source: SplitFields,
+      target: ReadOnlyVariableStorage,
+      keys: T[],
+      settings: StorageMappingSettings
+    ) => Promise<false | (R[] | undefined | void)>,
+    {
+      notFound,
+      parallel = true,
+    }: {
+      notFound?: (key: {
+        scope: string;
+        source?: string | null;
+      }) => R | undefined | void;
+      parallel?: boolean;
+    } = {}
+  ): Promise<R[]> {
+    const results: R[] = [];
+    const splits = new Map<
+      ReadOnlyVariableStorage,
+      [
+        source: SplitFields,
+        keys: T[],
+        sourceIndices: number[],
+        settings: StorageMappingSettings
+      ]
     >();
-    for (const filter of filters) {
-      const keySplits = new Map<ReadonlyVariableStorage, Set<string>>();
-      const addKey = (
-        storage: ReadonlyVariableStorage | undefined,
-        key: ParsedKey
-      ) =>
-        storage &&
-        get(keySplits, storage, () => new Set()).add(
-          this._keepPrefix(storage) ? key.sourceKey : key.key
+    let sourceIndex = 0;
+
+    for (const key of keys) {
+      const { scope, source } = key;
+
+      let { storage, settings } = this._mappings[scope]?.[source ?? ""];
+
+      if (!storage) {
+        const errorResult = notFound?.(key);
+        errorResult && (results[sourceIndex++] = errorResult);
+        continue;
+      }
+
+      let storageKeys = splits.get(storage);
+      !storageKeys &&
+        splits.set(
+          storage,
+          (storageKeys = [{ source, scope }, [], [], settings])
         );
+      storageKeys[1].push(key);
+      storageKeys[2].push(sourceIndex);
+      sourceIndex++;
+    }
 
-      const scopes = filter.scopes ?? variableScope.values;
-      for (const scope of scopes) {
-        const scopePrefixes = this._mappings.getMap(scope);
-        if (!scopePrefixes) continue;
-
-        for (const key of filter.keys) {
-          const parsed = parseKey(key);
-          if (key === "*" || parsed.prefix === "*") {
-            scopePrefixes.forEach((storage) => addKey(storage, parsed));
-          } else {
-            addKey(scopePrefixes.get(parsed.prefix), parsed);
+    const tasks: Promise<any>[] = [];
+    for (const [storage, [source, keys, sourceIndices, settings]] of splits) {
+      const task = (async () => {
+        let i = 0;
+        const actionResults = await action(source, storage, keys, settings);
+        if (actionResults) {
+          for (const result of actionResults) {
+            results[sourceIndices[i++]] = result;
           }
         }
-      }
-
-      for (const [storage, keys] of keySplits) {
-        const storageScopes = this._storageScopes.get(storage);
-        if (!storageScopes) continue;
-
-        get(partitions, storage, () => []).push({
-          ...filter,
-          keys: [...keys],
-          scopes: filter.scopes
-            ? filter.scopes.filter((scope) => storageScopes.has(scope))
-            : [...storageScopes],
-        });
-      }
-    }
-    return [...partitions];
-  }
-
-  async get<K extends VariableGetters<true>>(
-    keys: VariableGetters<true, K>,
-    context?: VariableStorageContext
-  ): Promise<VariableGetResults<K>> {
-    // Make sure none of the underlying storages makes us throw exceptions. A validated variable storage does not do that.
-    context = { ...context, throw: false } as any;
-
-    const results: (VariableGetResult | undefined)[] = [] as any;
-    await waitAll(
-      ...map(this._splitKeys(keys), ([storage, split]) =>
-        mergeKeys(
-          results,
-          split,
-          async (variables) =>
-            (await this._patchers?.get?.(
-              this._errorWrappers.get(storage)!,
-              variables,
-              await storage.get(variables, context),
-              context
-            )) ?? variables
-        )
-      )
-    );
-
-    return results as VariableGetResults<K>;
-  }
-
-  private async _queryOrHead(
-    method: "query" | "head",
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true>,
-    context?: VariableStorageContext
-  ): Promise<VariableQueryResult<any>> {
-    const partitions = this._splitFilters(filters);
-    const results: VariableQueryResult = {
-      count: options?.count ? 0 : undefined,
-      results: [],
-    };
-    if (!partitions.length) {
-      return results;
-    }
-    if (partitions.length === 1) {
-      return await partitions[0][0][method]?.(partitions[0][1], options);
-    }
-
-    type Cursor = [count: number | undefined, cursor: string | undefined][];
-
-    const includeCursor =
-      options?.cursor?.include || !!options?.cursor?.previous;
-
-    let cursor = options?.cursor?.previous
-      ? (JSON.parse(options.cursor.previous) as Cursor)
-      : undefined;
-
-    let top = options?.top ?? 100;
-    let anyCursor = false;
-
-    for (
-      let i = 0;
-      // Keep going as long as we need the total count, or have not sufficient results to meet top (or done).
-      // If one of the storages returns an undefined count even though requested, we will also blank out the count in the combined results
-      // and stop reading from additional storages since total count is no longer needed.
-      i < partitions.length && (top > 0 || results.count != null);
-      i++
-    ) {
-      const [storage, query] = partitions[i];
-      const storageState = cursor?.[i];
-
-      let count: number | undefined;
-      if (storageState && (storageState[1] == null || !top)) {
-        // We have persisted the total count from the storage in the combined cursor.
-        // If the cursor is empty it means that we have exhausted the storage.
-        // If there is a cursor but `top` is zero (we don't need more results), we use the count cached from the initial query.
-        count = storageState[0];
+        return actionResults;
+      })();
+      if (parallel) {
+        tasks.push(task);
       } else {
-        const {
-          count: storageCount,
-          results: storageResults,
-          cursor: storageCursor,
-        } = await storage[method](
-          query,
-          {
-            ...options,
-            top,
-            cursor: {
-              include: includeCursor,
-              previous: storageState?.[1],
-            },
-          },
-          context
-        );
+        if ((await task) === false) {
+          break;
+        }
+      }
+    }
 
-        count = storageCount;
-        if (includeCursor) {
-          anyCursor ||= !!storageCursor;
-          (cursor ??= [])[i] = [count, storageCursor];
-        } else if (storageResults.length > top) {
-          // No cursor needed. Cut off results to avoid returning excessive amounts of data to the client.
-          storageResults.length = top;
+    if (tasks.length) {
+      await Promise.all(tasks);
+    }
+
+    return results;
+  }
+
+  async get<Getter extends ReadOnlyVariableGetter>(
+    keys: Getter[]
+  ): Promise<CopyTrace<VariableGetResult, Getter>[]> {
+    if (!keys.length) return [];
+
+    return this._splitApply(
+      keys,
+      async (_source, storage, getters, settings) => {
+        try {
+          const defaultTtl = settings.ttl;
+          if (defaultTtl! > 0) {
+            for (const getter of getters) {
+              getter.ttl ??= defaultTtl;
+            }
+          }
+          return (await storage.get(getters)).map((result, i) =>
+            mergeTrace(result, getters[i])
+          );
+        } catch (error) {
+          return getters.map((key) =>
+            mergeTrace(
+              {
+                status: VariableResultStatus.Error,
+                ...extractKey(key),
+                error: formatError(error, this._settings?.includeStackTraces),
+                transient: isTransientErrorObject(error),
+              },
+              key
+            )
+          );
+        }
+      },
+      { notFound: unknownSource }
+    );
+  }
+
+  set<Setter extends VariableValueSetter>(
+    values: Setter[]
+  ): Promise<CopyTrace<VariableSetResult, Setter>[]> {
+    if (!values.length) return [] as any;
+
+    return this._splitApply(
+      values,
+      async (_source, storage, setters, settings) => {
+        if (isWritableStorage(storage)) {
+          const defaultTtl = settings.ttl;
+          if (defaultTtl! > 0) {
+            for (const setter of setters) {
+              setter.ttl ??= defaultTtl;
+            }
+          }
+
+          try {
+            return (await storage.set(setters)).map((setter, i) =>
+              mergeTrace(setter, setters[i])
+            );
+          } catch (error) {
+            return setters.map((setter) =>
+              mergeTrace(
+                {
+                  status: VariableResultStatus.Error,
+                  ...extractKey(setter),
+                  error: formatError(error, this._settings?.includeStackTraces),
+                  transient: isTransientErrorObject(error),
+                },
+                setter
+              )
+            );
+          }
+        } else {
+          return setters.map((setter) =>
+            mergeTrace(
+              {
+                status: VariableResultStatus.BadRequest,
+                ...extractKey(setter),
+              },
+              setter
+            )
+          );
+        }
+      },
+      { notFound: unknownSource }
+    );
+  }
+
+  public splitSourceQueries<T extends VariableQuery | VariableStorageQuery>(
+    queries: readonly T[]
+  ): (T & SplitFields)[] {
+    const splits: (T & SplitFields)[] = [];
+
+    for (const query of queries) {
+      for (const scope of filterKeys(
+        query.scope ? [query.scope] : (query as VariableQuery)?.scopes,
+        keys2(this._mappings)
+      )) {
+        for (const source of filterKeys(
+          (query as VariableQuery)?.sources,
+          keys2(this._mappings[scope] ?? [null])
+        )) {
+          splits.push({
+            source,
+            scope,
+            ...query,
+            sources: [source],
+            scopes: [scope],
+          });
+        }
+      }
+    }
+    return splits;
+  }
+
+  async purge(queries: VariableStorageQuery[]): Promise<number | undefined> {
+    let purged: number | undefined = 0;
+    await this._splitApply(
+      this.splitSourceQueries(queries),
+      async (_source, storage, queries) => {
+        if (isWritableStorage(storage)) {
+          const count = await storage.purge(queries);
+          if (count == null) {
+            purged = undefined;
+          } else if (purged != null) {
+            purged += count;
+          }
+        }
+      },
+      { parallel: false }
+    );
+    return purged;
+  }
+
+  async renew(queries: VariableStorageQuery[]): Promise<number | undefined> {
+    let refreshed: number | undefined = 0;
+    await this._splitApply(
+      this.splitSourceQueries(queries),
+      async (_source, storage, queries) => {
+        if (isWritableStorage(storage)) {
+          const count = await storage.renew(queries);
+          if (count == null) {
+            refreshed = undefined;
+          } else if (refreshed != null) {
+            refreshed += count;
+          }
+        }
+      },
+      { parallel: false }
+    );
+    return refreshed;
+  }
+
+  async query(
+    queries: VariableStorageQuery[],
+    { page = 100, cursor: splitCursor }: VariableQueryOptions = {}
+  ): Promise<VariableQueryResult> {
+    const sourceQueries = this.splitSourceQueries(queries);
+    // Cursor: Current query, current cursor
+    const match = splitCursor?.match(/^(\d+)(?::(.*))?$/);
+    let cursorOffset = match ? +match[1] : 0;
+    let cursor = match?.[2] || undefined;
+
+    const variables: Variable[] = [];
+    let nextCursor: string | undefined;
+    let offset = 0;
+
+    await this._splitApply(
+      sourceQueries,
+      async (source, storage, queries) => {
+        if (offset++ < cursorOffset) {
+          return;
         }
 
-        results.results.push(...(storageResults as Variable[])); // This is actually only the header for head requests.
-        top = Math.max(0, top - storageResults.length);
-      }
+        do {
+          const result = await storage.query(queries, {
+            page,
+            cursor: cursor,
+          });
+          cursor = result.cursor;
 
-      results.count != null &&
-        (results.count = count != null ? results.count + 1 : undefined);
-    }
-
-    if (anyCursor) {
-      // Only if any of the storages returned a cursor for further results, we do this.
-      // Otherwise, we return an undefined cursor to indicate that we are done.
-      results.cursor = JSON.stringify(cursor);
-    }
-    return results;
-  }
-
-  head(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true> | undefined,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<VariableHeader>> {
-    return this._queryOrHead("head", filters, options, context);
-  }
-
-  query(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true> | undefined,
-    context?: VariableStorageContext
-  ): Promise<VariableQueryResult> {
-    return this._queryOrHead("query", filters, options, context);
-  }
-
-  async set<K extends VariableSetters<true>>(
-    variables: VariableSetters<true, K>,
-    context?: VariableStorageContext
-  ): Promise<VariableSetResults<K>> {
-    // Make sure none of the underlying storages makes us throw exceptions. A validated variable storage does not do that.
-    context = { ...context, throw: false } as any;
-
-    const results: VariableSetResults<K> = [] as any;
-    await waitAll(
-      ...map(
-        this._splitKeys(variables),
-        ([storage, split]) =>
-          isWritable(storage) &&
-          mergeKeys(
-            results,
-            split,
-            async (variables) =>
-              (await this._patchers?.set?.(
-                this._errorWrappers.get(storage)!,
-                variables,
-                await storage.set(variables, context),
-                context
-              )) ?? variables
-          )
-      )
+          variables.push(
+            ...result.variables.map((variable) => mergeTrace(variable, source))
+          );
+          if ((page -= result.variables.length) <= 0) {
+            nextCursor = cursor ? `${offset - 1}:${cursor}` : `${offset}`;
+            // Stop
+            return false;
+          }
+        } while (cursor);
+      },
+      { parallel: false }
     );
 
-    return results;
+    return {
+      variables,
+      cursor: nextCursor,
+    };
   }
 
-  async purge(
-    filters: VariableFilter<true>[],
-    context?: VariableStorageContext
-  ): Promise<boolean> {
-    const partitions = this._splitFilters(filters);
-    if (!partitions.length) {
-      return false;
-    }
-    let any = false;
-    await waitAll(
-      ...partitions.map(
-        async ([storage, filters]) =>
-          isWritable(storage) &&
-          (any = (await storage.purge(filters, context)) || any)
-      )
+  public async initialize(environment: TrackerEnvironment): Promise<void> {
+    await forEachAwait2(this._mappings, ([, mappings]) =>
+      forEachAwait2(mappings, ([, { storage }]) => {
+        storage?.initialize?.(environment);
+      })
     );
-    return any;
-  }
-}
-
-export interface SplitStorageErrorWrapper {
-  readonly writable: boolean;
-
-  get<K extends VariableGetters<true>>(
-    keys: K,
-    context: VariableStorageContext
-  ): PromiseLike<VariableGetResults<K>>;
-
-  set<V extends VariableSetters<true>>(
-    variables: V,
-    context: VariableStorageContext
-  ): PromiseLike<VariableSetResults<V>>;
-}
-
-class SplitStorageErrorWrapperImpl implements SplitStorageErrorWrapper {
-  private readonly _storage: ReadonlyVariableStorage;
-  public readonly writable: boolean;
-
-  constructor(storage: ReadonlyVariableStorage) {
-    this._storage = storage;
-    this.writable = isWritable(storage);
   }
 
-  async get<K extends VariableGetters<true>>(
-    keys: K,
-    context: VariableStorageContext
-  ) {
-    try {
-      return await this._storage.get(keys, context);
-    } catch (error) {
-      return keys.map(
-        (key) => key && { status: VariableResultStatus.Error, error }
-      ) as any;
-    }
-  }
-  async set<V extends VariableSetters<true>>(
-    variables: V,
-    context: VariableStorageContext
-  ) {
-    if (!this.writable) throw new TypeError("Storage is not writable.");
-    try {
-      return await (this._storage as VariableStorage).set(variables, context);
-    } catch (error) {
-      return variables.map(
-        (source) =>
-          source && { status: VariableResultStatus.Error, error, source }
-      ) as any;
-    }
+  [Symbol.dispose](): void {
+    Object.values(this._mappings).forEach((mappings) =>
+      Object.values(mappings).forEach((storage) => storage[Symbol.dispose]?.())
+    );
   }
 }

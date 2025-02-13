@@ -6,10 +6,9 @@ import {
   OrderLine,
   TrackedEvent,
   isCartEvent,
-  isOrderCancelledEvent,
   isOrderEvent,
 } from "@tailjs/types";
-import type { ValidationError, TrackerExtension, NextPatchExtension } from "..";
+import type { NextPatchExtension, TrackerExtension } from "..";
 
 function fillPriceDefaults(
   data: CommerceData,

@@ -96,114 +96,182 @@ const tryCatch = (expression, errorHandler = true, always)=>{
     }
 };
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
-/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
-/** Minify friendly version of `null`. */ const nil = null;
 /** The identity function (x)=>x. */ const IDENTITY = (item)=>item;
-/** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator$1 = Symbol.iterator;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isBoolean = (value)=>typeof value === "boolean";
 const isNumber = (value)=>typeof value === "number";
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
-const isError = (value)=>value instanceof Error;
-/**
- * Returns the value as an array following these rules:
- * - If the value is undefined (this does not include `null`), so is the return value.
- * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
- * - If the value is iterable, an array containing its values is returned
- * - Otherwise, an array with the value as its single item is returned.
- */ const array = (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
-        ...value
-    ] : [
-        value
-    ];
-const isObject = (value)=>value !== null && typeof value === "object";
-const objectPrototype = Object.prototype;
-const getPrototypeOf = Object.getPrototypeOf;
-const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
-const isSymbol = (value)=>typeof value === "symbol";
-const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value === "object" || acceptStrings));
+const isError = /*#__PURE__*/ (value)=>value instanceof Error;
+const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
+const isPlainObject = /*#__PURE__*/ (value)=>(value === null || value === void 0 ? void 0 : value.constructor) === Object;
+const isSymbol = /*#__PURE__*/ (value)=>typeof value === "symbol";
+const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
+const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
 const testFirstLast = (s, first, last)=>s[0] === first && s[s.length - 1] === last;
 const isJsonString = (value)=>isString(value) && (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
-let stopInvoked = false;
-const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
-function* createFilteringIterator(source, projection) {
-    if (source == null) return;
-    if (projection) {
-        projection = wrapProjection(projection);
-        let i = 0;
-        for (let item of source){
-            if ((item = projection(item, i++)) != null) {
-                yield item;
+const unwrap = (value)=>isFunction(value) ? value() : value;
+// #endregion
+const getRootPrototype = (value)=>{
+    let proto = value;
+    while(proto){
+        proto = Object.getPrototypeOf(value = proto);
+    }
+    return value;
+};
+const findPrototypeFrame = (frameWindow, matchPrototype)=>{
+    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+        return frameWindow;
+    }
+    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
+        try {
+            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
+                return frameWindow;
             }
-            if (stopInvoked) {
-                stopInvoked = false;
-                break;
-            }
-        }
-    } else {
-        for (let item of source){
-            if (item != null) yield item;
+        } catch (e) {
+        // Cross domain issue.
         }
     }
+};
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
+let stopInvoked = false;
+const skip2 = Symbol();
+const stop2 = (value)=>(stopInvoked = true, value);
+// #region region_iterator_implementations
+const forEachSymbol = Symbol();
+const asyncIteratorFactorySymbol = Symbol();
+const symbolIterator = Symbol.iterator;
+// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
+const ensureForEachImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
+    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
+            let projected, i = 0;
+            for (const item of target){
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
+                    if (projected === stop2) {
+                        break;
+                    }
+                    seed = projected;
+                    if (mapped) mapped.push(projected);
+                    if (stopInvoked) {
+                        stopInvoked = false;
+                        break;
+                    }
+                }
+            }
+            return mapped || seed;
+        };
+    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        let projected, item;
+        for(let i = 0, n = target.length; i < n; i++){
+            item = target[i];
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
+                if (projected === stop2) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) {
+                    mapped.push(projected);
+                }
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    const genericForEachIterable = forEachIterable();
+    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        if (target[symbolIterator]) {
+            if (target.constructor === Object) {
+                return genericForEachIterable(target, projection, mapped, seed, context);
+            }
+            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
+        }
+        let projected, item, i = 0;
+        for(const key in target){
+            item = [
+                key,
+                target[key]
+            ];
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
+                if (projected === stop2) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) mapped.push(projected);
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
+        if (this[symbolIterator] || this[symbolAsyncIterator]) {
+            if (this.constructor === Object) {
+                var _this_symbolAsyncIterator;
+                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator]();
+            }
+            const proto = Object.getPrototypeOf(this);
+            var _proto_symbolAsyncIterator;
+            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator];
+            return this[asyncIteratorFactorySymbol]();
+        }
+        return iterateEntries(this);
+    };
+    for (const proto of [
+        scope.Map.prototype,
+        scope.WeakMap.prototype,
+        scope.Set.prototype,
+        scope.WeakSet.prototype,
+        // Generator function
+        Object.getPrototypeOf(function*() {})
+    ]){
+        proto[forEachSymbol] = forEachIterable();
+        proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
+    }
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    return retry();
+};
+// #endregion
+function* range2(length = this) {
+    for(let i = 0; i < length; i++)yield i;
 }
-function* createObjectIterator(source, action) {
-    action = wrapProjection(action);
-    let i = 0;
+function* traverse2(next = this) {
+    let item = undefined;
+    while((item = next(item)) !== undefined)yield item;
+}
+function* iterateEntries(source) {
     for(const key in source){
-        let value = [
+        yield [
             key,
             source[key]
         ];
-        action && (value = action(value, i++));
-        if (value != null) {
-            yield value;
-        }
-        if (stopInvoked) {
-            stopInvoked = false;
-            break;
-        }
     }
 }
-function* createRangeIterator(length = 0, offset) {
-    if (length < 0) {
-        offset !== null && offset !== void 0 ? offset : offset = -length - 1;
-        while(length++)yield offset--;
-    } else {
-        offset !== null && offset !== void 0 ? offset : offset = 0;
-        while(length--)yield offset++;
+let map2 = (source, projection, target = [], seed, context = source)=>{
+    try {
+        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
     }
-}
-function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
-    if (start != null) yield start;
-    while(maxIterations-- && (start = step(start)) != null){
-        yield start;
-    }
-}
-const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
-const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
-const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
-const map = (source, projection, start, end)=>{
-    projection = wrapProjection(projection);
-    if (isArray(source)) {
-        let i = 0;
-        const mapped = [];
-        start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
-        end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
-        for(; start < end && !stopInvoked; start++){
-            let value = source[start];
-            if ((projection ? value = projection(value, i++) : value) != null) {
-                mapped.push(value);
-            }
-        }
-        stopInvoked = false;
-        return mapped;
-    }
-    return source != null ? array(project(source, projection, start, end)) : undefined$1;
 };
-const unwrap = (value)=>isFunction(value) ? value() : value;
 
 /** The number of leading entropy bytes. */ const ENTROPY = 4;
 /** The padding length. Cipher texts will always be a multiple of this. */ const MAX_PADDING = 16;
@@ -875,7 +943,6 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
 /**
  * Converts an in-memory object to a format that can be serialized over a wire including cyclic references.
  */ const serialize = (value, msgpack, { defaultValues = true, prettify = false })=>{
-    // TODO: Clone when required instead of adding "cleaners". Probably adds more overhead.
     let cleaners;
     let refs;
     let refIndex;
@@ -934,7 +1001,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
         Object.entries(value).forEach(([k, v])=>v !== (v = inner(v)) && (value[k] = v));
         return value;
     };
-    return inner(isString(value) ? tryCatch(()=>JSON.parse(value), ()=>console.error(`Invalid JSON received.`, value)) : value != null ? tryCatch(()=>msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value), undefined$1)) : value);
+    return inner(isString(value) ? tryCatch(()=>JSON.parse(value), ()=>(console.error(`Invalid JSON received.`, value, new Error().stack), undefined$1)) : value != null ? tryCatch(()=>msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value, new Error().stack), undefined$1)) : value);
 };
 let _defaultTransports;
 /**
@@ -944,7 +1011,7 @@ let _defaultTransports;
     const factory = (key, { json = false, decodeJson = false, ...serializeOptions })=>{
         const fastStringHash = (value, bitsOrNumeric)=>{
             if (isNumber(value) && bitsOrNumeric === true) return value;
-            value = isString(value) ? new Uint8Array(map(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
+            value = isString(value) ? new Uint8Array(map2(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
             return hash(value, bitsOrNumeric);
         };
         const jsonDecode = (encoded)=>encoded == null ? undefined$1 : tryCatch(()=>deserialize(encoded), undefined$1);

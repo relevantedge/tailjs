@@ -56,6 +56,7 @@ export const bakeTracker = (
       stoppers: [ConfiguredTracker, clientTracker],
       scriptTag: root ? scriptTag : false,
       endpoint,
+      exclude: ["RenderFromTemplateContext"],
       parseOverride(el, traverse) {
         if (isClientRef(el)) {
           if (!clientTracker) {

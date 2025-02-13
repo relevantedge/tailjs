@@ -2,6 +2,7 @@ export * from "./ExtensionError";
 export * from "./Cookie";
 export { EventLogger } from "./extensions";
 export * from "./CryptoProvider";
+export { DefaultCryptoProvider } from "./lib";
 export * from "./bootstrap";
 export * from "./ClientCertificate";
 export * from "./HttpRequest";

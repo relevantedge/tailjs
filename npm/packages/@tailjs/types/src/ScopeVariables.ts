@@ -6,22 +6,34 @@ import {
 
 import { Timestamp, UserConsent } from ".";
 
-/** @privacy anonymous, necessary, server_write */
+/**
+ * @abstract
+ * @privacy anonymous, necessary, trusted-write
+ */
 export interface ScopeInfo {
   id: string;
   firstSeen: Timestamp;
   lastSeen: Timestamp;
   views: number;
   isNew?: boolean;
+
+  /** The user agent of the client (only included when debugging). */
+  userAgent?: string;
 }
 
 export interface SessionInfo extends ScopeInfo {
-  /** @privacy server */
+  /** @access trusted-only */
   id: string;
 
-  deviceSessionId?: string;
-
+  /**
+   * Used to handle race conditions.
+   * When multiple session are created from concurrent requests, the winning session contains the device ID.
+   *
+   * @access trusted-only
+   */
   deviceId?: string;
+
+  deviceSessionId?: string;
 
   userId?: string;
 
@@ -29,26 +41,47 @@ export interface SessionInfo extends ScopeInfo {
 
   hasUserAgent?: boolean;
 
+  /** The session id anonymous. */
+  anonymous?: boolean;
+
+  /**
+   * If the user upgraded their consent, this will be the original anonymous session ID.
+   *
+   * @access trusted-only
+   */
+  anonymousSessionId?: string;
+
   /** The total number of tabs opened during the session. */
   tabs?: number;
 }
 
 export interface DeviceInfo extends ScopeInfo {
+  /** @access trusted-write */
+  id: string;
   sessions: number;
 }
 
-export interface SessionVariables {
-  /** @privacy anonymous, necessary */
-  [SCOPE_INFO_KEY]?: SessionInfo;
+export interface ScopeVariables {
+  session: {
+    /** @privacy anonymous, necessary */
+    [SCOPE_INFO_KEY]?: SessionInfo;
 
-  /** @privacy anonymous, necessary */
-  [CONSENT_INFO_KEY]?: UserConsent;
+    /**
+     * User consent is a dynamic variable that is resolved by the Tracker and cannot be set.
+     *
+     * @privacy anonymous, necessary
+     * @access dynamic
+     */
+    [CONSENT_INFO_KEY]?: UserConsent;
 
-  /** @privacy anonymous, necessary */
-  [SESSION_REFERENCE_KEY]?: string;
-}
-
-export interface DeviceVariables {
-  /** @privacy indirect, necessary */
-  [SCOPE_INFO_KEY]?: DeviceInfo;
+    /**
+     * @privacy anonymous, necessary
+     * @access trusted-only
+     */
+    [SESSION_REFERENCE_KEY]?: string;
+  };
+  device: {
+    /** @privacy indirect, necessary */
+    [SCOPE_INFO_KEY]?: DeviceInfo;
+  };
 }

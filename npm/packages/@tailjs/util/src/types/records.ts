@@ -4,7 +4,7 @@ import type {
   Nullish,
   Primitives,
   Property,
-  RecordType,
+  SimpleObject,
   UnionToTuple,
   UnknownIsAny,
 } from ".";
@@ -19,10 +19,23 @@ export type ReadonlyRecord<K extends keyof any = keyof any, V = any> = {
 
 export type PartialDefined<T> = Partial<Exclude<T, undefined | void>>;
 
+export type Freeze<T> = T extends SimpleObject | readonly any[]
+  ? { readonly [P in keyof T]: Freeze<T[P]> }
+  : T;
+
 /** Makes all properties and properties on nested objects required. */
-export type AllRequired<T> = {
-  [P in keyof T]-?: T[P] extends RecordType ? AllRequired<T[P]> : T[P];
-};
+export type AllRequired<T, Nulls = never> = T extends undefined | Nulls
+  ? never
+  : T extends null
+  ? null
+  : T extends (...args: any) => any
+  ? T
+  : {
+      [P in keyof T]-?: Exclude<
+        T extends SimpleObject ? AllRequired<T[P], Nulls> : T[P],
+        undefined
+      >;
+    };
 
 export type UnionPropertyValue<T, Keys extends keyof any> = T extends infer T
   ? Keys extends infer K
@@ -133,7 +146,7 @@ export type PrettifyIntersection<
 export type KeyValueSource =
   | Nullish
   | readonly (readonly [keyof any, any])[]
-  | RecordType<keyof any, any>
+  | SimpleObject<keyof any, any>
   | Map<keyof any, any>;
 
 type Gather<T, Group extends boolean> = [T] extends [never]
@@ -181,7 +194,9 @@ type TupleEntries<T, Index extends number = 0> = T extends readonly []
   : never;
 
 export type Entries<T> = T extends infer T
-  ? T extends Primitives
+  ? T extends Nullish
+    ? undefined
+    : T extends Primitives
     ? never
     : T extends Iterable<any>
     ? T extends ReadonlyMap<infer K, infer V>
