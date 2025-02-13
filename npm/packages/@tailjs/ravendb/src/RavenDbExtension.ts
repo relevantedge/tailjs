@@ -1,16 +1,21 @@
 import {
-  SchemaBuilder,
   TrackedEventBatch,
   Tracker,
   TrackerExtension,
   VariableStorageMappings,
 } from "@tailjs/engine";
-import { Lock, createLock } from "@tailjs/util";
-import { RavenDbSettings, RavenDbVariableStorage } from ".";
-import { RavenDbTarget } from "./RavenDbTarget";
 import { VariableServerScope } from "@tailjs/types";
+import { Lock, createLock } from "@tailjs/util";
+import {
+  RavenDbSettings,
+  RavenDbVariableStorage,
+  RavenDbVariableStorageSettings,
+} from ".";
+import { RavenDbTarget } from "./RavenDbTarget";
 
-export interface RavenDbExtensionSettings extends RavenDbSettings {
+export interface RavenDbExtensionSettings
+  extends RavenDbSettings,
+    RavenDbVariableStorageSettings {
   // Whether to also use RavenDB for variable storage if other storage is not configured.
   variables?: boolean | VariableServerScope[];
 }
@@ -61,14 +66,9 @@ export class RavenDbExtension
       const commands: any[] = [];
 
       for (let ev of events) {
-        ev = { ...ev };
-
-        // Integer primary key for the event entity.
-        const internalEventId = await this._getNextId();
-
         commands.push({
           Type: "PUT",
-          Id: `events/${internalEventId}`,
+          Id: `events/${ev.id}`,
           Document: {
             ...ev,
             "@metadata": {

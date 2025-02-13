@@ -4,8 +4,8 @@ import {
   TrackerEnvironment,
   TrackerEnvironmentInitializable,
 } from "@tailjs/engine";
+import { formatError, json2, stringify2 } from "@tailjs/util";
 import { RavenDbSettings } from ".";
-import { formatError, json2, now, stringify2 } from "@tailjs/util";
 
 export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
   protected readonly _settings: RavenDbSettings;

@@ -479,14 +479,9 @@ function _define_property$1(obj, key, value) {
         try {
             const commands = [];
             for (let ev of events){
-                ev = {
-                    ...ev
-                };
-                // Integer primary key for the event entity.
-                const internalEventId = await this._getNextId();
                 commands.push({
                     Type: "PUT",
-                    Id: `events/${internalEventId}`,
+                    Id: `events/${ev.id}`,
                     Document: {
                         ...ev,
                         "@metadata": {
@@ -576,6 +571,22 @@ function _define_property(obj, key, value) {
 }
 const UpdateExpiresScript = `this.ttl ? (this["@metadata"]["@expires"]=new Date(Date.now()+this.ttl).toISOString()) : delete this["@metadata"]["@expires"];`;
 class RavenDbVariableStorage extends RavenDbTarget {
+    async initialize(env) {
+        await super.initialize(env);
+        if (this._cleanExpiredFrequency) {
+            const response = await this._request("POST", `admin/expiration/config`, {
+                Disabled: false,
+                DeleteFrequencyInSec: this._cleanExpiredFrequency
+            });
+            if (response.error) {
+                env.log(this, {
+                    level: "error",
+                    message: "Cannot configure document expiration in RavenDB.",
+                    error: response.error
+                });
+            }
+        }
+    }
     async get(keys) {
         const results = [];
         for (const batch of batch2(keys, 100)){
@@ -758,8 +769,9 @@ class RavenDbVariableStorage extends RavenDbTarget {
             cursor
         };
     }
-    constructor(...args){
-        super(...args), _define_property(this, "id", "ravendb-variables");
+    constructor({ cleanExpiredFrequency = 60, ...settings }){
+        super(settings), _define_property(this, "id", "ravendb-variables"), _define_property(this, "_cleanExpiredFrequency", void 0);
+        this._cleanExpiredFrequency = cleanExpiredFrequency && cleanExpiredFrequency > 0 ? cleanExpiredFrequency : undefined;
     }
 }
 const keyToDocumentId = (key)=>`${key.scope}/${key.entityId}/${key.key}`;

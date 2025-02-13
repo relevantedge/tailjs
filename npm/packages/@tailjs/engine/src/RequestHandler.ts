@@ -25,11 +25,10 @@ import {
   UserConsent,
   ValidationError,
   VariableGetResponse,
-  VariableResultStatus,
 } from "@tailjs/types";
 
-import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 import { DefaultCryptoProvider } from ".";
+import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 
 import {
   CallbackResponse,
@@ -47,7 +46,6 @@ import {
   SchemaBuilder,
   serializeLogMessage,
   TrackedEventBatch,
-  trackedResponseVariables,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
@@ -55,7 +53,6 @@ import {
   TrackerInitializationOptions,
   TrackerPostOptions,
   TrackerServerConfiguration,
-  trackerVariableKey,
   ValidationErrorResult,
   VariableStorageCoordinator,
 } from "./shared";
@@ -69,11 +66,9 @@ import {
   httpEncode,
 } from "@tailjs/transport";
 import {
-  concat2,
   createLock,
   deferred,
   DeferredAsync,
-  distinct2,
   filter2,
   formatError,
   hasKeys2,
@@ -381,7 +376,16 @@ export class RequestHandler {
           })
         );
 
-        this.environment.log(this, "Request handler initialized.", "info");
+        this.environment.log(this, {
+          level: "info",
+          message: "Request handler initialized.",
+          details: {
+            config: {
+              ...this._config,
+              extensions: map2(this._extensions, (extension) => extension.id),
+            },
+          },
+        });
       } catch (error) {
         host.log(
           serializeLogMessage({

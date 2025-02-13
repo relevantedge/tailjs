@@ -227,7 +227,7 @@ export const DEFAULT:
   },
 
   environment: {
-    idLength: 12,
+    idLength: 10,
   },
 };
 
