@@ -66,7 +66,7 @@ export const parseSchemaDataUsageKeywords = <
 
     for (const keyword of isArray(keywordGroup)
       ? keywordGroup
-      : keywordGroup.split(/[,\s]+/)) {
+      : keywordGroup.split(/[:,\s]+/)) {
       if ((matched = DataClassification.parse(keyword, false))) {
         usage.classification = usage.classification
           ? throwError(

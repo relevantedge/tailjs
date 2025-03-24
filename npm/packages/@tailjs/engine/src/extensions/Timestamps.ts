@@ -1,15 +1,15 @@
-import { mapAsync } from "@tailjs/util";
+import { mapAsync, mapAwait2, skip2 } from "@tailjs/util";
 import type { TrackerExtension } from "../shared";
 import { isTrackedEvent } from "@tailjs/types";
 
 export const Timestamps: TrackerExtension = {
   id: "core-validation",
-  async patch(events, next, tracker) {
+  async patch({ events }, next, tracker) {
     const now = Date.now();
-    return await mapAsync(
+    return await mapAwait2(
       await next(
-        await mapAsync(events, async (event) => {
-          if (!tracker.sessionId) return;
+        await mapAwait2(events, async (event) => {
+          if (!tracker.sessionId) return skip2;
 
           event.id = await tracker.env.nextId();
 
@@ -30,10 +30,15 @@ export const Timestamps: TrackerExtension = {
       ),
       async (ev) => {
         if (isTrackedEvent(ev)) {
-          ev.timestamp ??= now;
+          if (ev.timestamp! <= 0) {
+            ev.timestamp = now + ev.timestamp!;
+          } else {
+            ev.timestamp ??= now;
+          }
           ev.id ??= await tracker.env.nextId();
           return ev;
         }
+        return skip2;
       }
     );
   },

@@ -100,13 +100,13 @@ export type IterationSourceOf<T> = unknown extends T
       | Iterator<T>
       | Falsish;
 
-export type IterationProjection<R, ExcludeTypes = never> = R extends
+export type IterationProjected<R, ExcludeTypes = never> = R extends
   | typeof skip2
   | typeof stop2
   ? never
   : Exclude<R, ExcludeTypes>;
 
-export type AsyncItProjection<R> = IterationProjection<UnwrapPromiseLike<R>>;
+export type AsyncItProjection<R> = IterationProjected<UnwrapPromiseLike<R>>;
 
 export type AsyncIteratorFactory<T = any, V = any> = (
   target: T

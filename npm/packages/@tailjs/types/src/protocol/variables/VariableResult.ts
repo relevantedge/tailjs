@@ -9,9 +9,9 @@ export enum VariableResultStatus {
   Success = 200,
   Created = 201,
   NotModified = 304,
+  BadRequest = 400,
   Forbidden = 403,
   NotFound = 404,
-  BadRequest = 405,
   Conflict = 409,
   Error = 500,
 }

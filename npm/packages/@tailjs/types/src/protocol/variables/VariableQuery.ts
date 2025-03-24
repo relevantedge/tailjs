@@ -121,16 +121,35 @@ export interface VariableQueryResult {
   cursor?: string;
 }
 
-export const consumeQueryResults = async (
-  query: (cursor: string | undefined) => Promise<VariableQueryResult>,
-  callback: (results: Variable[]) => any
-) => {
+export async function* iterateQueryResults<
+  Query,
+  Batch extends boolean = false
+>(
+  storage: {
+    query(
+      query: Query,
+      options: { cursor?: string }
+    ): Promise<VariableQueryResult>;
+  },
+  query: Query,
+  batch: Batch = false as any
+): AsyncGenerator<
+  Batch extends true ? Variable<any>[] : Variable,
+  void,
+  unknown
+> {
   let cursor: string | undefined;
   do {
-    const { variables, cursor: nextCursor } = await query(cursor);
+    const { variables, cursor: nextCursor } = await storage.query(query, {
+      cursor,
+    });
     if (variables.length) {
-      await callback(variables);
+      if (batch) {
+        yield variables as any;
+      } else {
+        yield* variables as any;
+      }
     }
     cursor = nextCursor;
   } while (cursor);
-};
+}

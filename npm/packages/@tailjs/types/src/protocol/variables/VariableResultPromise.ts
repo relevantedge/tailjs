@@ -177,15 +177,6 @@ export type VariableOperationResult<
   KnownTypes extends KnownVariableMap = never
 > = VariableResultPromise<OperationType, Operations, ScopeTemplate, KnownTypes>;
 
-// type GenericVariableValue =
-//   | {
-//       [property: string | number]: GenericVariableValue | null | undefined;
-//     }
-//   | (GenericVariableValue | null)[]
-//   | string
-//   | number
-//   | boolean;
-//type GenericVariableValue = any; // Default value for unknown variable types.
 type GenericVariableValue = unknown;
 
 type ReplaceKey<Target, Source> = Target extends infer Target
@@ -289,10 +280,18 @@ type MapVariableResult<
         ? Type extends "value"
           ? undefined
           : VariableResultPromiseResult<OperationType, Result>
-        : Result extends { status: VariableSuccessStatus; value: any }
-        ? Type extends "value"
-          ? Result["value"]
-          : Result
+        : Result extends { status: VariableSuccessStatus; value?: any }
+        ? OperationType extends "get"
+          ? Type extends "value"
+            ? Result["value"]
+            : Result
+          : Operation extends { value?: null | undefined }
+          ? Type extends "value"
+            ? undefined
+            : Result & { value?: undefined }
+          : Type extends "value"
+          ? Result["value"] & Operation[keyof Operation & "value"]
+          : Result & Pick<Operation, keyof Operation & "value">
         : never
     ) extends infer Result
     ? Type extends "value"
@@ -493,6 +492,7 @@ export const toVariableResultPromise = <
             const poll = isVariableResult(result, false)
               ? op.poll(result.value, result[sourceOperation] === op, previous)
               : true;
+
             previous = result.value;
             return poll;
           },

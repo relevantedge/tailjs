@@ -110,14 +110,23 @@ export type EntryTypeOf<Source> = unknown extends Source
   ? readonly [K, ValueTypeOf<Source, K>]
   : never;
 
-export type ObjectFromEntries<Entries extends KeyValueTypeLike | Nullish> =
-  UnionToIntersection<
-    Entries extends readonly [infer Key extends keyof any, infer Value, ...any]
-      ? { [P in Key]: Value }
-      : {}
-  > extends infer T
-    ? { [P in keyof T]: T[P] }
-    : never;
+export type ObjectFromEntries<
+  Entries extends KeyValueTypeLike<any, any> | Nullish
+> = UnionToIntersection<
+  Entries extends readonly [infer Key extends keyof any, infer Value, ...any]
+    ? { [P in Key]: Value }
+    : {}
+> extends infer T
+  ? { [P in keyof T]: T[P] }
+  : never;
+
+export type MapFromEntries<Entries extends readonly [any, any] | Nullish> = [
+  Entries extends readonly [infer Key, infer Value]
+    ? [Key, Value]
+    : [never, never]
+] extends [[infer Key, infer Value]]
+  ? Map<Key, Value>
+  : never;
 
 export type ObjectSourceToObject<Source> = Source extends Falsish
   ? {}
@@ -188,9 +197,9 @@ type RequiredKeys<T> = Exclude<keyof T, OptionalKeys<T>>;
 
 type _DispatchMergeRecords<T1, T2, MergeRecords, Overwrite, OverwriteNulls> =
   T1 extends Falsish
-    ? T1
-    : T2 extends Falsish
     ? T2
+    : T2 extends Falsish
+    ? T1
     : _MergeRecords2<T1, T2, MergeRecords, Overwrite, OverwriteNulls>;
 
 type _MergeRecordsIfRecords<

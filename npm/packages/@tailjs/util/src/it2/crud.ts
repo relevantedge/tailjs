@@ -4,9 +4,10 @@ import {
   forEach2,
   isArray,
   iterable2,
-  IterationProjection,
+  IterationProjected,
   IterationProjection2,
   IterationSource,
+  MapSource,
   MaybeNullish,
   MaybePromiseLike,
   Nullish,
@@ -22,6 +23,7 @@ import {
   InputValueTypeOf,
   KeyTypeOf,
   KeyValueType,
+  MapFromEntries,
   MergeObjectSources,
   ObjectFromEntries,
   ObjectSourceToObject,
@@ -272,6 +274,42 @@ export let push2: {
   }
 };
 
+export const dict2: {
+  <Source extends MapSource<K, V>, K, V>(source: Source): Source extends Nullish
+    ? Source
+    : ObjectSourceToObject<Source>;
+  <
+    Source extends IterationSource,
+    Projected extends readonly [K, V] | Nullish,
+    Accumulator extends Projected,
+    Signal extends typeof skip2 | typeof stop2 | never,
+    K,
+    V
+  >(
+    source: Source,
+    projection: IterationProjection2<Source, Accumulator, Projected | Signal>
+  ): Source extends Nullish
+    ? Source
+    : MapFromEntries<IterationProjected<Projected>>;
+} = (source: any, projection?: any) => {
+  const target = new Map();
+  forEach2(
+    source,
+    projection
+      ? (item, index, seed) =>
+          (item = projection(item, index, seed)) &&
+          (typeof item !== "symbol" || (item !== skip2 && item !== stop2))
+            ? target.set(item[0], item[1])
+            : item
+      : (item) =>
+          item &&
+          (typeof item !== "symbol" || (item !== skip2 && item !== stop2))
+            ? target.set(item[0], item[1])
+            : item
+  );
+  return target;
+};
+
 export const obj2: {
   <Source extends ObjectSource<K, V>, K extends keyof any, V>(
     source: Source
@@ -288,7 +326,7 @@ export const obj2: {
     projection: IterationProjection2<Source, Accumulator, Projected | Signal>
   ): Source extends Nullish
     ? Source
-    : ObjectFromEntries<IterationProjection<Projected>>;
+    : ObjectFromEntries<IterationProjected<Projected>>;
 } = (source: any, projection?: any) => {
   const target = {};
   forEach2(
@@ -428,7 +466,7 @@ export const pick2: {
     ? target
     : (obj2(keys, (key) =>
         // The first check is presumably faster than the `in` operator.
-        target[key as any] != null || key in target
+        target[key as any] !== void 0 || key in target
           ? [key, target[key as any]]
           : skip2
       ) as any);

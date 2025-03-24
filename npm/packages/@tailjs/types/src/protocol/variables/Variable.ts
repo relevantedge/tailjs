@@ -1,4 +1,10 @@
-import { createEnumParser, Nullish } from "@tailjs/util";
+import {
+  createEnumParser,
+  itemize2,
+  MaybeNullish,
+  Nullish,
+  pick2,
+} from "@tailjs/util";
 import { Timestamp, VariableKey } from "../..";
 import { SchemaDataUsage } from "../schema/SchemaDataUsage";
 
@@ -53,6 +59,37 @@ export const VariableServerScope = createEnumParser(
   "variable scope",
   variableScopeNames
 );
+
+export const VARIABLE_SYNTAX_RULES_TEXT =
+  "Variables must be lowercase, start with a letter and then only user letters, numbers, underscores, dots and hyphens.";
+/** Validates that the syntax for a key, scope or source in a variable conforms to the allowed syntax.  */
+export const validateVariableKeyComponent = (syntax: string) =>
+  /^[a-z][a-z0-9_.-]{0,49}$/.test(syntax);
+
+/**
+ * Validates that spelling of the components in a variable key conforms to the allowed syntax.
+ * If not, it returns the text for an error message, indicating which didn't, so be aware the truthy'ness of the return value is opposite
+ * of what one might expect.
+ */
+export const validateVariableKeySyntax = (
+  key: VariableKey | Nullish
+): string | undefined => {
+  if (!key) return undefined;
+  let invalidComponents: string[] | undefined = undefined;
+  if (!validateVariableKeyComponent(key.key)) {
+    (invalidComponents ??= []).push("key");
+  }
+  if (!validateVariableKeyComponent(key.scope)) {
+    (invalidComponents ??= []).push("scope");
+  }
+  if (key.source && !validateVariableKeyComponent(key.source)) {
+    (invalidComponents ??= []).push("source");
+  }
+  return (
+    invalidComponents &&
+    `Invalid ${itemize2(invalidComponents)}. ${VARIABLE_SYNTAX_RULES_TEXT}`
+  );
+};
 
 /**
  * A variable is a specific piece of information that can be classified and changed independently.
@@ -148,3 +185,27 @@ export const extractKey = <
         scope: value.scope,
         entityId: value.entityId,
       } as any);
+
+export const extractVariable = <T extends Partial<Variable> | Nullish>(
+  variable: T
+): MaybeNullish<Pick<Variable, keyof T & keyof Variable>, T> => {
+  if (variable == null) return variable as any;
+  return {
+    scope: variable.scope,
+    key: variable.key,
+    entityId: variable.entityId,
+    created: variable.created,
+    modified: variable.modified,
+    version: variable.version,
+    expires: variable.expires,
+    ttl: variable.ttl,
+    value: variable.value,
+  } satisfies Partial<Variable> as any;
+};
+
+export const removeLocalScopedEntityId = (variable: Variable) => {
+  if (variable.scope !== "global") {
+    variable.entityId = undefined!;
+  }
+  return variable;
+};

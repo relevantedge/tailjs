@@ -182,6 +182,12 @@ export type RequestHandlerConfiguration = {
 
   /** Settings for the tracker environment. */
   environment?: TrackerEnvironmentSettings;
+
+  /**
+   * The number of different client keys. A version of client script will be cached for each of these.
+   * @default 5
+   */
+  clientKeys?: number;
 };
 
 export const DEFAULT:
@@ -229,6 +235,8 @@ export const DEFAULT:
   environment: {
     idLength: 10,
   },
+
+  clientKeys: 5,
 };
 
 export type SchemaPatchFunction = (

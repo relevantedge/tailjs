@@ -14,7 +14,7 @@ export class EventLogger implements TrackerExtension {
     this.configuration.group ??= "events";
   }
 
-  async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
+  async post({ events }: TrackedEventBatch, tracker: Tracker): Promise<void> {
     for (const ev of events) {
       const data = this.configuration.minimal
         ? { timestamp: ev.timestamp, type: ev.type }

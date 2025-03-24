@@ -1,9 +1,5 @@
 const scripts = {
-  main: {
-    text: "{Client script}",
-    gzip: "{Client script (gzip)}",
-    br: "{Client script (br)}",
-  },
+  production: "{Client script}",
   debug: "{Client debug script}",
 };
 

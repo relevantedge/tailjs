@@ -16,8 +16,13 @@ import {
   VariableStorageCoordinator,
 } from "../src";
 import { SessionInfoSchema } from "./test-schemas";
+import ShortUniqueId from "short-unique-id";
 
 describe("VariableStorageCoordinator", () => {
+  it("Baboo", () => {
+    const uids = new ShortUniqueId({ length: 10 });
+    console.log(uids.approxMaxBeforeCollision());
+  });
   const createTypeResolver = () => {
     return new TypeResolver([
       {

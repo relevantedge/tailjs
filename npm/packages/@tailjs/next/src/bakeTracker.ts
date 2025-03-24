@@ -1,14 +1,27 @@
-import { Tracker } from "@tailjs/react";
-import Script from "next/script";
+import { Tracker, TrackerScriptSettings } from "@tailjs/react";
 import { createElement, FunctionComponent, PropsWithChildren } from "react";
-import type { ClientConfiguration } from ".";
+import type {
+  ClientConfiguration,
+  TrackerScriptStrategy,
+  TrackerScriptStrategyContainer,
+} from ".";
+import Script, { ScriptProps } from "next/script.js";
 
 const isClientRef = (el: any) =>
   (el as any)?.type?.$$typeof?.toString() === "Symbol(react.client.reference)";
 
 export type ConfiguredTrackerComponent = FunctionComponent<
-  PropsWithChildren<{ root?: boolean }>
->;
+  PropsWithChildren<{ root?: boolean } & TrackerScriptStrategyContainer>
+> & {
+  /**
+   * Use this element as a last resort if it is otherwise impossible to make the tail.js script come before CMPs that blocks it.
+   * You can optionally use the {@link TrackerScriptStrategy} `html` to force the script to be rendered as soon as possible.
+   *
+   * Typically, it is enough just to add the CMP tags as {@link Script} components, as long as the Tracker's script is configured
+   * with the same {@link ScriptProps.strategy} or sooner.
+   */
+  Script: FunctionComponent<TrackerScriptStrategyContainer>;
+};
 
 /**
  * "Bakes" a mapping function into the Tracker component so it can be used
@@ -35,44 +48,71 @@ export type ConfiguredTrackerComponent = FunctionComponent<
  * ```
  */
 export const bakeTracker = (
-  {
-    tracker: {
-      map,
-      endpoint = process.env.NEXT_PUBLIC_TAILJS_API || "/api/tailjs",
-      scriptTag,
-    },
-  }: ClientConfiguration,
+  { tracker: { map, script } = {} }: ClientConfiguration,
   clientTracker?: ConfiguredTrackerComponent
 ): ConfiguredTrackerComponent => {
+  script = applyStrategy(script ?? {});
+
+  if (script) {
+    script.strategy ??= "afterInteractive";
+    script.endpoint ??= process.env.NEXT_PUBLIC_TAILJS_API || "/api/tailjs";
+  }
+
   const clientSide = !clientTracker;
 
-  const ConfiguredTracker: ConfiguredTrackerComponent = ({
-    children,
-    root = true,
-  }) => {
-    return createElement(Tracker, {
-      map,
-      ssg: !clientSide,
-      stoppers: [ConfiguredTracker, clientTracker],
-      scriptTag: root ? scriptTag : false,
-      endpoint,
-      exclude: ["RenderFromTemplateContext"],
-      parseOverride(el, traverse) {
-        if (isClientRef(el)) {
-          if (!clientTracker) {
-            throw new Error(
-              "Client components cannot be tracked from the server unless a client version is also configured (cf. the description of bakeTracker in @tailjs/next)."
-            );
+  const ConfiguredTracker: ConfiguredTrackerComponent = Object.assign(
+    ({ children, root = true, strategy }) => {
+      return createElement(Tracker, {
+        map,
+        ssg: !clientSide,
+        stoppers: [ConfiguredTracker, clientTracker],
+        script: root ? applyStrategy(script, strategy) : false,
+        key: root ? "tracker" : undefined,
+        exclude: ["RenderFromTemplateContext"],
+        parseOverride(el, traverse) {
+          if (isClientRef(el)) {
+            if (!clientTracker) {
+              throw new Error(
+                "Client components cannot be tracked from the server unless a client version is also configured (cf. the description of bakeTracker in @tailjs/next)."
+              );
+            }
+            return createElement(clientTracker, {
+              children: traverse(el),
+              root: false,
+            });
           }
-          return createElement(clientTracker, {
-            children: traverse(el),
-            root: false,
-          });
-        }
-      },
-      children,
-    });
-  };
+        },
+        children,
+      });
+    },
+    {
+      Script: ({ strategy }) =>
+        createElement(Tracker.Script, {
+          script: applyStrategy(script, strategy),
+        }),
+    }
+  );
 
   return ConfiguredTracker;
+};
+
+const applyStrategy = (
+  script: ClientConfiguration["tracker"]["script"],
+  strategy = script ? script.strategy : undefined
+) => {
+  if (script && strategy) {
+    script = { ...script };
+
+    script.create =
+      strategy !== "html"
+        ? ({ endpoint, async, htmlAttrs }) =>
+            createElement(Script, {
+              src: endpoint,
+              async,
+              strategy,
+              ...htmlAttrs,
+            } as any)
+        : undefined;
+  }
+  return script;
 };

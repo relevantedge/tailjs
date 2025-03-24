@@ -15,6 +15,7 @@ import {
   isJsonString,
   isString,
   map2,
+  merge2,
   nil,
   now,
   push,
@@ -72,12 +73,16 @@ export const initializeTracker = (
     // Decode the temporary key for decrypting the configuration payload.
     [clientEncryptionKey, config] =
       httpDecode<[key: string, configuration: any]>(config)!;
+
     // Decrypt
     config = createTransport(clientEncryptionKey, { decodeJson: true })[1](
       config as any
     )!;
   }
-  assign(trackerConfig, config);
+
+  merge2(trackerConfig, [config as TrackerClientConfiguration], {
+    overwrite: true,
+  });
 
   setStorageKey(remove(trackerConfig, "encryptionKey"));
 

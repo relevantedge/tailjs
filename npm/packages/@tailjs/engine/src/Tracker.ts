@@ -32,7 +32,7 @@ import {
   VariableServerScope,
   VariableSetter,
   WithCallbacks,
-  consumeQueryResults,
+  iterateQueryResults,
   isVariableResult,
   toVariableResultPromise,
 } from "@tailjs/types";
@@ -46,6 +46,7 @@ import {
   concat,
   createEvent,
   forEach2,
+  forEachAwait2,
   get2,
   isArray,
   map2,
@@ -62,7 +63,6 @@ import {
   HttpResponse,
   KnownTrackerKeys,
   RequestHandler,
-  TrackedEventBatch,
   TrackerEnvironment,
   VariableStorageContext,
   requestCookies,
@@ -72,7 +72,7 @@ export interface TrackerServerConfiguration {
   disabled?: boolean;
   /** Transport used for client-side communication with a key unique('ish) to the client. */
   transport?: Transport;
-  cookieTransport?: Transport;
+  legacyCookieTransport: () => Promise<Transport>;
 
   clientIp?: string | null;
   headers?: Record<string, string>;
@@ -181,7 +181,7 @@ export class Tracker {
    * It would then pass through the post pipeline in a nested call and see `_extensionsApplied` to be `true` even though they were not, hence miss their logic.
    */
   private _eventQueue: [
-    events: TrackedEventBatch,
+    events: TrackedEvent[],
     options: TrackerInitializationOptions
   ][] = [];
   private _extensionState = ExtensionState.Pending;
@@ -239,7 +239,7 @@ export class Tracker {
   }
 
   private readonly _clientCipher: Transport;
-  private readonly _cookieCipher: Transport;
+  private readonly _legacyCookieCipher: () => Promise<Transport>;
   private readonly _defaultConsent: UserConsent;
 
   public readonly host: string | undefined;
@@ -257,7 +257,7 @@ export class Tracker {
     cookies,
     requestHandler,
     transport: cipher,
-    cookieTransport,
+    legacyCookieTransport,
     anonymousSessionReferenceId,
     defaultConsent,
     trustedContext,
@@ -285,7 +285,10 @@ export class Tracker {
 
     // Defaults to unencrypted transport if nothing is specified.
     this._clientCipher = cipher ?? defaultTransport;
-    this._cookieCipher = cookieTransport ?? this._clientCipher;
+    let cookieCipher: Transport | undefined = undefined;
+    this._legacyCookieCipher = async () =>
+      (cookieCipher ??= await legacyCookieTransport());
+
     this._anonymousSessionReferenceId = anonymousSessionReferenceId;
   }
 
@@ -363,18 +366,18 @@ export class Tracker {
   }
 
   private _encryptCookie(value: any): string {
-    return this._cookieCipher[0](value);
+    return this.env.httpEncrypt(value);
   }
 
-  private _decryptCookie<T = any>(
+  private async _decryptCookie<T = any>(
     value: string | Nullish,
     logNameHint?: string
-  ): T | undefined {
+  ): Promise<T | undefined> {
     try {
-      return this._cookieCipher[1](value) as any;
+      return !value ? undefined : (this.env.httpDecrypt(value) as any);
     } catch {
       try {
-        return defaultTransport[1](value) as any;
+        return (await this._legacyCookieCipher())[1](value) as any;
       } catch (error) {
         this.env.log(this, {
           level: "error",
@@ -460,7 +463,7 @@ export class Tracker {
   }
 
   public async post(
-    events: TrackedEventBatch,
+    events: TrackedEvent[],
     options: TrackerPostOptions = {}
   ): Promise<PostResponse> {
     if (this._extensionState === ExtensionState.Applying) {
@@ -478,7 +481,7 @@ export class Tracker {
    *
    */
   private async _loadCachedDeviceVariables() {
-    const variables = this._getClientDeviceVariables();
+    const variables = await this._getClientDeviceVariables();
     if (variables) {
       if (this._clientDeviceCache?.loaded) {
         return;
@@ -492,12 +495,12 @@ export class Tracker {
     }
   }
 
-  private _getClientDeviceVariables() {
+  private async _getClientDeviceVariables() {
     if (!this._clientDeviceCache) {
       const deviceCache = (this._clientDeviceCache = {} as DeviceVariableCache);
 
       let timestamp: number | undefined;
-      DataPurposes.names.map((purposeName) => {
+      for (const purposeName of DataPurposes.names) {
         // Device variables are stored with a cookie for each purpose.
 
         const cookieName =
@@ -505,27 +508,32 @@ export class Tracker {
         const cookieValue = this.cookies[cookieName]?.value;
 
         if (cookieName && cookieValue) {
-          const decrypted = this._decryptCookie(
-            this.cookies[cookieName]?.value,
+          const decrypted = (await this._decryptCookie(
+            cookieValue,
             ` ${purposeName} device variables`
-          ) as ClientDeviceDataBlob;
-          if (!decrypted) {
+          )) as ClientDeviceDataBlob;
+          if (!decrypted || !Array.isArray(decrypted)) {
             // Deserialization error. Remove the cookie.
             this.cookies[cookieName] = {};
+          } else {
+            for (let value of decrypted) {
+              if (!value || !Array.isArray(value)) {
+                continue;
+              }
+
+              value = tryConvertLegacyDeviceVariable(value) ?? value;
+              (deviceCache.variables ??= {})[value[0]] ??= {
+                scope: "device",
+                key: value[0],
+                version: value[1],
+                value: value[2],
+                created: (timestamp ??= now()),
+                modified: (timestamp ??= now()),
+              };
+            }
           }
-          forEach2(decrypted, (value) => {
-            value = tryConvertLegacyDeviceVariable(value) ?? value;
-            (deviceCache.variables ??= {})[value[0]] ??= {
-              scope: "device",
-              key: value[0],
-              version: value[1],
-              value: value[2],
-              created: (timestamp ??= now()),
-              modified: (timestamp ??= now()),
-            };
-          });
         }
-      });
+      }
     }
     return this._clientDeviceCache.variables;
   }
@@ -769,9 +777,11 @@ export class Tracker {
       ? undefined
       : // Disregard the current session info if it anonymous.
         (this.session?.anonymous ? undefined : this.sessionId) ??
-        this._decryptCookie(
-          this.cookies[this._requestHandler._cookieNames.session]?.value,
-          "Session ID"
+        (
+          await this._decryptCookie(
+            this.cookies[this._requestHandler._cookieNames.session]?.value,
+            "Session ID"
+          )
         )?.id;
 
     // We might also have an anonymous session ID.
@@ -1049,25 +1059,22 @@ export class Tracker {
       if (this._clientDeviceCache?.touched) {
         // We have updated device data and need to refresh to get whatever other processes may have written (if any).
 
-        await consumeQueryResults(
-          (cursor) => this.query({ scope: "device" }, { cursor }),
-          (variables) => {
-            forEach2(variables, (variable) => {
-              forEach2(
-                DataPurposes.parse(variable.schema?.usage.purposes, {
-                  names: true,
-                }),
-                (purpose) => {
-                  return (splits[purpose] ??= []).push([
-                    variable.key,
-                    variable.version,
-                    variable.value,
-                  ]);
-                }
-              );
-            });
-          }
-        );
+        for await (const variable of iterateQueryResults(this, {
+          scope: "device",
+        })) {
+          forEach2(
+            DataPurposes.parse(variable.schema?.usage.purposes, {
+              names: true,
+            }),
+            (purpose) => {
+              return (splits[purpose] ??= []).push([
+                variable.key,
+                variable.version,
+                variable.value,
+              ]);
+            }
+          );
+        }
       }
       const isAnonymous = this.consent.classification === "anonymous";
 

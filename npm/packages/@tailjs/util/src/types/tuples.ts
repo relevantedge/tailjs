@@ -18,13 +18,11 @@ export type ArrayOrSelf<T, Readonly extends boolean = true> =
   | T
   | (Readonly extends true ? readonly T[] : T[]);
 
-export type ToggleArray<T, Toggle = boolean> = T extends readonly (infer Item)[]
-  ? Toggle extends true
-    ? T
-    : Item
-  : Toggle extends true
-  ? T[]
-  : T;
+export type ToggleArray<
+  T,
+  Toggle = boolean,
+  ReadOnly = false
+> = Toggle extends true ? (ReadOnly extends true ? readonly T[] : T[]) : T;
 
 export type MaybeArray<
   T,

@@ -1,10 +1,8 @@
 import type {
   TrackedEventBatch,
   Tracker,
-  TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
-import { TrackedEvent } from "@tailjs/types";
 
 export interface CdpSettings {
   clientKey: string;

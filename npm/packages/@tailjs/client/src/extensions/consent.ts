@@ -21,8 +21,8 @@ export const consent: TrackerExtensionFactory = {
   setup(tracker) {
     const getCurrentConsent = async (
       callback?: VariablePollCallback<UserConsent>
-    ) =>
-      (await tracker.variables
+    ) => {
+      return (await tracker.variables
         .get({
           scope: "session",
           key: CONSENT_INFO_KEY,
@@ -31,6 +31,7 @@ export const consent: TrackerExtensionFactory = {
           passive: !callback,
         })
         .value()) as UserConsent | undefined;
+    };
 
     const updateConsent = async <C extends UserConsent | Nullish>(
       consent: C
@@ -63,7 +64,7 @@ export const consent: TrackerExtensionFactory = {
     };
 
     (() => {
-      // TODO: Make injectable to support more than one.
+      // TODO: Make injectable to support other than GCMv2 compatible cookie disclaimers.
       // Ideally, it could be injected in the init script from the request handler.
       // However, hooking into the main categories of Google's consent mode v2 should cover most cases.
 
@@ -74,6 +75,7 @@ export const consent: TrackerExtensionFactory = {
       const GCMv2Mappings: Record<string, DataPurposeName> = {
         // Performance
         analytics_storage: "performance",
+
         // Functionality
         functionality_storage: "functionality",
 

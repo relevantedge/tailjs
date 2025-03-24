@@ -1,4 +1,4 @@
-import type { SignInEvent, TrackedEvent } from "@tailjs/types";
+import type { Session, SignInEvent, TrackedEvent } from "@tailjs/types";
 import { DeferredAsync, MaybePromiseLike } from "@tailjs/util";
 import type {
   ParseResult,
@@ -10,9 +10,17 @@ import type {
 
 export type NextPatchExtension = (
   events: ParseResult[]
-) => Promise<TrackedEvent[]>;
+) => Promise<ServerTrackedEvent[]>;
 
-export type TrackedEventBatch = (TrackedEvent & Record<string, any>)[];
+export interface ServerTrackedEvent extends TrackedEvent {
+  id: string;
+  timestamp: number;
+  session: Session;
+}
+
+export type TrackedEventBatch = {
+  events: (ServerTrackedEvent & Record<string, any>)[];
+};
 
 export type TrackerExtensionContext = {
   passive: boolean;
@@ -61,7 +69,7 @@ export interface TrackerExtension extends TrackerEnvironmentInitializable {
   ): MaybePromiseLike<void>;
 
   patch?(
-    events: TrackedEvent[],
+    events: TrackedEventBatch,
     next: NextPatchExtension,
     tracker: Tracker,
     context: TrackerExtensionContext

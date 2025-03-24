@@ -57,11 +57,7 @@ export class RavenDbExtension
     }
   }
 
-  async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
-    if (!tracker.session) {
-      return;
-    }
-
+  async post({ events }: TrackedEventBatch, tracker: Tracker): Promise<void> {
     try {
       const commands: any[] = [];
 

@@ -10,6 +10,7 @@ import {
   TogglePromise,
   UnwrapPromiseLike,
   Wrapped,
+  delay,
   isArray,
   isAwaitable,
   isBoolean,
@@ -349,6 +350,56 @@ export const tryCatchAsync = async <
   }
 
   return undefined as any;
+};
+
+export interface RetrySettings<ErrorResult = never> {
+  retries?: number;
+  retryDelay?: number | ((retry: number) => number);
+  errorFilter?: (
+    error: any,
+    retry: number
+  ) => "throw" | "reset" | "none" | void;
+  errorHandler?: (error: any, retry: number) => MaybePromiseLike<ErrorResult>;
+}
+export const withRetry = async <T, ErrorResult = never>(
+  action: (retry: number, previousError: any) => MaybePromiseLike<T>,
+  {
+    retries = 3,
+    retryDelay = 200,
+    errorFilter,
+    errorHandler,
+  }: RetrySettings<ErrorResult> = {}
+): Promise<T | ErrorResult> => {
+  if (retries <= 0) {
+    retries = 1;
+  }
+  let previousError: any = undefined;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await action(i, previousError);
+    } catch (error) {
+      previousError = error;
+      const filterAction =
+        i === retries - 1 ? "throw" : errorFilter?.(error, i);
+      if (filterAction === "throw") {
+        if (errorHandler) {
+          return await errorHandler(error, i);
+        }
+        throw error;
+      } else {
+        await delay(
+          typeof retryDelay === "function"
+            ? retryDelay(i + 1)
+            : retryDelay * (0.8 + 0.4 * Math.random())
+        );
+        if (filterAction === "reset") {
+          i = -1;
+          previousError = undefined;
+        }
+      }
+    }
+  }
+  return void 0 as never;
 };
 
 /**

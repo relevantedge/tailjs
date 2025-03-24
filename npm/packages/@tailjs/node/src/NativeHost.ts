@@ -3,6 +3,7 @@ import http from "http";
 import https, { RequestOptions } from "https";
 import { basename, dirname, join, resolve } from "path";
 import { v4 as uuid } from "uuid";
+import * as zlib from "node:zlib";
 
 import {
   detectPfx,
@@ -13,30 +14,33 @@ import {
   type LogMessage,
   type ResourceEntry,
 } from "@tailjs/engine";
-import { MaybePromise, MINUTE, now, obj2, skip2 } from "@tailjs/util";
+import { MaybePromise, MINUTE, now, Nullish, obj2, skip2 } from "@tailjs/util";
 import { DefaultLogger, DefaultLoggerSettings } from "./DefaultLogger";
 
 export type NativeHostLogger = {
-  initialize?(rootPath: string): MaybePromise<void>;
+  initialize?(rootPath: string | null): MaybePromise<void>;
   log(message: LogMessage): void;
 };
 
 export interface NativeHostSettings {
-  rootPath: string;
+  rootPath: string | null;
   /**
    * How to log messages.
    *
    * @default DefaultLoggerSettings (with default settings).
    */
-  logger?: NativeHostLogger | DefaultLoggerSettings | false;
+  logger?: NativeHostLogger | DefaultLoggerSettings | "console" | false;
 }
 
 export class NativeHost implements EngineHost {
-  private readonly _rootPath: string;
+  private readonly _rootPath: string | null;
   private readonly _logger: NativeHostLogger | null;
 
   constructor({ rootPath, logger = {} }: NativeHostSettings) {
-    this._rootPath = resolve(rootPath);
+    this._rootPath = rootPath ? resolve(rootPath) : null;
+    if (logger === "console") {
+      logger = { basePath: false, console: "info" };
+    }
 
     this._logger = !logger
       ? null
@@ -46,6 +50,10 @@ export class NativeHost implements EngineHost {
   }
 
   async ls(path: string): Promise<ResourceEntry[] | null> {
+    if (!this._rootPath) {
+      return [];
+    }
+
     path = join(this._rootPath, path);
     if (!path.startsWith(this._rootPath)) {
       throw new Error(`Invalid path (it is outside the root scope).`);
@@ -140,15 +148,26 @@ export class NativeHost implements EngineHost {
 
   async write(path: string, data: Uint8Array): Promise<void> {
     const fullPath = this._resolvePath(path);
+    if (!fullPath) {
+      return;
+    }
+
     await fs.promises.writeFile(fullPath, data);
   }
   async writeText(path: string, data: string): Promise<void> {
     const fullPath = this._resolvePath(path);
+    if (!fullPath) {
+      return;
+    }
     await fs.promises.writeFile(fullPath, data, "utf-8");
   }
 
   async delete(path: string): Promise<boolean> {
     const fullPath = this._resolvePath(path);
+    if (!fullPath) {
+      return false;
+    }
+
     if (!fs.existsSync(fullPath)) return false;
 
     const type = await fs.promises.stat(fullPath);
@@ -162,6 +181,9 @@ export class NativeHost implements EngineHost {
   }
 
   private _resolvePath(path: string) {
+    if (!this._rootPath) {
+      return null;
+    }
     if (path === "js/tail.debug.map.js") {
       try {
         const resolved = require.resolve("@tailjs/client");
@@ -187,7 +209,7 @@ export class NativeHost implements EngineHost {
     changeHandler?: ChangeHandler<any>
   ) {
     const fullPath = this._resolvePath(path);
-    if (!fs.existsSync(fullPath)) {
+    if (!fullPath || !fs.existsSync(fullPath)) {
       return null;
     }
     if (changeHandler) {
@@ -205,12 +227,13 @@ export class NativeHost implements EngineHost {
     }
 
     return await read();
+
     async function read() {
       if (text) {
-        return (await fs.promises.readFile(fullPath, "utf-8")) as any;
+        return (await fs.promises.readFile(fullPath!, "utf-8")) as any;
       } else {
         return new Uint8Array(
-          (await fs.promises.readFile(fullPath)).buffer
+          (await fs.promises.readFile(fullPath!)).buffer
         ) as any;
       }
     }
@@ -315,6 +338,33 @@ export class NativeHost implements EngineHost {
         }
       });
     });
+  }
+
+  async compress(
+    data: Uint8Array | string,
+    algorithm: "br" | "gzip"
+  ): Promise<Uint8Array | Nullish> {
+    const buffer =
+      typeof data === "string" ? Buffer.from(data, "utf8") : Buffer.from(data);
+
+    const method =
+      algorithm === "br"
+        ? zlib.brotliCompress
+        : algorithm === "gzip"
+        ? zlib.gzip
+        : null;
+
+    return method == null
+      ? null
+      : new Promise((resolve, reject) => {
+          method(buffer, (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          });
+        });
   }
 
   nextId(scope: string): Promise<string> | string {

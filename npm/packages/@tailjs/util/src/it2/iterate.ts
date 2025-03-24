@@ -11,7 +11,7 @@ import {
   isPromiseLike,
   itemize2,
   IterationFilterCallback2,
-  IterationProjection,
+  IterationProjected,
   IterationProjection2,
   IterationSource,
   IterationSourceOf,
@@ -26,6 +26,7 @@ import {
   Sortable,
   symbolAsyncIterator,
   throwError,
+  ToggleArray,
   TupleOrArray,
   UnwrapPromiseLike,
 } from "..";
@@ -277,7 +278,7 @@ export const forEach2: {
       | Nullish,
     seed?: Accumulator,
     context?: Context
-  ): MaybeNullishOrFalse<IterationProjection<Projected> | undefined, Source>;
+  ): MaybeNullishOrFalse<IterationProjected<Projected> | undefined, Source>;
 } = (source: any, projection?: any, seed?: any, context?: any) => {
   try {
     return source
@@ -303,13 +304,13 @@ export let map2: {
   >(
     source: Source,
     projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
-    target?: Target & IterationProjection<Projected>[],
+    target?: Target & IterationProjected<Projected>[],
     seed?: Accumulator,
     context?: Context
   ): MaybeNullishOrFalse<
-    IterationProjection<Projected>[] extends Target
+    IterationProjected<Projected>[] extends Target
       ? Target
-      : IterationProjection<Projected>[],
+      : IterationProjected<Projected>[],
     Source
   >;
 
@@ -456,7 +457,7 @@ export const take2: {
     source: Source,
     count: number,
     projection: IterationProjection2<Source, Accumulator, Projected | Signal>
-  ): MaybeNullishOrFalse<IterationProjection<Projected>[], Source>;
+  ): MaybeNullishOrFalse<IterationProjected<Projected>[], Source>;
 } = (source: any, count: any, projection?: any) =>
   map2(
     source,
@@ -517,13 +518,13 @@ export const flatMap2: {
     source: Source,
     projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
     depth?: Depth,
-    target?: Target & Flat<IterationProjection<Projected>, Depth>[],
+    target?: Target & Flat<IterationProjected<Projected>, Depth>[],
     seed?: Accumulator,
     context?: Context
   ): MaybeNullishOrFalse<
-    Flat<IterationProjection<Projected>, Depth>[] extends Target
+    Flat<IterationProjected<Projected>, Depth>[] extends Target
       ? Target
-      : Flat<IterationProjection<Projected>, Depth>[],
+      : Flat<IterationProjected<Projected>, Depth>[],
     Source
   >;
 
@@ -558,16 +559,16 @@ export const flatMap2: {
     context
   );
 
-type Group2Result<Source, AsMap> = AsMap extends true
+type Group2Result<Source, AsMap, Many = true> = AsMap extends true
   ? Source extends Iterable<infer T extends KeyValueType<any>>
-    ? Map<Exclude<T[0], undefined>, T[1][]>
+    ? Map<Exclude<T[0], undefined>, ToggleArray<T[1], Many>>
     : Source extends { [P in infer Key]: infer Value }
-    ? Map<Key, Value[]>
+    ? Map<Key, ToggleArray<Value, Many>>
     : never
   : Source extends Iterable<infer T extends KeyValueType>
-  ? { [P in Exclude<T[0], undefined>]: T[1] }
+  ? { [P in Exclude<T[0], undefined>]: ToggleArray<T[1], Many> }
   : Source extends { [P in infer Key]: infer Value }
-  ? { [P in Key]: Value[] }
+  ? { [P in Key]: ToggleArray<Value, Many> }
   : never;
 
 export const group2: {
@@ -601,7 +602,7 @@ export const group2: {
     projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
     map?: AsMap
   ): MaybeNullishOrFalse<
-    Group2Result<IterationProjection<Projected, Falsish>[], AsMap>,
+    Group2Result<IterationProjected<Projected, Falsish>[], AsMap>,
     Source
   >;
   <
@@ -614,7 +615,7 @@ export const group2: {
     projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
     map?: true
   ): MaybeNullishOrFalse<
-    Group2Result<IterationProjection<Projected, Falsish>[], true>,
+    Group2Result<IterationProjected<Projected, Falsish>[], true>,
     Source
   >;
 } = (source: any, projection?: any, map?: any) => {

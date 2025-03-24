@@ -1,60 +1,5 @@
 import { VariableServerScope, extractKey, VariableResultStatus } from '@tailjs/types';
 
-function _define_property$4(obj, key, value) {
-    if (key in obj) {
-        Object.defineProperty(obj, key, {
-            value: value,
-            enumerable: true,
-            configurable: true,
-            writable: true
-        });
-    } else {
-        obj[key] = value;
-    }
-    return obj;
-}
-class RavenDbConfiguration {
-    async initialize(env) {
-        this._env = env;
-        if (this._settings.x509) {
-            const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
-            var _ref;
-            const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
-            if (!cert) {
-                throw new Error("Certificate not found.");
-            }
-            this._cert = {
-                id: this.id,
-                cert,
-                key
-            };
-        }
-    }
-    async request(method, operation, payload) {
-        if (operation[0] !== "/") {
-            operation = "/" + operation;
-        }
-        const response = (await this._env.request({
-            method: method,
-            url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${operation}`,
-            headers: {
-                ["content-type"]: "application/json"
-            },
-            body: JSON.stringify(payload),
-            x509: this._cert
-        })).body;
-        return JSON.parse(response);
-    }
-    constructor(id, settings){
-        _define_property$4(this, "_env", void 0);
-        _define_property$4(this, "_cert", void 0);
-        _define_property$4(this, "_settings", void 0);
-        _define_property$4(this, "id", void 0);
-        this.id = id;
-        this._settings = settings;
-    }
-}
-
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
@@ -74,6 +19,26 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
         await (always === null || always === void 0 ? void 0 : always());
     }
     return undefined;
+};
+const withRetry = async (action, { retries = 3, retryDelay = 200, errorFilter, errorHandler } = {})=>{
+    if (retries <= 0) {
+        retries = 1;
+    }
+    for(let i = 0; i < retries; i++){
+        try {
+            return await action(i);
+        } catch (error) {
+            if (i === retries - 1 || (errorFilter === null || errorFilter === void 0 ? void 0 : errorFilter(error, i)) === false) {
+                if (errorHandler) {
+                    return await errorHandler(error, i);
+                }
+                throw error;
+            } else {
+                await delay(typeof retryDelay === "function" ? retryDelay(i + 1) : retryDelay * (0.8 + 0.4 * Math.random()));
+            }
+        }
+    }
+    return void 0;
 };
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Minify friendly version of `false`. */ const F = false;
@@ -407,6 +372,8 @@ class RavenDbTarget {
         }
     }
     async _request(method, relativeUrl, body, headers) {
+        var _this__settings_maxRetries;
+        const maxRetries = Math.max(1, (_this__settings_maxRetries = this._settings.maxRetries) !== null && _this__settings_maxRetries !== void 0 ? _this__settings_maxRetries : 5);
         const url = `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${relativeUrl}`;
         const request = {
             method,
@@ -418,25 +385,35 @@ class RavenDbTarget {
             x509: this._cert,
             body: body && (typeof body === "string" ? body : JSON.stringify(body))
         };
-        try {
+        return withRetry(async ()=>{
             const response = await this._env.request(request);
             if (response.status === 500) {
                 const body = json2(response.body);
                 response.error = new Error((body === null || body === void 0 ? void 0 : body.Type) ? `${body.Type}: ${body.Message}` : "(unspecified error)");
             }
             return response;
-        } catch (error) {
-            return {
-                request,
-                status: 500,
-                headers: {},
-                cookies: {},
-                body: stringify2({
-                    Message: formatError(error, true)
-                }),
-                error
-            };
-        }
+        }, {
+            retries: maxRetries,
+            errorFilter: (error, retry)=>{
+                this._env.log(this, {
+                    level: "error",
+                    message: `Request to RavenDB failed on attempt ${retry + 1}.`,
+                    error
+                });
+            },
+            errorHandler: (error)=>{
+                return {
+                    request,
+                    status: 500,
+                    headers: {},
+                    cookies: {},
+                    body: stringify2({
+                        Message: formatError(error, true)
+                    }),
+                    error
+                };
+            }
+        });
     }
     constructor(settings){
         _define_property$2(this, "_settings", void 0);
@@ -897,4 +874,4 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
     };
 };
 
-export { RavenDbConfiguration, RavenDbExtension, RavenDbTracker, RavenDbVariableStorage };
+export { RavenDbExtension, RavenDbTracker, RavenDbVariableStorage };

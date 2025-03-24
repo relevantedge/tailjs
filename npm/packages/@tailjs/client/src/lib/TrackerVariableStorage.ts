@@ -11,6 +11,7 @@ import {
   VariableOperationParameter,
   VariableOperationResult,
   VariableResultStatus,
+  VariableSetter,
   VariableValueSetter,
   WithCallbacks,
 } from "@tailjs/types";
@@ -136,18 +137,14 @@ export const createVariableStorage = (
   const registerCallback = (
     mappedKey: string,
     callback: RegisteredCallback | undefined
-  ) => {
-    return (
-      callback &&
-      get2(activeCallbacks, mappedKey, () => new Set()).add(callback)
-    );
-  };
+  ) =>
+    callback &&
+    !!get2(activeCallbacks, mappedKey, () => new Set()).add(callback);
 
   const invokeCallbacks = (result: ClientVariableGetResult) => {
     if (!result) return;
 
     const key = variableKeyToString(result);
-
     const callbacks = remove(activeCallbacks, key);
     if (!callbacks?.size) return;
 
@@ -286,8 +283,8 @@ export const createVariableStorage = (
           if (initSetters.length) {
             forEach2(
               await vars.set(map2(initSetters, ([, setter]) => setter)).all(),
-              (result, i) =>
-                results.set(
+              (result, i) => {
+                return results.set(
                   initSetters[i][0],
                   maskEntityId(
                     result.status === VariableResultStatus.Conflict
@@ -295,9 +292,13 @@ export const createVariableStorage = (
                           ...result,
                           status: VariableResultStatus.Success,
                         }
+                      : result.status === VariableResultStatus.Success &&
+                        result.value == null
+                      ? { ...result, status: VariableResultStatus.NotFound }
                       : result
                   )
-                )
+                );
+              }
             );
           }
 
@@ -479,6 +480,7 @@ export const createVariableStorage = (
 
   addResponseHandler(({ variables }: PostResponse) => {
     if (!variables) return;
+
     const changed = concat2(
       map2(variables.get, (result) =>
         isVariableResult(result) ? result : skip2

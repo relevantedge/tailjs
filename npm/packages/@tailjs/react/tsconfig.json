@@ -2,7 +2,7 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["es2022", "dom"],
+    "lib": ["es2022", "dom", "DOM.Iterable", "es7"],
     "resolveJsonModule": true,
     "strictNullChecks": true,
     "jsx": "react",

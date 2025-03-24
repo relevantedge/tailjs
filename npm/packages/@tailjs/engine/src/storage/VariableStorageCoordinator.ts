@@ -23,6 +23,7 @@ import {
   toVariableResultPromise,
   TypeResolver,
   ValidatableSchemaEntity,
+  validateVariableKeySyntax,
   VALIDATION_ERROR_SYMBOL,
   Variable,
   VariableGetResult,
@@ -38,6 +39,7 @@ import {
   VariableServerScope,
   VariableSetResult,
   VariableSetter,
+  VariableValueErrorResult,
   VariableValueSetter,
   WithCallbacks,
 } from "@tailjs/types";
@@ -273,6 +275,19 @@ const DEFAULT_USAGE: SchemaDataUsage = {
   ...DataUsage.anonymous,
 };
 
+const invalidVariableKeyToErrorResult = (
+  key: VariableKey & { scope?: string | null }
+): VariableValueErrorResult | undefined => {
+  const errorMessage = validateVariableKeySyntax(key);
+  return errorMessage
+    ? {
+        status: VariableResultStatus.BadRequest,
+        ...key,
+        error: errorMessage,
+      }
+    : undefined;
+};
+
 export class VariableStorageCoordinator<
   KnownVariables extends KnownVariableMap = never
 > {
@@ -420,6 +435,11 @@ export class VariableStorageCoordinator<
 
         let index = 0;
         for (const getter of getters) {
+          const syntaxErrorResult = invalidVariableKeyToErrorResult(getter);
+          if (syntaxErrorResult) {
+            results.set(getter, syntaxErrorResult);
+            continue;
+          }
           try {
             validateEntityId(getter, context);
           } catch (error) {
@@ -653,6 +673,16 @@ export class VariableStorageCoordinator<
           }
         }
 
+        for (const [key, variable] of results) {
+          const { changed, variable: updated } = removeLocalScopes(
+            variable,
+            context
+          );
+          if (changed) {
+            results.set(key, updated);
+          }
+        }
+
         return this._assignResultSchemas(results);
       }
     ) as any;
@@ -691,6 +721,11 @@ export class VariableStorageCoordinator<
 
       let index = 0;
       for (const setter of setters) {
+        const syntaxErrorResult = invalidVariableKeyToErrorResult(setter);
+        if (syntaxErrorResult) {
+          results.set(setter, syntaxErrorResult);
+          continue;
+        }
         let type: SchemaVariable | undefined;
         try {
           validateEntityId(setter, context);
@@ -891,6 +926,16 @@ export class VariableStorageCoordinator<
           }
 
           results.set(setter, censorResult(result, type, validationContext));
+        }
+      }
+
+      for (const [key, variable] of results) {
+        const { changed, variable: updated } = removeLocalScopes(
+          variable,
+          context
+        );
+        if (changed) {
+          results.set(key, updated);
         }
       }
 
@@ -1113,3 +1158,14 @@ export class VariableStorageCoordinator<
     await this._storage.initialize(environment);
   }
 }
+
+const removeLocalScopes = <T extends VariableKey>(
+  variable: T,
+  context: VariableStorageContext
+): { changed: boolean; variable: T } => {
+  if (context?.scope?.[variable.scope + "Id"]) {
+    variable.entityId = undefined!;
+    return { changed: true, variable };
+  }
+  return { changed: false, variable };
+};

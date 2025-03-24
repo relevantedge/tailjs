@@ -1,4 +1,8 @@
-export type { TraversableElement, TraverseContext } from "./internal";
+export type {
+  TraversableElement,
+  TraverseContext,
+  TrackerScriptSettings,
+} from "./internal";
 
 import type { TrackerAttributes } from "@tailjs/client";
 export * from "./rules";

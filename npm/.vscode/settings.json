@@ -58,6 +58,7 @@
     "unnest",
     "unparam",
     "unsalvageable",
+    "upserts",
     "uuidv",
     "Validatable",
     "Voidefined",

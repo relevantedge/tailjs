@@ -75,7 +75,13 @@ export type VariableSetResult<T extends {} = any> =
   | VariableConflictResult<T>
   | VariableNotFoundResult
   | VariableValueErrorResult
-  | (
-      | (T extends null | undefined ? VariableDeleteResult : never)
-      | VariableSuccessResult<T>
-    );
+  | VariableDeleteResult
+  | VariableSuccessResult<T>;
+
+const mufti = (value: any): value is VariableDeleteResult => true;
+
+const laks: VariableSetResult<{}> = null! as any;
+
+if (mufti(laks)) {
+  const x = laks;
+}

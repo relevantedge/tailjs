@@ -1005,8 +1005,7 @@
         },
         "value": {
           "type": "string",
-          "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.",
-          "x-privacy-class": "direct"
+          "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope."
         },
         "fillOrder": {
           "$ref": "urn:tailjs:core#/definitions/Integer",
@@ -2504,7 +2503,7 @@
       }
     }
   },
-  "x-version": "0.37.2",
+  "x-version": "0.38.1",
   "x-privacy-class": "anonymous",
   "x-privacy-purposes": [
     "necessary"

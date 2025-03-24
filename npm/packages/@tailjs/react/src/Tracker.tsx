@@ -1,4 +1,4 @@
-import React, { PropsWithChildren } from "react";
+import React, { FunctionComponent, PropsWithChildren, ReactNode } from "react";
 
 import {
   BoundaryData,
@@ -7,17 +7,16 @@ import {
 } from "@tailjs/client/external";
 import { Content } from "@tailjs/types";
 
-import {
-  BUILD_REVISION_QUERY,
-  INIT_SCRIPT_QUERY,
-  PLACEHOLDER_SCRIPT,
-} from "@constants";
+import { PLACEHOLDER_SCRIPT } from "@constants";
 import { IncludeExcludeRules, MapState, compileIncludeExcludeRules } from ".";
 import {
   ParseOverrideFunction,
   TraverseContext,
   mergeStates,
 } from "./internal";
+import { TrackerScriptSettings, createTrackerScript } from "./internal";
+import { merge2 } from "@tailjs/util";
+import { tracker } from "@tailjs/client";
 
 export interface BoundaryDataWithView extends BoundaryData {
   view?: Content | null;
@@ -45,11 +44,6 @@ export type TrackerProperties = PropsWithChildren<{
    * in the parts of your website where there are no explicitly defined context (e.g. content from a CMS).
    */
   trackReactComponents?: boolean;
-
-  /**
-   * The URL for the tail.js request handler
-   */
-  endpoint?: string;
 
   /**
    * Do not track. It may be easier to set this property than to add/remove the component.
@@ -94,7 +88,7 @@ export type TrackerProperties = PropsWithChildren<{
   /**
    * The JSX for the script tag that will include the tracker script.
    */
-  scriptTag?: boolean | JSX.Element | ((endpoint: string) => JSX.Element);
+  script?: TrackerScriptSettings;
 
   /**
    * The collected tracking contexts will be embedded statically in the rendered HTML without the need for client-side hydration.
@@ -137,275 +131,286 @@ const BoundaryReferences = ({ references }: { references: () => any[] }) => {
 const forEach = <T,>(item: T, action: (item: T) => void) =>
   item && (Array.isArray(item) ? item.forEach(action) : action(item));
 
-export const Tracker = ({
-  children,
-  map,
-  trackReactComponents = true,
-  disabled = false,
-  endpoint,
-  include,
-  exclude,
-  stoppers,
-  scriptTag = true,
-  ssg: embedBoundaryData = false,
-  parseOverride,
-}: TrackerProperties) => {
-  if (disabled) {
-    return <>{children}</>;
-  }
-  if (disabled) {
-    tail({ disable: true });
-  } else {
-    tail({ disable: false });
-  }
+export type TrackerComponent = FunctionComponent<TrackerProperties> & {
+  Script: FunctionComponent<{ script: TrackerScriptSettings }>;
+  defaults?: TrackerProperties;
+};
+let scriptOwner: null | "tracker" | "head" = null;
 
-  const mappers = Array.isArray(map) ? map : map ? [map] : [];
+export const Tracker: TrackerComponent = Object.assign(
+  (props: TrackerProperties = {}) => {
+    let {
+      children,
+      map,
+      trackReactComponents = true,
+      disabled = false,
+      include,
+      exclude,
+      stoppers,
+      script,
+      ssg: embedBoundaryData = false,
+      parseOverride,
+    } = merge2({}, [props, Tracker.defaults], {
+      overwrite: false,
+    }) as TrackerProperties;
 
-  exclude =
-    !exclude || !("replace" in exclude)
-      ? [/(Router|Boundary|Handler)$/]
-      : "replace" in exclude
-      ? exclude.replace
-      : exclude;
-
-  const excludeType = compileIncludeExcludeRules(include, exclude);
-  let stop = compileIncludeExcludeRules(undefined, stoppers);
-
-  if (scriptTag !== false) {
-    if (scriptTag === true) {
-      scriptTag = <script async></script>;
+    if (disabled) {
+      return <>{children}</>;
     }
-    endpoint ??=
-      (typeof scriptTag === "function" ? null : scriptTag.props.src) ||
-      "/_t.js";
+    if (disabled) {
+      tail({ disable: true });
+    } else {
+      tail({ disable: false });
+    }
 
-    endpoint = [
-      // Strip whatever querystring and hash that might be in the endpoint URI,
-      endpoint!.replace(/[?#].*/, ""),
-      "?",
-      // append the "?init" parameter,
-      INIT_SCRIPT_QUERY,
-      // and a cache buster.
-      BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : "",
-    ].join("");
+    const mappers = Array.isArray(map) ? map : map ? [map] : [];
 
-    scriptTag =
-      typeof scriptTag === "function"
-        ? scriptTag(endpoint)
-        : { ...scriptTag, props: { ...scriptTag.props, src: endpoint } };
-  }
+    exclude =
+      !exclude || !("replace" in exclude)
+        ? [/(Router|Boundary|Handler)$/]
+        : "replace" in exclude
+        ? exclude.replace
+        : exclude;
 
-  /** Boundary data for SSR rendered elements. */
-  const collectedBoundaryReferences:
-    | Map<any, [data: any, index: number]>
-    | undefined = embedBoundaryData ? new Map() : undefined;
+    const excludeType = compileIncludeExcludeRules(include, exclude);
+    let stop = compileIncludeExcludeRules(undefined, stoppers);
 
-  const seen = new Set<string>();
-  return (
-    <>
-      <MapState
-        context={tail}
-        parse={(el, traverse) => {
-          if (el.type == Tracker) {
-            // Trackers don't track trackers.
-            if (el.props.scriptTag !== false) {
-              el = { ...el, props: { ...el.props, scriptTag: false } };
+    if (scriptOwner === "head") {
+      script = false;
+    } else {
+      scriptOwner = "tracker";
+    }
+
+    /** Boundary data for SSR rendered elements. */
+    const collectedBoundaryReferences:
+      | Map<any, [data: any, index: number]>
+      | undefined = embedBoundaryData ? new Map() : undefined;
+
+    const seen = new Set<string>();
+
+    return (
+      <>
+        <MapState
+          context={tail}
+          parse={(el, traverse) => {
+            if (el.type == Tracker) {
+              // Trackers don't track trackers.
+              if (el.props.scriptTag !== false) {
+                el = { ...el, props: { ...el.props, scriptTag: false } };
+              }
+              return el;
             }
-            return el;
-          }
-          return parseOverride?.(el, traverse);
-        }}
-        ignoreType={stop}
-        mapState={(el, state: BoundaryDataWithView | null, context) => {
-          const mapped: BoundaryDataWithView[] = mappers
-            .map((mapper) => mapper(el, context))
-            .filter((item) => item) as any;
+            return parseOverride?.(el, traverse);
+          }}
+          ignoreType={stop}
+          mapState={(el, state: BoundaryDataWithView | null, context) => {
+            const mapped: BoundaryDataWithView[] = mappers
+              .map((mapper) => mapper(el, context))
+              .filter((item) => item) as any;
 
-          let allMapped: BoundaryDataWithView | undefined;
-          for (const prop of ["component", "content"]) {
-            seen.clear();
-            // Add the IDs we already have, lest we add them again.
-            forEach(context.state?.[prop], (cmp: any) => seen.add(cmp.id));
+            let allMapped: BoundaryDataWithView | undefined;
+            for (const prop of ["component", "content"]) {
+              seen.clear();
+              // Add the IDs we already have, lest we add them again.
+              forEach(context.state?.[prop], (cmp: any) => seen.add(cmp.id));
+
+              for (const item of mapped) {
+                forEach(
+                  item[prop],
+                  (item) =>
+                    !seen.has(item.id) &&
+                    (seen.add(item.id),
+                    ((allMapped ??= {})[prop] ??= []).push(item))
+                );
+              }
+            }
 
             for (const item of mapped) {
-              forEach(
-                item[prop],
-                (item) =>
-                  !seen.has(item.id) &&
-                  (seen.add(item.id),
-                  ((allMapped ??= {})[prop] ??= []).push(item))
-              );
-            }
-          }
-
-          for (const item of mapped) {
-            if (item?.area) {
-              (allMapped ??= {}).area = item.area;
-            }
-            if (item?.view && !allMapped?.view) {
-              context.context({
-                set: {
-                  scope: "view",
-                  key: "view",
-                  value: ((allMapped ??= {}).view = item.view),
-                },
-              });
-            }
-          }
-
-          if (typeof el.type === "string") {
-            // Ignore DOM elements unless explicitly told not to. We only want to wire the immediate children of JSX components.
-            return allMapped ?? null;
-          }
-
-          if (
-            trackReactComponents &&
-            (!allMapped?.component as any) &&
-            el.type.name &&
-            !excludeType?.(el.type)
-          ) {
-            // If we do not have an explicit component, let's see if we can use one from React.
-            (allMapped ??= {}).component = [
-              {
-                id: el.type.displayName || el.type.name,
-                inferred: true,
-                source: "react",
-              },
-            ];
-          }
-          return mergeStates(state, allMapped);
-        }}
-        patchProperties={(el, parentState, currentState) => {
-          if (stop?.(el.type)) {
-            return false;
-          }
-
-          let props: any = undefined;
-          const html = typeof el.type === "string";
-          let tags = el.props && el.props["track-tags"];
-          if (tags) {
-            if (!html) {
-              currentState = mergeStates(currentState, { tags });
-              props = { ...el.props };
-              delete props["track-tags"];
-            } else {
-              parentState = mergeStates(parentState, { tags });
-            }
-          }
-
-          if ((tags = parentState?.tags)) {
-            props = {
-              ...el.props,
-              ["track-tags"]: tags,
-            };
-          }
-
-          let updated: Record<string, any> | undefined;
-          if ((updated = scanProperties(props ?? el.props))) {
-            props = updated;
-          } else {
-            // Also decent first level properties if no properties are found in case item data is passed a property like `props: {item: T}` instead of `props: T`.
-
-            for (const key in el.props) {
-              updated = scanProperties(el.props[key]);
-              if (updated) {
-                props ??= el.props;
-                props[key] = updated;
+              if (item?.area) {
+                (allMapped ??= {}).area = item.area;
+              }
+              if (item?.view && !allMapped?.view) {
+                context.context({
+                  set: {
+                    scope: "view",
+                    key: "view",
+                    value: ((allMapped ??= {}).view = item.view),
+                  },
+                });
               }
             }
-          }
 
-          if (
-            html &&
-            parentState &&
-            (parentState.component ||
-              parentState.content ||
-              parentState.area ||
-              parentState.cart ||
-              parentState.tags)
-          ) {
-            if (embedBoundaryData) {
-              const key = JSON.stringify(parentState);
-              let current = collectedBoundaryReferences!.get(key);
-              !current &&
-                collectedBoundaryReferences!.set(
-                  key,
-                  (current = [parentState, collectedBoundaryReferences!.size])
-                );
+            if (typeof el.type === "string") {
+              // Ignore DOM elements unless explicitly told not to. We only want to wire the immediate children of JSX components.
+              return allMapped ?? null;
+            }
 
-              const [, index] = current;
-
-              return {
-                props: {
-                  ...(props ?? el.props),
-                  _t: index.toString(36),
+            if (
+              trackReactComponents &&
+              (!allMapped?.component as any) &&
+              el.type.name &&
+              !excludeType?.(el.type)
+            ) {
+              // If we do not have an explicit component, let's see if we can use one from React.
+              (allMapped ??= {}).component = [
+                {
+                  id: el.type.displayName || el.type.name,
+                  inferred: true,
+                  source: "react",
                 },
-                ref:
-                  typeof window !== "undefined"
-                    ? getRef(parentState)
-                    : undefined,
-                state: currentState,
+              ];
+            }
+            return mergeStates(state, allMapped);
+          }}
+          patchProperties={(el, parentState, currentState) => {
+            if (stop?.(el.type)) {
+              return false;
+            }
+
+            let props: any = undefined;
+            const html = typeof el.type === "string";
+            let tags = el.props && el.props["track-tags"];
+            if (tags) {
+              if (!html) {
+                currentState = mergeStates(currentState, { tags });
+                props = { ...el.props };
+                delete props["track-tags"];
+              } else {
+                parentState = mergeStates(parentState, { tags });
+              }
+            }
+
+            if ((tags = parentState?.tags)) {
+              props = {
+                ...el.props,
+                ["track-tags"]: tags,
               };
-            } else if (typeof window !== "undefined") {
-              const ref = getRef(parentState);
-              return props
-                ? { props: props, ref, state: currentState }
-                : { ref };
             }
-          }
 
-          if (props) {
-            return { props, state: currentState };
-          }
+            let updated: Record<string, any> | undefined;
+            if ((updated = scanProperties(props ?? el.props))) {
+              props = updated;
+            } else {
+              // Also decent first level properties if no properties are found in case item data is passed a property like `props: {item: T}` instead of `props: T`.
 
-          function scanProperties(props: Record<string, any>) {
-            const orgProps = props;
-            for (const [name, patch] of [
-              ["track-area", (value) => ({ area: value })],
-              [
-                "track-component",
-                (value) => ({
-                  component: typeof value === "string" ? { id: value } : value,
-                }),
-              ],
-              ["track-tags", (value) => ({ tags: value })],
-              ["track-content", (value) => ({ content: value })],
-              ["track-cart", (value) => ({ cart: value })],
-            ] as [string, (value: any) => BoundaryData][]) {
-              if (props && props[name]) {
-                if (html) {
-                  // Attach the HTML element's tracker configuration to itself.
-                  parentState = mergeStates(parentState, patch(props[name]));
-                } else {
-                  // Attach the component's tracker configuration to the first
-                  // suitable HTML elements.
-                  currentState = mergeStates(currentState, patch(props[name]));
+              for (const key in el.props) {
+                updated = scanProperties(el.props[key]);
+                if (updated) {
+                  props ??= el.props;
+                  props[key] = updated;
                 }
-                props = { ...props };
-
-                delete props[name];
               }
             }
-            return props !== orgProps ? props : undefined;
-          }
-        }}
-      >
-        {children}
-      </MapState>
-      {embedBoundaryData && typeof window === "undefined" && (
-        <BoundaryReferences
-          references={() =>
-            Object.entries(collectedBoundaryReferences!).map(
-              ([, [data]]) => data
-            )
-          }
-        />
-      )}
-      {scriptTag}
-      {!disabled && <TrackerRendered />}
-    </>
-  );
-};
+
+            if (
+              html &&
+              parentState &&
+              (parentState.component ||
+                parentState.content ||
+                parentState.area ||
+                parentState.cart ||
+                parentState.tags)
+            ) {
+              if (embedBoundaryData) {
+                const key = JSON.stringify(parentState);
+                let current = collectedBoundaryReferences!.get(key);
+                !current &&
+                  collectedBoundaryReferences!.set(
+                    key,
+                    (current = [parentState, collectedBoundaryReferences!.size])
+                  );
+
+                const [, index] = current;
+
+                return {
+                  props: {
+                    ...(props ?? el.props),
+                    _t: index.toString(36),
+                  },
+                  ref:
+                    typeof window !== "undefined"
+                      ? getRef(parentState)
+                      : undefined,
+                  state: currentState,
+                };
+              } else if (typeof window !== "undefined") {
+                const ref = getRef(parentState);
+                return props
+                  ? { props: props, ref, state: currentState }
+                  : { ref };
+              }
+            }
+
+            if (props) {
+              return { props, state: currentState };
+            }
+
+            function scanProperties(props: Record<string, any>) {
+              const orgProps = props;
+              for (const [name, patch] of [
+                ["track-area", (value) => ({ area: value })],
+                [
+                  "track-component",
+                  (value) => ({
+                    component:
+                      typeof value === "string" ? { id: value } : value,
+                  }),
+                ],
+                ["track-tags", (value) => ({ tags: value })],
+                ["track-content", (value) => ({ content: value })],
+                ["track-cart", (value) => ({ cart: value })],
+              ] as [string, (value: any) => BoundaryData][]) {
+                if (props && props[name]) {
+                  if (html) {
+                    // Attach the HTML element's tracker configuration to itself.
+                    parentState = mergeStates(parentState, patch(props[name]));
+                  } else {
+                    // Attach the component's tracker configuration to the first
+                    // suitable HTML elements.
+                    currentState = mergeStates(
+                      currentState,
+                      patch(props[name])
+                    );
+                  }
+                  props = { ...props };
+
+                  delete props[name];
+                }
+              }
+              return props !== orgProps ? props : undefined;
+            }
+          }}
+        >
+          {children}
+        </MapState>
+        {embedBoundaryData && typeof window === "undefined" && (
+          <BoundaryReferences
+            references={() =>
+              Object.entries(collectedBoundaryReferences!).map(
+                ([, [data]]) => data
+              )
+            }
+          />
+        )}
+        {createTrackerScript(script)}
+        {!disabled && <TrackerRendered />}
+      </>
+    );
+  },
+  {
+    Script: ({ script }: { script: TrackerScriptSettings }) => {
+      if (scriptOwner === "tracker") {
+        return null;
+      }
+      script = merge2({}, [script, Tracker.defaults?.script], {
+        overwrite: false,
+      }) as TrackerScriptSettings;
+
+      scriptOwner = "head";
+      return createTrackerScript(script);
+    },
+  }
+);
 
 function getRef({ component, content, area, tags, cart }: BoundaryData) {
   let current: HTMLElement | null = null;

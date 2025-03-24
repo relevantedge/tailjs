@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ConfiguredTracker } from "./api/tailjs/ConfiguredTracker.Server";
 import "./globals.css";
+import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,9 +18,27 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      {/* <head>
+        <ConfiguredTracker.Script strategy="html" />
+        <script src="https://web.cmp.usercentrics.eu/modules/autoblocker.js"></script>
+        <script
+          id="usercentrics-cmp"
+          src="https://web.cmp.usercentrics.eu/ui/loader.js"
+          data-settings-id="VPy_v-VTfbxrX-"
+          async
+        ></script>
+      </head> */}
+
       <body className={inter.className}>
         <ConfiguredTracker>{children}</ConfiguredTracker>
       </body>
+      <Script src="https://web.cmp.usercentrics.eu/modules/autoblocker.js" />
+      <Script
+        id="usercentrics-cmp"
+        src="https://web.cmp.usercentrics.eu/ui/loader.js"
+        data-settings-id="VPy_v-VTfbxrX-"
+        async
+      />
     </html>
   );
 }

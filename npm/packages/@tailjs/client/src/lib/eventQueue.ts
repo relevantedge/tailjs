@@ -62,7 +62,7 @@ export interface EventQueue {
    * If flush is not explicitly requested, the event will eventually get posted, either by the configured post frequency, or when the user leaves the tab.
    */
   post<
-    T extends ToggleArray<ProtectedEvent[]>,
+    T extends ToggleArray<ProtectedEvent>,
     Options extends EventQueuePostOptions | undefined
   >(
     events: T,
@@ -233,7 +233,7 @@ export const createEventQueue = (
   };
 
   const post = async (
-    events: ToggleArray<ProtectedEvent[]>,
+    events: ToggleArray<ProtectedEvent>,
     { flush = false, async = true, variables }: EventQueuePostOptions = {}
   ): Promise<any> => {
     const newEvents: ProtectedEvent[] = [];

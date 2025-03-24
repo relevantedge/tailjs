@@ -1,6 +1,7 @@
 import {
   NextPatchExtension,
   SchemaBuilder,
+  TrackedEventBatch,
   type Tracker,
   type TrackerEnvironment,
   type TrackerExtension,
@@ -45,7 +46,7 @@ export class ClientLocation implements TrackerExtension {
   }
 
   public async patch(
-    events: TrackedEvent[],
+    { events }: TrackedEventBatch,
     next: NextPatchExtension,
     tracker: Tracker
   ) {

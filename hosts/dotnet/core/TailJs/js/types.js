@@ -932,7 +932,7 @@ const parseSchemaDataUsageKeywords = (keywords, forVariable = false)=>{
     const usage = {};
     for (const keywordGroup of keywords){
         if (!keywordGroup) continue;
-        for (const keyword of isArray(keywordGroup) ? keywordGroup : keywordGroup.split(/[,\s]+/)){
+        for (const keyword of isArray(keywordGroup) ? keywordGroup : keywordGroup.split(/[:,\s]+/)){
             if (matched = DataClassification.parse(keyword, false)) {
                 usage.classification = usage.classification ? throwError(`Data classification can only be specified once. It is already '${usage.classification}'`) : matched;
             } else if (matched = DataVisibility.parse(keyword, false)) {
@@ -3088,6 +3088,26 @@ const extractKey = (value)=>value == null ? value : {
         scope: value.scope,
         entityId: value.entityId
     };
+const extractVariable = (variable)=>{
+    if (variable == null) return variable;
+    return {
+        scope: variable.scope,
+        key: variable.key,
+        entityId: variable.entityId,
+        created: variable.created,
+        modified: variable.modified,
+        version: variable.version,
+        expires: variable.expires,
+        ttl: variable.ttl,
+        value: variable.value
+    };
+};
+const removeLocalScopedEntityId = (variable)=>{
+    if (variable.scope !== "global") {
+        variable.entityId = undefined;
+    }
+    return variable;
+};
 
 const filterSetSymbol = Symbol();
 const filterKeys = (filter, values, key)=>{
@@ -3400,4 +3420,4 @@ const collect = (collected, tag)=>{
 };
 const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, MarkdownSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };
+export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, MarkdownSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, extractVariable, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, removeLocalScopedEntityId, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };

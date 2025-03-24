@@ -1,7 +1,7 @@
 export const QUERY_DEVICE = "qd";
 export const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
+export const TRACKER_CONFIG_PLACEHOLDER = "{{CONFIG}}";
 
-export const INIT_SCRIPT_QUERY = "init";
 export const CLIENT_SCRIPT_QUERY = "opt";
 export const EVENT_HUB_QUERY = "var";
 export const VARIABLES_QUERY = "usr";

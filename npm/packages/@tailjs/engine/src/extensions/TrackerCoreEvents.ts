@@ -21,6 +21,8 @@ import { now } from "@tailjs/util";
 import {
   NextPatchExtension,
   ParseResult,
+  ServerTrackedEvent,
+  TrackedEventBatch,
   Tracker,
   TrackerExtension,
 } from "../shared";
@@ -66,7 +68,7 @@ export class TrackerCoreEvents implements TrackerExtension {
   public readonly id = "core_events";
 
   public async patch(
-    events: TrackedEvent[],
+    { events }: TrackedEventBatch,
     next: NextPatchExtension,
     tracker: Tracker
   ) {
@@ -161,11 +163,12 @@ export class TrackerCoreEvents implements TrackerExtension {
           // Fake a sign out event if the user is currently authenticated.
           events.push(event);
           event = {
+            id: undefined!,
             type: "sign_out",
             userId: tracker.authenticatedUserId,
             timestamp: event.timestamp,
             session,
-          } satisfies SignOutEvent as TrackedEvent;
+          } satisfies SignOutEvent as ServerTrackedEvent;
         }
         // Start new session
         await flushUpdates();

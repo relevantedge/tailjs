@@ -25,6 +25,7 @@ export interface FormField {
   /**
    * The number of times the field was changed after initially being filled.
    */
+
   corrections?: Integer;
 
   /**
@@ -43,7 +44,6 @@ export interface FormField {
    * The default is only to track whether checkboxes are selected.
    * Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.
    *
-   * @privacy direct
    */
   value?: string;
 

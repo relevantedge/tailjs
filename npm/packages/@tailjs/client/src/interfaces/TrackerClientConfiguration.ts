@@ -1,9 +1,4 @@
-import type {
-  IterableOrSelf,
-  MaybeArray,
-  Nullish,
-  ParsableRegExp,
-} from "@tailjs/util";
+import type { MaybeArray, Nullish, ParsableRegExp } from "@tailjs/util";
 
 /**
  * Defines a mapping from HTML element attributes to tags based on their names.

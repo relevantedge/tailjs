@@ -75,8 +75,8 @@ export class DefaultLogger implements NativeHostLogger {
     );
   }
 
-  _rootPath: string | undefined;
-  initialize(rootPath: string) {
+  _rootPath: string | null | undefined;
+  initialize(rootPath: string | null) {
     this._rootPath = rootPath;
     return;
   }
@@ -107,7 +107,7 @@ export class DefaultLogger implements NativeHostLogger {
       }
     }
 
-    if (this._settings.basePath) {
+    if (this._settings.basePath && this._rootPath !== null) {
       const logger = get2(
         this._groupLoggers,
         message.group ?? "default",
