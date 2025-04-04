@@ -1,8 +1,9 @@
+import { forEach2 } from "@tailjs/util";
 import React, {
   ExoticComponent,
   Fragment,
-  ReactNode,
   isValidElement,
+  ReactNode,
 } from "react";
 import { ExcludeRule } from "../rules";
 
@@ -12,9 +13,9 @@ export let currentContext: TraverseContext | null = null;
 
 const CONTEXT_PROPERTY = Symbol();
 
-type RefFunction = (el: HTMLElement) => void;
+export type RefFunction = (el: Element) => void;
 export type TraversableElement = JSX.Element & {
-  ref?: RefFunction | { current: any };
+  ref?: any;
   /**
    * Check this flag before accessing any other property than `name` and the elements `type` property if in server component context
    * (often the case if using NextJS).
@@ -32,87 +33,116 @@ const isForwardRef = (type: any) => type.render;
 
 export type TraverseResult = TraversableElement | ExoticComponent;
 
-export type MapStateFunction<State = any, Context = any> = (
+export type MapStateFunction<State = any> = (
   el: TraversableElement,
   currentState: State | null,
-  traverseContext: TraverseContext<State, Context>
+  traverseContext: TraverseContext<State>
 ) => State | null;
 
-export type PatchPropertiesFunction<State = any, Context = any> = (
+export type PatchPropertiesFunction<State = any> = (
   el: TraversableElement,
   parentState: State | null,
-  currentState: State | null,
-  context: Context
+  currentState: State | null
 ) =>
-  | { ref?: RefFunction; props?: Record<string, any>; state?: State | null }
+  | {
+      mappedState?: State;
+      props?: Record<string, any>;
+      state?: State | null;
+    }
   | void
   | false;
 
-export type ComponentRefreshedFunction<State = any, Context = any> = (
+export type ComponentRefreshedFunction<State = any> = (
   type: any,
   state: State | null,
-  props: Record<string, any>,
-  context: Context
+  props: Record<string, any>
 ) => void;
 
-export type ParseOverrideFunction = (
+export type TraverseOverrideFunction = (
   el: TraversableElement,
   traverse: (el: TraversableElement) => TraversableElement
 ) => TraverseResult | void | false;
 
-export interface TraverseFunctions<T, C> {
-  mapState: MapStateFunction<T, C>;
-  patchProperties?: PatchPropertiesFunction<T, C>;
-  componentRefreshed?: ComponentRefreshedFunction<T, C>;
-  /** Hook for custom parsing of certain elements if required. */
-  parse?: ParseOverrideFunction;
+export type MapElementStateFunction<State> = (
+  el: HTMLElement,
+  state: State
+) => void;
+
+export interface TraverseFunctions<T> {
+  mapElementState: MapStateFunction<T>;
+  patchProperties?: PatchPropertiesFunction<T>;
+  componentRefreshed?: ComponentRefreshedFunction<T>;
+  /** Hook for custom traversal of certain elements if required. */
+  traverse?: TraverseOverrideFunction;
   ignoreType?: ExcludeRule;
+  applyElementState?: MapElementStateFunction<T>;
 }
 
-export interface TraverseOptions<T, Context>
-  extends TraverseFunctions<T, Context> {
+export interface TraverseOptions<T> extends TraverseFunctions<T> {
   initialState?: T;
-  context?: Context;
 }
 
-export interface TraverseContext<T = any, C = any>
-  extends TraverseFunctions<T, C> {
+export type ElementStateMapping<T = any> = {
+  id: string;
+  state: T;
+  clearId?: boolean;
+};
+
+export interface RootTraverseContext<T = any> extends TraverseFunctions<T> {
   state: T | null;
   el: TraversableElement;
-  parent: TraverseContext<T, C> | null;
-  context: C;
+}
+
+export interface TraverseContext<T = any> {
+  state: T | null;
+  el: TraversableElement;
+  root: RootTraverseContext<T>;
+  parent: TraverseContext<T> | null;
   depth: number;
-  debug?: boolean;
-
-  /** The current React component containing the context's node.  */
-  component?: TraversableElement | null;
-
+  additionalProperties?: Record<string, any>;
+  mappedState?: T;
+  componentContext: TraverseContext;
   clientComponentContext?: boolean;
 }
 
-// Potentially have a look at what the React Dev tool extension does.
-// The code in this file is significantly shorter, but also a little bit "heuristic".
-//
-// If anything turns out to fail, we can start looking into porting the Dev tool approach:
-// https://github.com/facebook/react-devtools/blob/v3/backend/attachRendererFiber.js
-
-const createInitialContext = <T, C = undefined>(
+const createRootContext = <T>(
   node: ReactNode,
-  options: TraverseOptions<T, C>
-): TraverseContext<T, C> => ({
-  ...options,
-  state: options.initialState ?? null,
-  el: node! as TraversableElement,
-  parent: null,
-  component: null,
-  context: options.context as any,
-  depth: 0,
-});
+  options: TraverseOptions<T>
+): TraverseContext<T> => {
+  const root: RootTraverseContext = {
+    ...options,
+    state: options.initialState ?? null,
+    el: node! as TraversableElement,
+  };
+  return {
+    root,
+    state: root.state,
+    parent: null,
+    depth: 0,
+    el: root.el,
+    componentContext: null!,
+  };
+};
 
-export const traverseNodes = <T, C = undefined>(
+export const traverseNodes = <T>(
   node: ReactNode,
-  options: TraverseOptions<T, C>
-) => traverseNodesInternal(node, createInitialContext(node, options));
+  options: TraverseOptions<T>
+) => {
+  const context = createRootContext(node, options);
+  context.componentContext = context;
+  return wrapElementStateMapper(node, context);
+};
+
+const wrapElementStateMapper = (node: ReactNode, context: TraverseContext) =>
+  traverseNodesInternal(node, context);
+// typeof window === "undefined"
+//   ? traverseNodesInternal(node, context)
+//   : React.createElement(
+//       React.Fragment,
+//       null,
+//       traverseNodesInternal(node, context),
+//       React.createElement(MapElementStates, { context })
+//     );
 
 const componentCache = new WeakMap<any, any>();
 function getOrSet<K, V>(
@@ -147,35 +177,27 @@ function mergeProperties(
   return target;
 }
 
-function createChildContext<T, C>(
+function createChildContext<T>(
   el: TraversableElement,
-  parentContext: TraverseContext<T, C>
+  context: TraverseContext<T>
 ) {
-  let state = parentContext.mapState(
+  const root = context.root;
+  let childState = root.mapElementState(
     // Make sure there are props, to allow destructuring without weird edge case undefined errors.
     el.props ? el : { ...el, props: {} },
-    parentContext.state,
-    parentContext
+    context.state,
+    context
   );
 
-  const component =
-    typeof el.type === "function" ? el : parentContext.component;
-
-  const childContext: TraverseContext<T, C> = {
-    ...parentContext,
-    state,
+  const childContext: TraverseContext<T> = {
+    ...context,
+    state: childState,
     el,
-    parent: parentContext as any,
-    depth: parentContext.depth + 1,
-    component,
+    parent: context as any,
+    depth: context.depth + 1,
   };
 
-  const patched = parentContext.patchProperties?.(
-    el,
-    parentContext.state,
-    state,
-    parentContext.context
-  );
+  const patched = context.root.patchProperties?.(el, context.state, childState);
 
   if (patched === false) {
     // Do not traverse the element further.
@@ -184,28 +206,9 @@ function createChildContext<T, C>(
     if (patched.state) {
       childContext.state = patched.state;
     }
-    if (patched.props || patched.ref) {
-      const currentRef = el.ref;
-      const patchedRef = patched.ref;
-      childContext.el = {
-        ...el,
-        props: patched.props ?? el.props,
-        ref: patchedRef
-          ? currentRef // Combine the current and new refs
-            ? typeof currentRef === "function"
-              ? (el) => (patchedRef(el), currentRef(el))
-              : ({
-                  get current() {
-                    return currentRef.current;
-                  },
-                  set current(el) {
-                    patchedRef(el);
-                    currentRef.current = el;
-                  },
-                } as any)
-            : patchedRef
-          : currentRef,
-      };
+    childContext.additionalProperties = patched.props;
+    if (typeof window !== "undefined" && patched.mappedState) {
+      childContext.mappedState = patched.mappedState;
     }
   }
 
@@ -213,9 +216,9 @@ function createChildContext<T, C>(
 }
 
 const mapCache = new WeakMap<any, any>();
-export function traverseNodesInternal<T, C>(
+export function traverseNodesInternal<T>(
   node: ReactNode,
-  context: TraverseContext<T, C> | Nullish
+  context: TraverseContext<T>
 ) {
   if (!context || !isTraversable(node)) {
     return node;
@@ -243,24 +246,19 @@ export function traverseNodesInternal<T, C>(
     el: TraversableElement,
     parentContext: TraverseContext
   ): TraverseResult {
-    if (parentContext.ignoreType?.((node as any)?.type)) {
+    const root = parentContext.root;
+    if (root.ignoreType?.((node as any)?.type)) {
       return el;
     }
 
     if (el.type === Fragment) {
       // A group of elements. Traverse as if it was an array.
-      return {
-        ...el,
-        props: {
-          ...el.props,
-          children: traverseNodesInternal(el.props.children, parentContext),
-        },
-      };
+      return traverseProps(el, parentContext);
     }
 
-    if (parentContext.parse) {
+    if (root.traverse) {
       // Check for parse overrides (e.g. child components in NextJs)
-      const parsed = parentContext.parse(el, (el) =>
+      const parsed = root.traverse(el, (el) =>
         traverseProps(el, parentContext)
       );
       if (parsed) {
@@ -282,14 +280,18 @@ export function traverseNodesInternal<T, C>(
     const wrapped = wrapType(el.type, parentContext);
 
     if (wrapped) {
+      childContext.componentContext = childContext;
       return {
         ...el,
-        props: { ...el.props, [CONTEXT_PROPERTY]: childContext },
+        props: {
+          ...el.props,
+          [CONTEXT_PROPERTY]: childContext,
+        },
         type: wrapped,
       };
     }
 
-    return traverseProps(el, parentContext);
+    return traverseProps(el, parentContext, childContext);
   }
 }
 
@@ -306,13 +308,13 @@ const traverseLazy = (
       const value = lazy._payload.value;
       if (forElement) {
         lazy._payload.value = traverseNodesInternal(value, context);
-      } else if (!context.ignoreType?.(value)) {
+      } else if (!context.root.ignoreType?.(value)) {
         const wrapped = wrapType(value, context);
         if (!wrapped) {
           lazy._payload.value = ({ [CONTEXT_PROPERTY]: context }: any = {}) =>
             traverseNodesInternal(value, context);
         } else {
-          lazy._payload.value = (props) => {
+          lazy._payload.value = (props: any) => {
             return traverseNodesInternal(
               React.createElement(value, props),
               props[CONTEXT_PROPERTY]
@@ -332,7 +334,7 @@ const traverseLazy = (
 };
 
 const ignoreType = (type: any, context: TraverseContext) =>
-  !type || context.ignoreType?.(type);
+  !type || context.root.ignoreType?.(type);
 
 const IS_WRAPPED = Symbol();
 function wrapType(type: any, context: TraverseContext) {
@@ -403,20 +405,15 @@ function wrapRender(
   if (!context) {
     return inner.call(type, props);
   }
-
-  // if (context.el.type !== type) {
-  //   context = createChildContext({ ...context.el, type }, context.parent!)!;
-  // }
-
   if (context.state != null) {
-    context.componentRefreshed?.(type, context.state, props, context.context);
+    context.root.componentRefreshed?.(type, context.state, props);
   }
 
   let innerResult = inner.call(type, props);
 
   const render = (innerResult: any) => {
     try {
-      return traverseNodesInternal(innerResult, context);
+      return wrapElementStateMapper(innerResult, context);
     } catch (e) {
       console.error("traverseNodesInternal failed: ", e);
     }
@@ -432,15 +429,35 @@ const traversePropValue = (value: any, context: TraverseContext) =>
     ? (...args: any) => traversePropValue(value(...args), context)
     : value;
 
-const traverseProps = (el: any, context: TraverseContext) =>
-  el.props
-    ? {
-        ...el,
-        props: Object.fromEntries(
-          Object.entries(el.props).map(([key, value]) => [
-            key,
-            traversePropValue(value, context),
-          ])
-        ),
+const traverseProps = (
+  el: TraversableElement,
+  context: TraverseContext,
+  childContext?: TraverseContext
+) => {
+  let patched = childContext?.additionalProperties;
+  if (typeof el.type === "string") {
+    context = childContext!;
+  }
+  forEach2(el.props, ([key, value]) => {
+    const traversed = traversePropValue(value, context);
+    if (traversed !== value) {
+      (patched ??= {})[key] = traversed;
+    }
+  });
+
+  let ref = el.ref;
+  if (!ref && childContext?.mappedState) {
+    let current: any;
+    ref = (el: HTMLElement) => {
+      if (!el || el === current) {
+        return;
       }
+      current = el;
+      context.root.applyElementState?.(el, childContext.mappedState);
+    };
+  }
+
+  return patched || ref
+    ? { ...el, ref, props: { ...el.props, ...patched } }
     : el;
+};

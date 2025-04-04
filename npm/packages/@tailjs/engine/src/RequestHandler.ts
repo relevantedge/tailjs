@@ -28,7 +28,7 @@ import {
 } from "@tailjs/types";
 
 import { DefaultCryptoProvider } from ".";
-import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
+import { CommerceExtension, TrackerCoreEvents } from "./extensions";
 
 import {
   CallbackResponse,
@@ -82,6 +82,7 @@ import {
   match,
   MaybePromise,
   merge2,
+  now,
   Nullish,
   obj2,
   parseQueryString,
@@ -272,7 +273,6 @@ export class RequestHandler {
       try {
         // Initialize extensions. Defaults + factories.
         this._extensions = [
-          Timestamps,
           new TrackerCoreEvents(),
           new CommerceExtension(),
           ...filter2(
@@ -447,7 +447,6 @@ export class RequestHandler {
     options: TrackerPostOptions
   ): Promise<PostResponse> {
     const context = { passive: !!options?.passive };
-    let events = eventBatch;
     await this.initialize();
 
     let parsed = this._validateEvents(tracker, eventBatch);
@@ -474,43 +473,78 @@ export class RequestHandler {
             error: item.error,
           });
         } else {
-          if (!item.id || !item.timestamp || !item.session?.sessionId) {
-            validationErrors.push({
-              // The key for the source index of a validation error may be the error itself during the initial validation.
-              sourceIndex: sourceIndices.get(item),
-              source: item,
-              error:
-                "id, timestamp and session.sessionId are required for server-tracked events.",
-            });
-          }
           events.push(item as ServerTrackedEvent);
         }
       }
       return events;
     }
 
+    const validateServerEvents = async (
+      parsed: ParseResult[],
+      timestamp: number,
+      fromClient: boolean
+    ): Promise<ParseResult[]> => {
+      const results: ParseResult[] = [];
+      for (const result of parsed) {
+        if (!isValidationError(result)) {
+          if (result.timestamp) {
+            if (result.timestamp > 0) {
+              // Allow events with any timestamp to be posted from trusted contexts.
+              if (fromClient && !tracker.trustedContext) {
+                results.push({
+                  error:
+                    "When explicitly specified, timestamps are interpreted relative to current. As such, a positive value would indicate that the event happens in the future which is currently not supported.",
+                  source: result,
+                });
+                continue;
+              }
+            } else {
+              result.timestamp = timestamp + result.timestamp;
+            }
+          } else {
+            result.timestamp = timestamp;
+          }
+          result.id ??= await tracker.env.nextId();
+        }
+        results.push(result);
+      }
+
+      return results;
+    };
+
     const patchExtensions = this._extensions.filter((ext) => ext.patch);
     const callPatch = async (
       index: number,
       results: ParseResult[]
     ): Promise<ServerTrackedEvent[]> => {
-      const extension = patchExtensions[index];
-      const events = collectValidationErrors(
-        this._validateEvents(tracker, results)
+      if (!tracker.session) return [];
+      let timestamp = now();
+      const validated = await validateServerEvents(
+        this._validateEvents(tracker, results),
+        timestamp,
+        !index
       );
+      const events = collectValidationErrors(validated);
+
+      const extension = patchExtensions[index];
       if (!extension) return events;
+
       try {
+        const extensionEvents = await extension.patch!(
+          { events },
+          async (events) => {
+            return await callPatch(index + 1, events);
+          },
+          tracker,
+          context
+        );
+
+        timestamp = now();
         return collectValidationErrors(
-          this._validateEvents(
-            tracker,
-            await extension.patch!(
-              { events },
-              async (events) => {
-                return await callPatch(index + 1, events);
-              },
-              tracker,
-              context
-            )
+          await validateServerEvents(
+            this._validateEvents(tracker, extensionEvents),
+            timestamp,
+            false
           )
         );
       } catch (e) {
@@ -523,7 +557,7 @@ export class RequestHandler {
     const extensionErrors: Record<string, Error> = {};
     if (options.routeToClient) {
       // TODO: Find a way to push these. They are for external client-side trackers.
-      tracker._clientEvents.push(...events);
+      tracker._clientEvents.push(...patchedEventBatch);
     } else {
       await Promise.all(
         this._extensions.map(async (extension) => {

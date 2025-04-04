@@ -11,7 +11,7 @@ export default createClientConfiguration({
     script: {
       strategy: "afterInteractive",
     },
-    stoppers: [/^motion\./],
+
     map: ({ type, props }) => {
       // The below are just examples.
       // Configure this to match your CMS or whatever.

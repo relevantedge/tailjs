@@ -13,7 +13,6 @@ import {
   T,
   array2,
   concat,
-  filter,
   filter2,
   flatMap,
   forEach2,
@@ -103,6 +102,7 @@ export const getComponentContext = (
 
   let includeState = IncludeState.Secondary;
   let rect: Rectangle | undefined;
+
   forAncestorsOrSelf(el, (el) => {
     const entry = boundaryData.get(el);
 
@@ -111,15 +111,16 @@ export const getComponentContext = (
     }
 
     if (hasComponentOrContent(entry)) {
-      const components = filter(
-        array2(entry.component),
-        (entry) =>
-          includeState === IncludeState.Secondary ||
-          (!directOnly &&
-            ((includeState === IncludeState.Primary &&
-              entry.track?.secondary !== T) ||
-              entry.track?.promote))
-      );
+      const components =
+        filter2(array2(entry.component), (entry) => {
+          return (
+            includeState === IncludeState.Secondary ||
+            (!directOnly &&
+              ((includeState === IncludeState.Primary &&
+                entry.track?.secondary !== T) ||
+                entry.track?.promote))
+          );
+        }) ?? [];
 
       rect =
         ((includeRegion ?? some(components, (item) => item.track?.region)) &&
@@ -212,8 +213,8 @@ export const components: TrackerExtensionFactory = {
       boundary: el,
       ...command
     }: BoundaryCommand) => {
-      update(boundaryData, el, (current) =>
-        normalizeBoundaryData(
+      update(boundaryData, el, (current) => {
+        return normalizeBoundaryData(
           "add" in command
             ? {
                 ...current,
@@ -227,8 +228,8 @@ export const components: TrackerExtensionFactory = {
             : "update" in command
             ? command.update(current)
             : command
-        )
-      );
+        );
+      });
 
       impressions(el, boundaryData.get(el));
     };

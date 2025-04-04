@@ -2,15 +2,11 @@ import { PropsWithChildren } from "react";
 
 import { TraverseFunctions, traverseNodes } from "./internal";
 
-export interface MapStateProperties<State = any, Context = any>
-  extends TraverseFunctions<State, Context>,
+export interface MapStateProperties<State = any>
+  extends TraverseFunctions<State>,
     PropsWithChildren {
-  context: Context;
   clientComponentContext?: boolean;
 }
 
-export const MapState = <State, Context>(
-  props: MapStateProperties<State, Context>
-) => {
-  return traverseNodes(props.children, props);
-};
+export const MapState = <State,>(props: MapStateProperties<State>) =>
+  traverseNodes(props.children, props);

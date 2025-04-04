@@ -69,7 +69,7 @@ export const bakeTracker = (
         script: root ? applyStrategy(script, strategy) : false,
         key: root ? "tracker" : undefined,
         exclude: ["RenderFromTemplateContext"],
-        parseOverride(el, traverse) {
+        traverse(el, traverse) {
           if (isClientRef(el)) {
             if (!clientTracker) {
               throw new Error(

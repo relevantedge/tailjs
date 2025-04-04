@@ -61,10 +61,10 @@ export const VariableServerScope = createEnumParser(
 );
 
 export const VARIABLE_SYNTAX_RULES_TEXT =
-  "Variables must be lowercase, start with a letter and then only user letters, numbers, underscores, dots and hyphens.";
+  "Variables must be lowercase, start with a letter and then only user letters, numbers, underscores, dots and hyphens. (Keys prefixed with '@' are reserved for internal use.)";
 /** Validates that the syntax for a key, scope or source in a variable conforms to the allowed syntax.  */
 export const validateVariableKeyComponent = (syntax: string) =>
-  /^[a-z][a-z0-9_.-]{0,49}$/.test(syntax);
+  /^[@a-z][a-z0-9_.-]{0,49}$/.test(syntax);
 
 /**
  * Validates that spelling of the components in a variable key conforms to the allowed syntax.

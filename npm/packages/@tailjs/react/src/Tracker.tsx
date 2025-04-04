@@ -1,30 +1,27 @@
-import React, { FunctionComponent, PropsWithChildren, ReactNode } from "react";
+import React, { FunctionComponent, PropsWithChildren } from "react";
 
-import {
-  BoundaryData,
-  ProvisionalTracker,
-  tail,
-} from "@tailjs/client/external";
+import { BoundaryData, tail } from "@tailjs/client/external";
 import { Content } from "@tailjs/types";
 
 import { PLACEHOLDER_SCRIPT } from "@constants";
-import { IncludeExcludeRules, MapState, compileIncludeExcludeRules } from ".";
+import { merge2 } from "@tailjs/util";
 import {
-  ParseOverrideFunction,
+  IncludeExcludeRules,
+  MapState,
   TraverseContext,
+  compileIncludeExcludeRules,
+} from ".";
+import {
+  TraverseOverrideFunction,
+  TrackerScriptSettings,
+  createTrackerScript,
   mergeStates,
 } from "./internal";
-import { TrackerScriptSettings, createTrackerScript } from "./internal";
-import { merge2 } from "@tailjs/util";
-import { tracker } from "@tailjs/client";
 
 export interface BoundaryDataWithView extends BoundaryData {
   view?: Content | null;
 }
-export type JsxMappingContext = TraverseContext<
-  BoundaryData,
-  ProvisionalTracker
->;
+export type JsxMappingContext = TraverseContext<BoundaryData>;
 
 export type BoundaryDataMapper = (
   element: JSX.Element,
@@ -99,10 +96,10 @@ export type TrackerProperties = PropsWithChildren<{
   ssg?: boolean;
 
   /**
-   * Allows custom parsing of certain elements. A good example is the NextJs configuration
+   * Allows custom traversal of certain elements. A good example is the NextJs configuration
    * for the tracker that supports client and server components.
    */
-  parseOverride?: ParseOverrideFunction;
+  traverse?: TraverseOverrideFunction;
 }>;
 
 const TrackerRendered = () => {
@@ -149,7 +146,7 @@ export const Tracker: TrackerComponent = Object.assign(
       stoppers,
       script,
       ssg: embedBoundaryData = false,
-      parseOverride,
+      traverse: parseOverride,
     } = merge2({}, [props, Tracker.defaults], {
       overwrite: false,
     }) as TrackerProperties;
@@ -187,12 +184,10 @@ export const Tracker: TrackerComponent = Object.assign(
       | undefined = embedBoundaryData ? new Map() : undefined;
 
     const seen = new Set<string>();
-
     return (
       <>
         <MapState
-          context={tail}
-          parse={(el, traverse) => {
+          traverse={(el, traverse) => {
             if (el.type == Tracker) {
               // Trackers don't track trackers.
               if (el.props.scriptTag !== false) {
@@ -203,7 +198,11 @@ export const Tracker: TrackerComponent = Object.assign(
             return parseOverride?.(el, traverse);
           }}
           ignoreType={stop}
-          mapState={(el, state: BoundaryDataWithView | null, context) => {
+          mapElementState={(
+            el,
+            state: BoundaryDataWithView | null,
+            context
+          ) => {
             const mapped: BoundaryDataWithView[] = mappers
               .map((mapper) => mapper(el, context))
               .filter((item) => item) as any;
@@ -230,7 +229,7 @@ export const Tracker: TrackerComponent = Object.assign(
                 (allMapped ??= {}).area = item.area;
               }
               if (item?.view && !allMapped?.view) {
-                context.context({
+                tail({
                   set: {
                     scope: "view",
                     key: "view",
@@ -327,17 +326,18 @@ export const Tracker: TrackerComponent = Object.assign(
                     ...(props ?? el.props),
                     _t: index.toString(36),
                   },
-                  ref:
-                    typeof window !== "undefined"
-                      ? getRef(parentState)
-                      : undefined,
+                  mappedState: parentState,
                   state: currentState,
                 };
-              } else if (typeof window !== "undefined") {
-                const ref = getRef(parentState);
+              } else {
+                //const ref = getRef(parentState);
                 return props
-                  ? { props: props, ref, state: currentState }
-                  : { ref };
+                  ? {
+                      props: props,
+                      mappedState: parentState,
+                      state: currentState,
+                    }
+                  : { mappedState: parentState };
               }
             }
 
@@ -380,6 +380,9 @@ export const Tracker: TrackerComponent = Object.assign(
               return props !== orgProps ? props : undefined;
             }
           }}
+          applyElementState={(boundary, state) => {
+            tail({ ...state, boundary });
+          }}
         >
           {children}
         </MapState>
@@ -411,23 +414,3 @@ export const Tracker: TrackerComponent = Object.assign(
     },
   }
 );
-
-function getRef({ component, content, area, tags, cart }: BoundaryData) {
-  let current: HTMLElement | null = null;
-
-  return (el: HTMLElement | null) => {
-    if (el === current) return;
-    if ((current = el) != null) {
-      if (component || content || area || tags || cart) {
-        tail({
-          component,
-          content,
-          area,
-          tags,
-          cart,
-          boundary: current,
-        });
-      }
-    }
-  };
-}

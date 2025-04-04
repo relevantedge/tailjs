@@ -1,4 +1,4 @@
-import { Component, FunctionComponent } from "react";
+import { Component, FunctionComponent, JSXElementConstructor } from "react";
 import { Nullish } from "./internal";
 import { concat2 } from "@tailjs/util";
 
@@ -58,6 +58,8 @@ const parseRules = (
           false))
     );
 };
+
+const UmbracoImage = () => {};
 
 export const concatRules = (
   first: IncludeExcludeRules | Nullish,

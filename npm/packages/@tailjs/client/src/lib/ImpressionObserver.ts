@@ -8,6 +8,7 @@ import {
   F,
   Intervals,
   NoOpFunction,
+  Nullish,
   T,
   TextStats,
   Timer,
@@ -16,7 +17,7 @@ import {
   count,
   createIntervals,
   createTimer,
-  filter,
+  filter2,
   forEach2,
   getTextStats,
   map2,
@@ -79,9 +80,9 @@ export const createImpressionObserver = (tracker: Tracker) => {
   return (el: Element, boundaryData: BoundaryData<true> | undefined) => {
     if (!boundaryData) return;
 
-    let components: ConfiguredComponent[] | undefined;
+    let components: ConfiguredComponent[] | Nullish;
     if (
-      (components = filter(
+      (components = filter2(
         boundaryData?.component,
         (cmp) =>
           // Impression settings from the DOM/CSS are ignored for secondary and inferred components (performance thing)
@@ -200,7 +201,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
           viewDuration(active);
           if (!impressionEvents) {
             impressionEvents = map2(
-              components,
+              components!,
               (cmp) =>
                 ((cmp!.track?.impressions ||
                   trackerFlag(

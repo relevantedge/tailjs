@@ -13,7 +13,7 @@ export type NextPatchExtension = (
 ) => Promise<ServerTrackedEvent[]>;
 
 export interface ServerTrackedEvent extends TrackedEvent {
-  id: string;
+  readonly id: string;
   timestamp: number;
   session: Session;
 }

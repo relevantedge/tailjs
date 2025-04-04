@@ -8,7 +8,7 @@ import {
   T,
   array2,
   assign,
-  filter,
+  filter2,
   flatMap2,
   forEach2,
   isArray,
@@ -107,7 +107,7 @@ export const initializeTracker = (
 
   const callListeners = (event: string, ...args: any[]) => {
     let keep = T;
-    listeners = filter(listeners, (listener) =>
+    listeners = filter2(listeners, (listener) =>
       tryCatch(
         () => (
           listener[event]?.(...args, {
@@ -181,10 +181,10 @@ export const initializeTracker = (
 
     let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
 
-    commands = filter(
+    commands = filter2(
       flatMap2(commands, (command) =>
         isString(command) ? httpDecode<TrackerCommand>(command) : command
-      ),
+      ) as TrackerCommand[],
       (command) => {
         if (!command) return F;
 

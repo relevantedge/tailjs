@@ -79,36 +79,10 @@ export class TrackerCoreEvents implements TrackerExtension {
 
     let currentTime = now();
 
-    const pipelineEvents: ParseResult[] = [];
-    // Assign IDs and adjust timestamps.
-    for (const event of events) {
-      if (event.timestamp) {
-        if (event.timestamp > 0) {
-          pipelineEvents.push({
-            error:
-              "When explicitly specified, timestamps are interpreted relative to current. As such, a positive value would indicate that the event happens in the future which is currently not supported.",
-            source: event,
-          });
-          continue;
-        }
-        event.timestamp = currentTime + event.timestamp;
-      } else {
-        event.timestamp = currentTime;
-      }
-
-      event.id = await tracker.env.nextId();
-      pipelineEvents.push(event);
-    }
-
     // Finish the pipeline to get the final events.
     events = await next(events);
 
-    for (const event of events) {
-      event.timestamp! < currentTime && (currentTime = event.timestamp!);
-    }
-
     // Apply updates via patches. This enables multiple requests for the same session to execute concurrently.
-
     let sessionPatches: ((current: SessionInfo) => void)[] = [];
     let devicePatches: ((current: DeviceInfo) => void)[] = [];
 

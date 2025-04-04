@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { ConfiguredTracker } from "./api/tailjs/ConfiguredTracker.Server";
 import "./globals.css";
 import Script from "next/script";
+import Link from "next/link";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,13 +33,13 @@ export default function RootLayout({
       <body className={inter.className}>
         <ConfiguredTracker>{children}</ConfiguredTracker>
       </body>
-      <Script src="https://web.cmp.usercentrics.eu/modules/autoblocker.js" />
+      {/* <Script src="https://web.cmp.usercentrics.eu/modules/autoblocker.js" />
       <Script
         id="usercentrics-cmp"
         src="https://web.cmp.usercentrics.eu/ui/loader.js"
         data-settings-id="VPy_v-VTfbxrX-"
         async
-      />
+      /> */}
     </html>
   );
 }

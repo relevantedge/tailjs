@@ -19,7 +19,7 @@ export default createApi({
 
   logger: new DefaultLogger({
     basePath: false,
-    console: "info",
+    console: "error",
   }),
   resourcesPath: "./tmp",
 });

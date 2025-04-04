@@ -23,7 +23,7 @@ export type NativeHostLogger = {
 };
 
 export interface NativeHostSettings {
-  rootPath: string | null;
+  rootPath: string | false;
   /**
    * How to log messages.
    *
