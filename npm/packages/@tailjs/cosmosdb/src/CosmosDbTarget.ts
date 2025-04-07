@@ -22,7 +22,7 @@ export const clearCosmosItemProperties = (item: any) => {
 };
 
 export class CosmosDbTarget {
-  private readonly _settings: CosmosDbSettings;
+  protected readonly _settings: CosmosDbSettings;
   protected _containerPerScope: boolean;
   protected _batchSize: number;
 

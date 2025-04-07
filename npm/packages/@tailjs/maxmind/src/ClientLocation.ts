@@ -121,7 +121,7 @@ export class ClientLocation implements TrackerExtension {
                 },
               ],
             }),
-          ];
+          ] as TrackedEvent[] as any;
         }
         country = location?.country?.names[this._language] ?? "NA";
         await tracker.set([

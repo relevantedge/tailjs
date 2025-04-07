@@ -326,18 +326,17 @@ export const Tracker: TrackerComponent = Object.assign(
                     ...(props ?? el.props),
                     _t: index.toString(36),
                   },
-                  mappedState: parentState,
+                  mappedElementState: parentState,
                   state: currentState,
                 };
               } else {
-                //const ref = getRef(parentState);
                 return props
                   ? {
                       props: props,
-                      mappedState: parentState,
+                      mappedElementState: parentState,
                       state: currentState,
                     }
-                  : { mappedState: parentState };
+                  : { mappedElementState: parentState };
               }
             }
 

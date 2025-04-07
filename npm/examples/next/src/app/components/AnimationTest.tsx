@@ -1,42 +1,59 @@
 "use client";
-import React, { createContext } from "react";
-import { AnimatePresence, cubicBezier, motion } from "framer-motion";
-import { useState } from "react";
+import { motion } from "framer-motion";
+import React, { createContext, useState } from "react";
 
 const ThemeContext = createContext("light");
 
-export function MotionComponent({ isVisible }: { isVisible: boolean }) {
+let n = 0;
+export function MotionComponent({
+  isVisible,
+  text,
+}: {
+  isVisible: boolean;
+  text: string;
+}) {
   const [half, setHalf] = useState(false);
   return (
-    <div>
-      <motion.div animate={{ opacity: isVisible ? (half ? 0.5 : 1) : 0 }}>
-        <span className="bg-pink-600">Hello</span>
-        <button
-          className={half ? "bg-purple-500" : "bg-orange-500"}
-          onClick={() => setHalf(!half)}
-        >
-          Half
-        </button>
-      </motion.div>
-      <ThemeContext.Consumer>
-        {(value) => (
-          <motion.div
-            animate={{
-              translateX: isVisible ? 100 : 0,
-              transition: {
-                ease: "linear",
-                duration: 1,
-                delay: 0.2,
-              },
-            }}
-            className="bg-green-500 text-white"
-          >
-            {value}
-          </motion.div>
-        )}
-      </ThemeContext.Consumer>
-    </div>
+    <motion.div animate={{ opacity: isVisible ? (half ? 0.5 : 1) : 0 }}>
+      <span
+        className="bg-pink-600"
+        suppressHydrationWarning
+      >{`${text}: ${n++}`}</span>
+      <button
+        className={half ? "bg-purple-500" : "bg-orange-500"}
+        onClick={() => setHalf(!half)}
+      >
+        Half
+      </button>
+      <MotionContextComponent isVisible={isVisible} />
+    </motion.div>
   );
+}
+
+export function MotionContextComponent({ isVisible }: { isVisible: boolean }) {
+  return (
+    <ThemeContext.Consumer>
+      {(value) => (
+        <motion.div
+          animate={{
+            translateX: isVisible ? 100 : 0,
+            transition: {
+              ease: "linear",
+              duration: 1,
+              delay: 0.2,
+            },
+          }}
+          className="bg-green-500 text-white"
+        >
+          {value}
+        </motion.div>
+      )}
+    </ThemeContext.Consumer>
+  );
+}
+
+export function SimpleTest({ text }: { text: string }) {
+  return <div>{text}</div>;
 }
 
 export function MotionTest() {
@@ -58,11 +75,13 @@ export function MotionTest() {
         One more
       </button>
       <ThemeContext.Provider value={`There are ${state.n} items.`}>
-        <div>
-          {[...Array(state.n).keys()].map((i) => (
-            <MotionComponent key={i} isVisible={state.visible} />
-          ))}
-        </div>
+        {[...Array(state.n).keys()].map((i) => (
+          <MotionComponent
+            key={i}
+            isVisible={state.visible}
+            text={`Item${i}`}
+          />
+        ))}
       </ThemeContext.Provider>
     </>
   );

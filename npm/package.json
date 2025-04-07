@@ -2,7 +2,7 @@
   "name": "@tailjs/monorepo",
   "description": "Monorepo for tail.js",
   "license": "LGPL3",
-  "version": "0.38.1",
+  "version": "0.39.0",
   "schemaVersion": "0.37.0",
   "private": true,
   "author": "RelevantEdge (https://www.relevant-edge.com)",

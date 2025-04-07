@@ -1,8 +1,8 @@
 {
   "name": "@tailjs/cosmosdb",
-  "description": "tail.js Cosmos DB backend.",
+  "description": "tail.js Cosmos DB data destination.",
   "license": "LGPL3",
-  "private": true,
+  "private": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

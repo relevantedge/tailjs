@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@tailjs/client": "workspace:*",
-    "@tailjs/next": "workspace:^",
+    "@tailjs/cosmosdb": "workspace:*",
+    "@tailjs/next": "workspace:*",
     "@tailjs/node": "workspace:*",
     "@tailjs/ravendb": "workspace:*",
     "@tailjs/react": "workspace:*",

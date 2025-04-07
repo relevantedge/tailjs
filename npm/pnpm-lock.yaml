@@ -271,8 +271,11 @@ importers:
       '@tailjs/client':
         specifier: workspace:*
         version: link:../../packages/@tailjs/client/dist
+      '@tailjs/cosmosdb':
+        specifier: workspace:*
+        version: link:../../packages/@tailjs/cosmosdb/dist
       '@tailjs/next':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../../packages/@tailjs/next/dist
       '@tailjs/node':
         specifier: workspace:*
@@ -2884,8 +2887,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0-rc.1
 
-  '@rjsf/utils@5.24.3':
-    resolution: {integrity: sha512-IFzMyr6RDRgSi9jdfFBomwc8LMul6zLBsRSAgzD9wAB9laDcYHwPNEL2kZhOkAGrc+4iNQSPsawGFOA6CXH87Q==}
+  '@rjsf/utils@5.24.8':
+    resolution: {integrity: sha512-Y/D1orNsTnIswp23QtWKq7QEme07/nSdnSJoK4gSsm2cDBkSCW+9KUsWSvmE7poqHwCn3zpbIaa3ZWEAQUJEEg==}
     engines: {node: '>=14'}
     peerDependencies:
       react: ^16.14.0 || >=17
@@ -10116,7 +10119,7 @@ snapshots:
       '@react-types/shared': 3.27.0(react@19.0.0)
       react: 19.0.0
 
-  '@rjsf/utils@5.24.3(react@19.0.0)':
+  '@rjsf/utils@5.24.8(react@19.0.0)':
     dependencies:
       json-schema-merge-allof: 0.8.1
       jsonpointer: 5.0.1
@@ -10403,7 +10406,7 @@ snapshots:
 
   '@sitecore/byoc@0.2.16(react@19.0.0)':
     dependencies:
-      '@rjsf/utils': 5.24.3(react@19.0.0)
+      '@rjsf/utils': 5.24.8(react@19.0.0)
       json-schema: 0.4.0
     transitivePeerDependencies:
       - react

@@ -45,7 +45,7 @@ export type PatchPropertiesFunction<State = any> = (
   currentState: State | null
 ) =>
   | {
-      mappedState?: State;
+      mappedElementState?: State;
       props?: Record<string, any>;
       state?: State | null;
     }
@@ -100,7 +100,18 @@ export interface TraverseContext<T = any> {
   parent: TraverseContext<T> | null;
   depth: number;
   additionalProperties?: Record<string, any>;
+  debug?: boolean;
+
+  /**
+   * A value here will be mapped to {@link el} (always an HTML element) via {@link TraverseFunctions.applyElementState}
+   */
   mappedState?: T;
+
+  /**
+   * If the state cannot be mapped to an HTML element (e.g. because a ref that cannot be updated, it is pushed to its child elements)
+   */
+  pendingElementState?: T;
+
   componentContext: TraverseContext;
   clientComponentContext?: boolean;
 }
@@ -130,19 +141,8 @@ export const traverseNodes = <T>(
 ) => {
   const context = createRootContext(node, options);
   context.componentContext = context;
-  return wrapElementStateMapper(node, context);
+  return traverseNodesInternal(node, context);
 };
-
-const wrapElementStateMapper = (node: ReactNode, context: TraverseContext) =>
-  traverseNodesInternal(node, context);
-// typeof window === "undefined"
-//   ? traverseNodesInternal(node, context)
-//   : React.createElement(
-//       React.Fragment,
-//       null,
-//       traverseNodesInternal(node, context),
-//       React.createElement(MapElementStates, { context })
-//     );
 
 const componentCache = new WeakMap<any, any>();
 function getOrSet<K, V>(
@@ -191,6 +191,8 @@ function createChildContext<T>(
 
   const childContext: TraverseContext<T> = {
     ...context,
+    mappedState: undefined,
+    pendingElementState: undefined,
     state: childState,
     el,
     parent: context as any,
@@ -202,18 +204,29 @@ function createChildContext<T>(
   if (patched === false) {
     // Do not traverse the element further.
     return undefined;
-  } else if (patched) {
+  }
+
+  const elementState =
+    patched?.mappedElementState ?? context.pendingElementState;
+  if (patched) {
     if (patched.state) {
       childContext.state = patched.state;
     }
     childContext.additionalProperties = patched.props;
-    if (typeof window !== "undefined" && patched.mappedState) {
-      childContext.mappedState = patched.mappedState;
+  }
+  if (elementState) {
+    if (!canHaveElementState(el)) {
+      childContext.pendingElementState = elementState;
+    } else {
+      childContext.mappedState = elementState;
     }
   }
 
   return childContext;
 }
+
+const canHaveElementState = (el: TraversableElement) =>
+  typeof el.type === "string" && !el.clientTypeReference && !el.ref;
 
 const mapCache = new WeakMap<any, any>();
 export function traverseNodesInternal<T>(
@@ -237,7 +250,6 @@ export function traverseNodesInternal<T>(
     );
     return mapped;
   }
-
   mapCache.set(node, (mapped = inner(node, context)));
 
   return mapped;
@@ -311,13 +323,12 @@ const traverseLazy = (
       } else if (!context.root.ignoreType?.(value)) {
         const wrapped = wrapType(value, context);
         if (!wrapped) {
-          lazy._payload.value = ({ [CONTEXT_PROPERTY]: context }: any = {}) =>
-            traverseNodesInternal(value, context);
+          lazy._payload.value = () => traverseNodesInternal(value, context);
         } else {
           lazy._payload.value = (props: any) => {
             return traverseNodesInternal(
               React.createElement(value, props),
-              props[CONTEXT_PROPERTY]
+              context
             );
           };
         }
@@ -395,11 +406,9 @@ function wrapType(type: any, context: TraverseContext) {
 
 function wrapRender(
   type: any,
-  props: any = {},
+  { [CONTEXT_PROPERTY]: context, ...props }: any = {},
   inner: (props: any) => any = type
 ) {
-  let context = props[CONTEXT_PROPERTY] as TraverseContext;
-
   // Get context from the injected properties.
   // Also, remove it before the props are passed to the wrapped component lest it gets confused by an extra, unexpected property.
   if (!context) {
@@ -410,10 +419,9 @@ function wrapRender(
   }
 
   let innerResult = inner.call(type, props);
-
   const render = (innerResult: any) => {
     try {
-      return wrapElementStateMapper(innerResult, context);
+      return traverseNodesInternal(innerResult, context);
     } catch (e) {
       console.error("traverseNodesInternal failed: ", e);
     }
@@ -431,33 +439,36 @@ const traversePropValue = (value: any, context: TraverseContext) =>
 
 const traverseProps = (
   el: TraversableElement,
-  context: TraverseContext,
-  childContext?: TraverseContext
+  parentContext: TraverseContext,
+  currentContext?: TraverseContext
 ) => {
-  let patched = childContext?.additionalProperties;
+  let patched = currentContext?.additionalProperties;
   if (typeof el.type === "string") {
-    context = childContext!;
+    parentContext = currentContext!;
   }
   forEach2(el.props, ([key, value]) => {
-    const traversed = traversePropValue(value, context);
+    const traversed = traversePropValue(value, parentContext);
     if (traversed !== value) {
       (patched ??= {})[key] = traversed;
     }
   });
 
   let ref = el.ref;
-  if (!ref && childContext?.mappedState) {
+  if (
+    typeof window !== "undefined" &&
+    canHaveElementState(el) &&
+    currentContext?.mappedState
+  ) {
     let current: any;
+    patched ??= {};
     ref = (el: HTMLElement) => {
       if (!el || el === current) {
         return;
       }
       current = el;
-      context.root.applyElementState?.(el, childContext.mappedState);
+      parentContext.root.applyElementState?.(el, currentContext.mappedState);
     };
   }
 
-  return patched || ref
-    ? { ...el, ref, props: { ...el.props, ...patched } }
-    : el;
+  return patched ? { ...el, ref, props: { ...el.props, ...patched } } : el;
 };

@@ -105,7 +105,6 @@ export const getComponentContext = (
 
   forAncestorsOrSelf(el, (el) => {
     const entry = boundaryData.get(el);
-
     if (!entry) {
       return;
     }

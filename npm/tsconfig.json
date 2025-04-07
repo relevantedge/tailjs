@@ -19,7 +19,7 @@
       "@tailjs/client": ["packages/@tailjs/client/src"],
       "@tailjs/client/external": ["packages/@tailjs/client/src/external.pkg"],
       "@tailjs/client/script": ["packages/@tailjs/client/src/script.pkg"],
-
+      "@tailjs/cosmosdb": ["packages/@tailjs/cosmosdb/src"],
       "@tailjs/engine": ["packages/@tailjs/engine/src"],
 
       "@tailjs/express": ["packages/@tailjs/express/src"],
