@@ -191,7 +191,6 @@ function createChildContext<T>(
     context.state,
     context
   );
-
   const childContext: TraverseContext<T> = {
     ...context,
     mappedState: undefined,
@@ -314,28 +313,56 @@ const traverseLazy = (
   // The latter case seems to be the only situation where react allows something that is not
   // {type, props, ...} like.
   return getOrSet(componentCache, lazy, () => {
-    const replaceValue = () => {
-      const value = lazy._payload.value;
-
+    const replaceValue = (value: any) => {
       if (forElement) {
-        lazy._payload.value = traverseNodesInternal(value, context);
+        return traverseNodesInternal(value, context);
       } else if (!context.root.ignoreType?.(value)) {
-        const wrapped = wrapType(value, context);
-        if (!wrapped) {
-          lazy._payload.value = () => traverseNodesInternal(value, context);
-        } else {
-          lazy._payload.value = (
-            props: any // CONTEXT_PROPERTY is here for the wrapped.
-          ) => {
-            return React.createElement(wrapped, props);
-          };
-        }
+        // We only use wrapType (last argument `true`) to test whether the value is a component (to not throw weird errors from here, let react do that.)
+        const wrapped = wrapType(value, context, true);
+
+        return wrapped
+          ? ({ [CONTEXT_PROPERTY]: context, ...props }) => {
+              // At this point wrapType has been called normally (last argument implicit `false`), so there will be no context if the type should be ignored
+              const el = React.createElement(value, props);
+              return context ? traverseNodesInternal(el, context) : el;
+            }
+          : () => traverseNodesInternal(value, context);
       }
+      return value;
     };
-    if (lazy._payload.status === "fulfilled") {
-      replaceValue();
+
+    const payload = lazy._payload;
+    if (!payload) {
+      return lazy;
+    }
+
+    if (payload._result) {
+      // React lazy https://github.com/facebook/react/blob/main/packages/react/src/ReactLazy.js
+      console.log("React lazy");
+      if (payload._status === 1) {
+        payload._result = { default: replaceValue(payload._result.default) };
+      } else if (payload._result.then) {
+        payload._result.then(
+          () =>
+            (payload._result = {
+              default: replaceValue(payload._result.default),
+            })
+        );
+      } else if (payload._status === -1) {
+        const inner = payload._result;
+        payload._result = () =>
+          inner().then((value: any) => ({
+            default: replaceValue(value.default),
+          }));
+      }
     } else {
-      lazy._payload.then(replaceValue);
+      // Next.js dynamic https://github.com/vercel/next.js/blob/canary/packages/next/src/shared/lib/dynamic.tsx
+      if (payload.status === "fulfilled") {
+        payload.value = replaceValue(payload.value);
+      } else if (lazy._payload.then) {
+        // https://github.com/vercel/next.js/blob/canary/packages/next/src/shared/lib/lazy-dynamic/loadable.tsx
+        payload.then(() => (payload.value = replaceValue(payload.value)));
+      }
     }
 
     return lazy;
@@ -345,8 +372,9 @@ const traverseLazy = (
 const ignoreType = (type: any, context: TraverseContext) =>
   !type || context.root.ignoreType?.(type);
 
-function wrapType(type: any, context: TraverseContext) {
-  if (ignoreType(type, context)) {
+function wrapType(type: any, context: TraverseContext, fromLazy = false) {
+  if (!fromLazy && ignoreType(type, context)) {
+    // We use this function to test whether a result is a valid component.
     return;
   }
 
@@ -361,17 +389,6 @@ function wrapType(type: any, context: TraverseContext) {
   }
 
   function inner() {
-    if (isForwardRef(type)) {
-      // Check on type.render. Do this before classes.
-      // Forward ref.
-      return getOrSet(componentCache, type, () =>
-        React.forwardRef(
-          ({ [CONTEXT_PROPERTY]: context, ...props }: any = {}, ref: any) =>
-            traverseNodesInternal(type.render(props, ref), context)
-        )
-      );
-    }
-
     if (
       (React.Component && type.prototype instanceof React.Component) ||
       type.prototype?.render
@@ -401,6 +418,15 @@ function wrapType(type: any, context: TraverseContext) {
       // Memo
       return getOrSet(componentCache, type, () =>
         mergeProperties({ type: wrapType(type.type, context) ?? type }, type)
+      );
+    }
+    if (isForwardRef(type)) {
+      // Forward ref.
+      return getOrSet(componentCache, type, () =>
+        React.forwardRef(
+          ({ [CONTEXT_PROPERTY]: context, ...props }: any = {}, ref: any) =>
+            traverseNodesInternal(type.render(props, ref), context)
+        )
       );
     }
   }
@@ -472,6 +498,7 @@ const traverseProps = (
       parentContext.root.applyElementState?.(el, currentContext.mappedState);
     };
   }
+
   if (patched) {
     const props = { ...el.props, ...patched };
     // Seems like `children` and `dangerouslySetInnerHTML` may sometimes be assigned as `null` or `undefined`,

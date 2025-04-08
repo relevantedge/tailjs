@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import React, { createContext, useState } from "react";
+import React, { createContext, lazy, Suspense, useState } from "react";
 
 const ThemeContext = createContext("light");
 
@@ -26,9 +26,7 @@ export function MotionComponent({
         dangerouslySetInnerHTML={{
           __html: "<div style='color:white'><br>Hello gelloo</div>",
         }}
-      >
-        <h1>Test</h1>
-      </span>
+      />
       <button
         className={half ? "bg-purple-500" : "bg-orange-500"}
         onClick={() => setHalf(!half)}
@@ -71,8 +69,10 @@ export function MotionContextComponent({
   );
 }
 
+export const Gazonk = lazy(() => import("./Deferred"));
+
 export function SimpleTest({ text }: { text: string }) {
-  return <div>{text}</div>;
+  return text;
 }
 
 export function MotionTest() {
@@ -87,6 +87,7 @@ export function MotionTest() {
       >
         Toggle
       </button>
+
       <button
         onClick={(e) => updateState({ ...state, n: state.n + 1 })}
         className="bg-blue-500"
@@ -102,6 +103,13 @@ export function MotionTest() {
           />
         ))}
       </ThemeContext.Provider>
+      <div>
+        Lazies:
+        <Gazonk />
+        <Suspense>
+          <Gazonk />
+        </Suspense>
+      </div>
     </>
   );
 }

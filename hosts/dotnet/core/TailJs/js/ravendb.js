@@ -3,7 +3,7 @@ import { VariableServerScope, extractKey, VariableResultStatus } from '@tailjs/t
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
-const formatError = (error, includeStackTrace)=>!error ? "(unspecified error)" : includeStackTrace && error.stack ? `${formatError(error, false)}\n${error.stack}` : error.message ? `${error.name}: ${error.message}` : "" + error;
+const formatError = (error, includeStackTrace)=>!error ? "(unspecified error)" : includeStackTrace && (error === null || error === void 0 ? void 0 : error.stack) ? `${formatError(error, false)}\n${error === null || error === void 0 ? void 0 : error.stack}` : error.message ? `${error.name}: ${error.message}` : "" + error;
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
         return await unwrap(expression);
