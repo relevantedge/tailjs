@@ -24,17 +24,24 @@ const withRetry = async (action, { retries = 3, retryDelay = 200, errorFilter, e
     if (retries <= 0) {
         retries = 1;
     }
+    let previousError = undefined;
     for(let i = 0; i < retries; i++){
         try {
-            return await action(i);
+            return await action(i, previousError);
         } catch (error) {
-            if (i === retries - 1 || (errorFilter === null || errorFilter === void 0 ? void 0 : errorFilter(error, i)) === false) {
+            previousError = error;
+            const filterAction = i === retries - 1 ? "throw" : errorFilter === null || errorFilter === void 0 ? void 0 : errorFilter(error, i);
+            if (filterAction === "throw") {
                 if (errorHandler) {
                     return await errorHandler(error, i);
                 }
                 throw error;
             } else {
                 await delay(typeof retryDelay === "function" ? retryDelay(i + 1) : retryDelay * (0.8 + 0.4 * Math.random()));
+                if (filterAction === "reset") {
+                    i = -1;
+                    previousError = undefined;
+                }
             }
         }
     }
@@ -374,6 +381,8 @@ class RavenDbTarget {
     async _request(method, relativeUrl, body, headers) {
         var _this__settings_maxRetries;
         const maxRetries = Math.max(1, (_this__settings_maxRetries = this._settings.maxRetries) !== null && _this__settings_maxRetries !== void 0 ? _this__settings_maxRetries : 5);
+        var _this__settings_retryDelay;
+        const retryDelay = Math.max(200, (_this__settings_retryDelay = this._settings.retryDelay) !== null && _this__settings_retryDelay !== void 0 ? _this__settings_retryDelay : 200);
         const url = `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${relativeUrl}`;
         const request = {
             method,
@@ -394,6 +403,7 @@ class RavenDbTarget {
             return response;
         }, {
             retries: maxRetries,
+            retryDelay,
             errorFilter: (error, retry)=>{
                 this._env.log(this, {
                     level: "error",
@@ -449,10 +459,7 @@ function _define_property$1(obj, key, value) {
             (_storage = (_ref = (_ = (_mappings = mappings)[_scope = scope]) !== null && _ !== void 0 ? _ : _mappings[_scope] = {}).storage) !== null && _storage !== void 0 ? _storage : _ref.storage = variableStorage;
         }
     }
-    async post(events, tracker) {
-        if (!tracker.session) {
-            return;
-        }
+    async post({ events }, tracker) {
         try {
             const commands = [];
             for (let ev of events){

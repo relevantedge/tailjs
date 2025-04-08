@@ -2503,7 +2503,7 @@
       }
     }
   },
-  "x-version": "0.38.1",
+  "x-version": "0.39.1",
   "x-privacy-class": "anonymous",
   "x-privacy-purposes": [
     "necessary"

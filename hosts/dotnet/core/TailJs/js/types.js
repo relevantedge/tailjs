@@ -3075,6 +3075,26 @@ const variableScopeNames = {
    */ user: "user"
 };
 const VariableServerScope = createEnumParser("variable scope", variableScopeNames);
+const VARIABLE_SYNTAX_RULES_TEXT = "Variables must be lowercase, start with a letter and then only user letters, numbers, underscores, dots and hyphens. (Keys prefixed with '@' are reserved for internal use.)";
+/** Validates that the syntax for a key, scope or source in a variable conforms to the allowed syntax.  */ const validateVariableKeyComponent = (syntax)=>/^[@a-z][a-z0-9_.-]{0,49}$/.test(syntax);
+/**
+ * Validates that spelling of the components in a variable key conforms to the allowed syntax.
+ * If not, it returns the text for an error message, indicating which didn't, so be aware the truthy'ness of the return value is opposite
+ * of what one might expect.
+ */ const validateVariableKeySyntax = (key)=>{
+    if (!key) return undefined;
+    let invalidComponents = undefined;
+    if (!validateVariableKeyComponent(key.key)) {
+        (invalidComponents !== null && invalidComponents !== void 0 ? invalidComponents : invalidComponents = []).push("key");
+    }
+    if (!validateVariableKeyComponent(key.scope)) {
+        (invalidComponents !== null && invalidComponents !== void 0 ? invalidComponents : invalidComponents = []).push("scope");
+    }
+    if (key.source && !validateVariableKeyComponent(key.source)) {
+        (invalidComponents !== null && invalidComponents !== void 0 ? invalidComponents : invalidComponents = []).push("source");
+    }
+    return invalidComponents && `Invalid ${itemize2(invalidComponents)}. ${VARIABLE_SYNTAX_RULES_TEXT}`;
+};
 /** Returns a description of a key that can be used for logging and error messages.  */ const formatVariableKey = ({ key, scope = "", entityId = "", source = "" }, error = "")=>[
         "'" + key + "'",
         source && "from '" + source + "'",
@@ -3137,24 +3157,30 @@ const filterRangeValue = (value, filter, rank)=>{
     const valueRank = rank(value);
     return (filter.lt ? valueRank < rank(filter.lt) : filter.lte ? valueRank <= rank(filter.lte) : true) && (filter.gt ? valueRank > rank(filter.gt) : filter.gte ? valueRank >= rank(filter.gte) : true);
 };
-const consumeQueryResults = async (query, callback)=>{
+async function* iterateQueryResults(storage, query, batch = false) {
     let cursor;
     do {
-        const { variables, cursor: nextCursor } = await query(cursor);
+        const { variables, cursor: nextCursor } = await storage.query(query, {
+            cursor
+        });
         if (variables.length) {
-            await callback(variables);
+            if (batch) {
+                yield variables;
+            } else {
+                yield* variables;
+            }
         }
         cursor = nextCursor;
     }while (cursor)
-};
+}
 
 var VariableResultStatus = /*#__PURE__*/ function(VariableResultStatus) {
     VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
     VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
     VariableResultStatus[VariableResultStatus["NotModified"] = 304] = "NotModified";
+    VariableResultStatus[VariableResultStatus["BadRequest"] = 400] = "BadRequest";
     VariableResultStatus[VariableResultStatus["Forbidden"] = 403] = "Forbidden";
     VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
-    VariableResultStatus[VariableResultStatus["BadRequest"] = 405] = "BadRequest";
     VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
     VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
     return VariableResultStatus;
@@ -3420,4 +3446,4 @@ const collect = (collected, tag)=>{
 };
 const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, MarkdownSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, extractVariable, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, removeLocalScopedEntityId, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };
+export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, MarkdownSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, VARIABLE_SYNTAX_RULES_TEXT, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, contextError, createRootContext, encodeTag, extractKey, extractVariable, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, iterateQueryResults, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, removeLocalScopedEntityId, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent, validateVariableKeyComponent, validateVariableKeySyntax };

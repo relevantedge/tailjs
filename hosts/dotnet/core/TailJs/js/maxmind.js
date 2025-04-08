@@ -20291,7 +20291,7 @@ class ClientLocation {
             }
         });
     }
-    async patch(events, next, tracker) {
+    async patch({ events }, next, tracker) {
         if (!tracker.session) return next(events);
         if (!this._initialized) throw new Error("Not initialized");
         //if (!tracker.consent?.active) return events;

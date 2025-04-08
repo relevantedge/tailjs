@@ -1,4 +1,4 @@
-import { isConsentEvent, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, DataClassification, isSignOutEvent, DataUsage, isTrackedEvent, isOrderEvent, isCartEvent, TypeResolver, isPassiveEvent, JsonSchemaAdapter, CORE_SCHEMA_NS, DataPurposes, ValidationError, consumeQueryResults, toVariableResultPromise, VariableResultStatus, isVariableResult, extractKey, filterKeys, VariableServerScope, formatVariableResult, VALIDATION_ERROR_SYMBOL, formatValidationErrors, formatVariableKey, isTransientError, isSuccessResult, filterRangeValue } from '@tailjs/types';
+import { isConsentEvent, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, DataClassification, isSignOutEvent, DataUsage, isOrderEvent, isCartEvent, TypeResolver, isPassiveEvent, JsonSchemaAdapter, CORE_SCHEMA_NS, DataPurposes, ValidationError, iterateQueryResults, toVariableResultPromise, VariableResultStatus, isVariableResult, extractKey, filterKeys, VariableServerScope, formatVariableResult, VALIDATION_ERROR_SYMBOL, formatValidationErrors, formatVariableKey, isTransientError, isSuccessResult, validateVariableKeySyntax, filterRangeValue } from '@tailjs/types';
 import { defaultTransport, hash, createTransport, httpEncode, decodeUtf8, defaultJsonTransport, httpDecode } from '@tailjs/transport';
 
 const TRACKER_CONFIG_PLACEHOLDER = "{{CONFIG}}";
@@ -6,7 +6,7 @@ const CLIENT_SCRIPT_QUERY = "opt";
 const EVENT_HUB_QUERY = "var";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
-const BUILD_REVISION_QUERY = "rev=" + "m8eefnft" ;
+const BUILD_REVISION_QUERY = "rev=" + "m97ee130" ;
 const SCOPE_INFO_KEY = "@info";
 const CONSENT_INFO_KEY = "@consent";
 const SESSION_REFERENCE_KEY = "@session_reference";
@@ -49,7 +49,7 @@ const required = (value, error)=>value != null ? value : throwError(error !== nu
     };
     return getter;
 };
-const formatError = (error, includeStackTrace)=>!error ? "(unspecified error)" : includeStackTrace && error.stack ? `${formatError(error, false)}\n${error.stack}` : error.message ? `${error.name}: ${error.message}` : "" + error;
+const formatError = (error, includeStackTrace)=>!error ? "(unspecified error)" : includeStackTrace && (error === null || error === void 0 ? void 0 : error.stack) ? `${formatError(error, false)}\n${error === null || error === void 0 ? void 0 : error.stack}` : error.message ? `${error.name}: ${error.message}` : "" + error;
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
         return await unwrap(expression);
@@ -166,12 +166,6 @@ const map = (source, projection, start, end)=>{
     }
     return source != null ? array2(project(source, projection, start, end)) : undefined$1;
 };
-const mapAsync = async (source, projection, start, end)=>{
-    projection = wrapProjection(projection);
-    const mapped = [];
-    await forEachAsync(source, async (item)=>(item = await projection(item)) != null && mapped.push(item));
-    return mapped;
-};
 const concat = (...items)=>{
     let merged;
     forEach(items.length === 1 ? items[0] : items, (item)=>item != null && (merged !== null && merged !== void 0 ? merged : merged = []).push(...array2(item)));
@@ -232,18 +226,6 @@ const forEachInternal = (source, action, start, end)=>{
     return returnValue;
 };
 const forEach = forEachInternal;
-const forEachAsync = async (source, action, start, end)=>{
-    if (source == null) return undefined$1;
-    let returnValue;
-    for (let item of project(source, action, start, end)){
-        (item = await item) != null && (returnValue = item);
-        if (stopInvoked$1) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-    return returnValue;
-};
 /** Fast version of `obj`. */ const fromEntries = (source, map)=>{
     if (source == null) return undefined$1;
     const result = {};
@@ -973,29 +955,14 @@ const mapEventSession = (tracker)=>{
     };
 };
 class TrackerCoreEvents {
-    async patch(events, next, tracker) {
+    async patch({ events }, next, tracker) {
         if (!tracker.session || !tracker.sessionId) {
             // Abort the pipeline and do nothing if there is no session.
             return [];
         }
         let currentTime = now();
-        // Assign IDs and adjust timestamps.
-        for (const event of events){
-            if (event.timestamp) {
-                if (event.timestamp > 0) {
-                    continue;
-                }
-                event.timestamp = currentTime + event.timestamp;
-            } else {
-                event.timestamp = currentTime;
-            }
-            event.id = await tracker.env.nextId();
-        }
         // Finish the pipeline to get the final events.
         events = await next(events);
-        for (const event of events){
-            event.timestamp < currentTime && (currentTime = event.timestamp);
-        }
         // Apply updates via patches. This enables multiple requests for the same session to execute concurrently.
         let sessionPatches = [];
         let devicePatches = [];
@@ -1040,6 +1007,7 @@ class TrackerCoreEvents {
                     // Fake a sign out event if the user is currently authenticated.
                     events.push(event);
                     event = {
+                        id: undefined,
                         type: "sign_out",
                         userId: tracker.authenticatedUserId,
                         timestamp: event.timestamp,
@@ -1144,7 +1112,7 @@ function _define_property$c(obj, key, value) {
     return obj;
 }
 /** Outputs collected tracker events to either the log or the console. */ class EventLogger {
-    async post(events, tracker) {
+    async post({ events }, tracker) {
         for (const ev of events){
             const data = this.configuration.minimal ? {
                 timestamp: ev.timestamp,
@@ -1172,38 +1140,6 @@ function _define_property$c(obj, key, value) {
         (_group = (_this_configuration = this.configuration).group) !== null && _group !== void 0 ? _group : _this_configuration.group = "events";
     }
 }
-
-const Timestamps = {
-    id: "core-validation",
-    async patch (events, next, tracker) {
-        const now = Date.now();
-        return await mapAsync(await next(await mapAsync(events, async (event)=>{
-            if (!tracker.sessionId) return;
-            event.id = await tracker.env.nextId();
-            if (event.timestamp) {
-                if (event.timestamp > 0) {
-                    return {
-                        error: "When explicitly specified, timestamps are interpreted relative to current. As such, a positive value would indicate that the event happens in the future which is currently not supported.",
-                        source: event
-                    };
-                }
-                event.timestamp = now + event.timestamp;
-            } else {
-                event.timestamp = now;
-            }
-            return event;
-        })), async (ev)=>{
-            if (isTrackedEvent(ev)) {
-                var _ev, _ev1;
-                var _timestamp;
-                (_timestamp = (_ev = ev).timestamp) !== null && _timestamp !== void 0 ? _timestamp : _ev.timestamp = now;
-                var _id;
-                (_id = (_ev1 = ev).id) !== null && _id !== void 0 ? _id : _ev1.id = await tracker.env.nextId();
-                return ev;
-            }
-        });
-    }
-};
 
 function _define_property$b(obj, key, value) {
     if (key in obj) {
@@ -1268,7 +1204,7 @@ function normalizeOrderLine(line) {
     return line;
 }
 class CommerceExtension {
-    patch(events, next) {
+    patch({ events }, next) {
         return next(events.map((event)=>isOrderEvent(event) ? normalizeOrder(event) : isCartEvent(event) ? normalizeCartEventData(event) : event));
     }
     constructor(){
@@ -1397,10 +1333,10 @@ var index = {
     "classification": "anonymous",
     "purposes": {},
     "name": "urn:tailjs:core",
-    "version": "0.38.1",
+    "version": "0.39.1",
     "types": {
         "ScopeInfo": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": true,
             "readonly": false,
             "visibility": "trusted-write",
@@ -1460,14 +1396,14 @@ var index = {
             }
         },
         "SessionInfo": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "trusted-write",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ScopeInfo@0.38.1"
+                "urn:tailjs:core#ScopeInfo@0.39.1"
             ],
             "properties": {
                 "id": {
@@ -1549,14 +1485,14 @@ var index = {
             }
         },
         "DeviceInfo": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "trusted-write",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ScopeInfo@0.38.1"
+                "urn:tailjs:core#ScopeInfo@0.39.1"
             ],
             "properties": {
                 "id": {
@@ -1578,19 +1514,19 @@ var index = {
             }
         },
         "UserConsent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#DataUsage@0.38.1"
+                "urn:tailjs:core#DataUsage@0.39.1"
             ],
             "properties": {}
         },
         "DataUsage": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The combination of the classification and purposes it can be used for determines whether data can be stored or used when compared to an individual's consent.",
             "abstract": false,
             "readonly": false,
@@ -1616,7 +1552,7 @@ var index = {
                     "required": false
                 },
                 "purposes": {
-                    "reference": "urn:tailjs:core#DataPurposes@0.38.1",
+                    "reference": "urn:tailjs:core#DataPurposes@0.39.1",
                     "description": "The purposes the data may be used for.\n\nIf a data point has multiple purposes, consent is only need for one of them for the data to get stored. However, if some logic tries to read the data for a purpose without consent, it is not returned, since it is only stored for other purposes.\n\nPurposes do not restrict anonymous data. If no purposes are explicitly specified it implies \"necessary\".\n\nFor schema definitions see  {@link  SchemaDataUsage }  for inheritance rules.",
                     "readonly": false,
                     "visibility": "public",
@@ -1627,7 +1563,7 @@ var index = {
             }
         },
         "DataPurposes": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The purposes data can be used for. Non-necessary data requires an individual's consent to be collected and used.\n\nData categorized as \"anonymous\" will be stored regardless of consent since a consent only relates to \"personal data\", and anonymous data is just \"data\".\n\nWhether the two purposes \"personalization\" and \"security\" are considered separate purposes is configurable. The default is to consider \"personalization\" the same as \"functionality\", and \"security\" the same as \"necessary\".",
             "abstract": false,
             "readonly": false,
@@ -1684,7 +1620,7 @@ var index = {
             }
         },
         "TrackedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like a \"page view\", \"user location\" etc. the name should be that.\n- If the event indicates something that happened, like \"session started\", \"view ended\" etc. the name should end with a verb in the past tense.",
             "abstract": true,
             "readonly": false,
@@ -1692,7 +1628,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.38.1"
+                "urn:tailjs:core#Tagged@0.39.1"
             ],
             "system": "event",
             "properties": {
@@ -1769,7 +1705,7 @@ var index = {
                     "required": false
                 },
                 "metadata": {
-                    "reference": "urn:tailjs:core#EventMetadata@0.38.1",
+                    "reference": "urn:tailjs:core#EventMetadata@0.39.1",
                     "description": "These properties are used to track the state of the event as it gets collected, and is not persisted.",
                     "readonly": false,
                     "visibility": "public",
@@ -1778,7 +1714,7 @@ var index = {
                     "required": false
                 },
                 "session": {
-                    "reference": "urn:tailjs:core#Session@0.38.1",
+                    "reference": "urn:tailjs:core#Session@0.39.1",
                     "description": "The session associated with the event.",
                     "readonly": false,
                     "visibility": "public",
@@ -1789,7 +1725,7 @@ var index = {
             }
         },
         "Tagged": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details.",
             "abstract": false,
             "readonly": false,
@@ -1800,7 +1736,7 @@ var index = {
             "properties": {
                 "tags": {
                     "item": {
-                        "reference": "urn:tailjs:core#Tag@0.38.1"
+                        "reference": "urn:tailjs:core#Tag@0.39.1"
                     },
                     "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources.",
                     "readonly": false,
@@ -1812,7 +1748,7 @@ var index = {
             }
         },
         "Tag": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -1850,7 +1786,7 @@ var index = {
             }
         },
         "EventMetadata": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "These properties are used to track the state of events as they get collected, and not stored.",
             "abstract": false,
             "readonly": false,
@@ -1889,7 +1825,7 @@ var index = {
             }
         },
         "Session": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
             "abstract": false,
             "readonly": false,
@@ -1947,7 +1883,7 @@ var index = {
                     "required": false
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent@0.38.1",
+                    "reference": "urn:tailjs:core#UserConsent@0.39.1",
                     "description": "The user's consent choices.  {@link  DataClassification.Anonymous  }  means the session is cookie-less.",
                     "readonly": false,
                     "visibility": "public",
@@ -1997,19 +1933,19 @@ var index = {
             }
         },
         "UserInteractionEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -2028,7 +1964,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -2037,7 +1973,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -2046,7 +1982,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -2055,7 +1991,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -2066,7 +2002,7 @@ var index = {
             }
         },
         "ActivatedComponent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The component definition related to a user activation.",
             "abstract": false,
             "readonly": false,
@@ -2074,12 +2010,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Component@0.38.1"
+                "urn:tailjs:core#Component@0.39.1"
             ],
             "properties": {
                 "content": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedContent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedContent@0.39.1"
                     },
                     "description": "The activated content in the component.",
                     "readonly": false,
@@ -2098,7 +2034,7 @@ var index = {
                     "required": false
                 },
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle@0.38.1",
+                    "reference": "urn:tailjs:core#Rectangle@0.39.1",
                     "description": "The size and position of the component when it was activated relative to the document top (not viewport).",
                     "readonly": false,
                     "visibility": "public",
@@ -2109,16 +2045,16 @@ var index = {
             }
         },
         "Component": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.38.1",
-                "urn:tailjs:core#ExternalReference@0.38.1",
-                "urn:tailjs:core#Personalizable@0.38.1"
+                "urn:tailjs:core#Tagged@0.39.1",
+                "urn:tailjs:core#ExternalReference@0.39.1",
+                "urn:tailjs:core#Personalizable@0.39.1"
             ],
             "properties": {
                 "typeName": {
@@ -2158,7 +2094,7 @@ var index = {
                     "required": false
                 },
                 "dataSource": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.38.1",
+                    "reference": "urn:tailjs:core#ExternalReference@0.39.1",
                     "description": "Optional references to the content that was used to render the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -2169,7 +2105,7 @@ var index = {
             }
         },
         "ExternalReference": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenet is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.",
             "abstract": false,
             "readonly": false,
@@ -2262,7 +2198,7 @@ var index = {
             }
         },
         "Personalizable": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2272,7 +2208,7 @@ var index = {
             "properties": {
                 "personalization": {
                     "item": {
-                        "reference": "urn:tailjs:core#Personalization@0.38.1"
+                        "reference": "urn:tailjs:core#Personalization@0.39.1"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -2283,7 +2219,7 @@ var index = {
             }
         },
         "Personalization": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.",
             "abstract": false,
             "readonly": false,
@@ -2291,11 +2227,11 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.38.1"
+                "urn:tailjs:core#Tagged@0.39.1"
             ],
             "properties": {
                 "source": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.38.1",
+                    "reference": "urn:tailjs:core#ExternalReference@0.39.1",
                     "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s.",
                     "readonly": false,
                     "visibility": "public",
@@ -2305,7 +2241,7 @@ var index = {
                 },
                 "variables": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationVariable@0.38.1"
+                        "reference": "urn:tailjs:core#PersonalizationVariable@0.39.1"
                     },
                     "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms.",
                     "readonly": false,
@@ -2316,7 +2252,7 @@ var index = {
                 },
                 "variants": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationVariant@0.38.1"
+                        "reference": "urn:tailjs:core#PersonalizationVariant@0.39.1"
                     },
                     "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources.",
                     "readonly": false,
@@ -2328,7 +2264,7 @@ var index = {
             }
         },
         "PersonalizationVariable": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A reference to a variable and its value in personalization.",
             "abstract": false,
             "readonly": false,
@@ -2336,7 +2272,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.38.1"
+                "urn:tailjs:core#ExternalReference@0.39.1"
             ],
             "properties": {
                 "value": {
@@ -2350,7 +2286,7 @@ var index = {
             }
         },
         "PersonalizationVariant": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A reference to the data/content item related to a variant in personalization.",
             "abstract": false,
             "readonly": false,
@@ -2358,12 +2294,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.38.1"
+                "urn:tailjs:core#ExternalReference@0.39.1"
             ],
             "properties": {
                 "sources": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationSource@0.38.1"
+                        "reference": "urn:tailjs:core#PersonalizationSource@0.39.1"
                     },
                     "description": "The aspects of the component or page the variant changed. There can multiple sources, e.g. a variant may both change the size of a component and change the content at the same time.",
                     "readonly": false,
@@ -2402,7 +2338,7 @@ var index = {
             }
         },
         "PersonalizationSource": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } .",
             "abstract": false,
             "readonly": false,
@@ -2410,7 +2346,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.38.1"
+                "urn:tailjs:core#ExternalReference@0.39.1"
             ],
             "properties": {
                 "relatedVariable": {
@@ -2434,7 +2370,7 @@ var index = {
             }
         },
         "ActivatedContent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The content definition related to a user activation.",
             "abstract": false,
             "readonly": false,
@@ -2442,11 +2378,11 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Content@0.38.1"
+                "urn:tailjs:core#Content@0.39.1"
             ],
             "properties": {
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle@0.38.1",
+                    "reference": "urn:tailjs:core#Rectangle@0.39.1",
                     "description": "The current size and position of the element representing the content relative to the document top (not viewport).",
                     "readonly": false,
                     "visibility": "public",
@@ -2457,7 +2393,7 @@ var index = {
             }
         },
         "Content": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria",
             "abstract": false,
             "readonly": false,
@@ -2465,12 +2401,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.38.1",
-                "urn:tailjs:core#Tagged@0.38.1"
+                "urn:tailjs:core#ExternalReference@0.39.1",
+                "urn:tailjs:core#Tagged@0.39.1"
             ],
             "properties": {
                 "commerce": {
-                    "reference": "urn:tailjs:core#CommerceData@0.38.1",
+                    "reference": "urn:tailjs:core#CommerceData@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -2480,7 +2416,7 @@ var index = {
             }
         },
         "CommerceData": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2517,7 +2453,7 @@ var index = {
                     "required": false
                 },
                 "variation": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.38.1",
+                    "reference": "urn:tailjs:core#ExternalReference@0.39.1",
                     "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
                     "readonly": false,
                     "visibility": "public",
@@ -2537,20 +2473,20 @@ var index = {
             }
         },
         "Rectangle": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Position@0.38.1",
-                "urn:tailjs:core#Size@0.38.1"
+                "urn:tailjs:core#Position@0.39.1",
+                "urn:tailjs:core#Size@0.39.1"
             ],
             "properties": {}
         },
         "Position": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio].",
             "abstract": false,
             "readonly": false,
@@ -2578,7 +2514,7 @@ var index = {
             }
         },
         "Size": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2605,7 +2541,7 @@ var index = {
             }
         },
         "ViewTimingData": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2652,7 +2588,7 @@ var index = {
             }
         },
         "ScreenPosition": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Represents a position where the units are percentages relative to an element or page.",
             "abstract": false,
             "readonly": false,
@@ -2707,14 +2643,14 @@ var index = {
             }
         },
         "Viewport": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Rectangle@0.38.1"
+                "urn:tailjs:core#Rectangle@0.39.1"
             ],
             "properties": {
                 "totalWidth": {
@@ -2736,7 +2672,7 @@ var index = {
             }
         },
         "ElementInfo": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Basic information about an HTML element.",
             "abstract": false,
             "readonly": false,
@@ -2773,7 +2709,7 @@ var index = {
                     "required": false
                 },
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle@0.38.1",
+                    "reference": "urn:tailjs:core#Rectangle@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -2783,14 +2719,14 @@ var index = {
             }
         },
         "FormEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -2847,7 +2783,7 @@ var index = {
                         "required": true
                     },
                     "value": {
-                        "reference": "urn:tailjs:core#FormField@0.38.1"
+                        "reference": "urn:tailjs:core#FormField@0.39.1"
                     },
                     "description": "All fields in the form (as detected).",
                     "readonly": false,
@@ -2868,7 +2804,7 @@ var index = {
             }
         },
         "FormField": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A form field value in a  {@link  FormEvent } .",
             "abstract": false,
             "readonly": false,
@@ -2978,7 +2914,7 @@ var index = {
             }
         },
         "ComponentClickEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
             "abstract": false,
             "readonly": false,
@@ -2986,7 +2922,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3004,7 +2940,7 @@ var index = {
             }
         },
         "ComponentClickIntentEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
             "abstract": false,
             "readonly": false,
@@ -3012,7 +2948,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3029,7 +2965,7 @@ var index = {
                 },
                 "clicks": {
                     "item": {
-                        "reference": "urn:tailjs:core#Position@0.38.1"
+                        "reference": "urn:tailjs:core#Position@0.39.1"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -3039,7 +2975,7 @@ var index = {
                 },
                 "clickables": {
                     "item": {
-                        "reference": "urn:tailjs:core#ComponentElementInfo@0.38.1"
+                        "reference": "urn:tailjs:core#ComponentElementInfo@0.39.1"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -3050,7 +2986,7 @@ var index = {
             }
         },
         "ComponentElementInfo": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Basic information about an HTML element that is associated with a component.",
             "abstract": false,
             "readonly": false,
@@ -3058,11 +2994,11 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ElementInfo@0.38.1"
+                "urn:tailjs:core#ElementInfo@0.39.1"
             ],
             "properties": {
                 "component": {
-                    "reference": "urn:tailjs:core#Component@0.38.1",
+                    "reference": "urn:tailjs:core#Component@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -3072,7 +3008,7 @@ var index = {
             }
         },
         "ComponentViewEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking.",
             "abstract": false,
             "readonly": false,
@@ -3080,7 +3016,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3098,14 +3034,14 @@ var index = {
             }
         },
         "NavigationEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3175,7 +3111,7 @@ var index = {
                     "purposes": {}
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.38.1",
+                    "reference": "urn:tailjs:core#Domain@0.39.1",
                     "description": "The domain of the destination",
                     "readonly": false,
                     "visibility": "public",
@@ -3186,7 +3122,7 @@ var index = {
             }
         },
         "Domain": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Represents a domain name, e.g. https://www.foo.co.uk",
             "abstract": false,
             "readonly": false,
@@ -3214,14 +3150,14 @@ var index = {
             }
         },
         "ScrollEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3237,7 +3173,7 @@ var index = {
                     "purposes": {}
                 },
                 "offset": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The offset relative to the page size (100 % is bottom, 0 % is top)",
                     "readonly": false,
                     "visibility": "public",
@@ -3265,14 +3201,14 @@ var index = {
             }
         },
         "SearchEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3298,7 +3234,7 @@ var index = {
                 },
                 "filters": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchFilter@0.38.1"
+                        "reference": "urn:tailjs:core#SearchFilter@0.39.1"
                     },
                     "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\"",
                     "readonly": false,
@@ -3318,7 +3254,7 @@ var index = {
                 },
                 "topHits": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchResult@0.38.1"
+                        "reference": "urn:tailjs:core#SearchResult@0.39.1"
                     },
                     "description": "If some or all of the results are relevant for analytics or AI, they can be included here.",
                     "readonly": false,
@@ -3330,7 +3266,7 @@ var index = {
             }
         },
         "SearchFilter": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A filter that applies to a field in a search query.",
             "abstract": false,
             "readonly": false,
@@ -3338,7 +3274,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.38.1"
+                "urn:tailjs:core#ExternalReference@0.39.1"
             ],
             "properties": {
                 "group": {
@@ -3370,7 +3306,7 @@ var index = {
                     "required": false
                 },
                 "reference": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.38.1",
+                    "reference": "urn:tailjs:core#ExternalReference@0.39.1",
                     "description": "If the value is a defined entity such as a product category use this instead of  {@link  value } .",
                     "readonly": false,
                     "visibility": "public",
@@ -3398,14 +3334,14 @@ var index = {
             }
         },
         "SearchResult": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.38.1"
+                "urn:tailjs:core#ExternalReference@0.39.1"
             ],
             "properties": {
                 "rank": {
@@ -3419,7 +3355,7 @@ var index = {
             }
         },
         "SearchFieldReferenceFilter": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A search filter that applies to a single field that must match a defined entity (e.g. \"manufacturer\").",
             "abstract": false,
             "readonly": false,
@@ -3427,12 +3363,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.38.1"
+                "urn:tailjs:core#ExternalReference@0.39.1"
             ],
             "properties": {
                 "references": {
                     "item": {
-                        "reference": "urn:tailjs:core#ExternalReference@0.38.1"
+                        "reference": "urn:tailjs:core#ExternalReference@0.39.1"
                     },
                     "description": "A list of entities where the field must match at least one of them (or none depending on the comparison).",
                     "readonly": false,
@@ -3456,14 +3392,14 @@ var index = {
             }
         },
         "SessionStartedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3507,7 +3443,7 @@ var index = {
             }
         },
         "UserAgentLanguage": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -3563,15 +3499,15 @@ var index = {
             }
         },
         "UserAgentEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1",
-                "urn:tailjs:core#SessionScoped@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1",
+                "urn:tailjs:core#SessionScoped@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3620,7 +3556,7 @@ var index = {
                 },
                 "languages": {
                     "item": {
-                        "reference": "urn:tailjs:core#UserAgentLanguage@0.38.1"
+                        "reference": "urn:tailjs:core#UserAgentLanguage@0.39.1"
                     },
                     "description": "The user's language preferences as configured in the user's device.",
                     "readonly": false,
@@ -3630,7 +3566,7 @@ var index = {
                     "required": false
                 },
                 "timezone": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.38.1",
+                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -3638,7 +3574,7 @@ var index = {
                     "required": true
                 },
                 "screen": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.38.1",
+                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.39.1",
                     "description": "Screen",
                     "readonly": false,
                     "visibility": "public",
@@ -3649,7 +3585,7 @@ var index = {
             }
         },
         "SessionScoped": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened.",
             "abstract": false,
             "readonly": false,
@@ -3660,7 +3596,7 @@ var index = {
             "properties": {}
         },
         "ClickIds": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -3711,7 +3647,7 @@ var index = {
             }
         },
         "ViewEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "This event is sent a user navigates between views. (page, screen or similar).\n\nThis event does not",
             "abstract": false,
             "readonly": false,
@@ -3719,7 +3655,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -3780,7 +3716,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "For how long the view was active. This is set via patches",
                     "readonly": false,
                     "visibility": "public",
@@ -3798,7 +3734,7 @@ var index = {
                     "required": false
                 },
                 "utm": {
-                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.38.1",
+                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.39.1",
                     "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
                     "readonly": false,
                     "visibility": "public",
@@ -3824,7 +3760,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.38.1",
+                    "reference": "urn:tailjs:core#Domain@0.39.1",
                     "description": "The domain part of the href, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -3906,7 +3842,7 @@ var index = {
                     "required": false
                 },
                 "externalReferrer": {
-                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.38.1",
+                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.39.1",
                     "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
                     "readonly": false,
                     "visibility": "public",
@@ -3915,7 +3851,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.",
                     "readonly": false,
                     "visibility": "public",
@@ -3933,7 +3869,7 @@ var index = {
                     "required": false
                 },
                 "definition": {
-                    "reference": "urn:tailjs:core#View@0.38.1",
+                    "reference": "urn:tailjs:core#View@0.39.1",
                     "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event.",
                     "readonly": false,
                     "visibility": "public",
@@ -3944,15 +3880,15 @@ var index = {
             }
         },
         "View": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Content@0.38.1",
-                "urn:tailjs:core#Personalizable@0.38.1"
+                "urn:tailjs:core#Content@0.39.1",
+                "urn:tailjs:core#Personalizable@0.39.1"
             ],
             "properties": {
                 "preview": {
@@ -3967,7 +3903,7 @@ var index = {
             }
         },
         "SessionLocationEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "This event is triggered whenever the user's location changes.",
             "abstract": false,
             "readonly": false,
@@ -3975,8 +3911,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1",
-                "urn:tailjs:core#SessionScoped@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1",
+                "urn:tailjs:core#SessionScoped@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4034,7 +3970,7 @@ var index = {
                     "required": false
                 },
                 "continent": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "description": "The continent is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -4045,7 +3981,7 @@ var index = {
                     "required": false
                 },
                 "country": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "description": "The country is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -4056,7 +3992,7 @@ var index = {
                     "required": false
                 },
                 "subdivision": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -4066,7 +4002,7 @@ var index = {
                     "required": false
                 },
                 "city": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -4078,7 +4014,7 @@ var index = {
             }
         },
         "GeoEntity": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4121,7 +4057,7 @@ var index = {
             }
         },
         "AnchorNavigationEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)",
             "abstract": false,
             "readonly": false,
@@ -4129,7 +4065,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4156,7 +4092,7 @@ var index = {
             }
         },
         "ConsentEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are expected to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes.",
             "abstract": false,
             "readonly": false,
@@ -4164,7 +4100,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4180,7 +4116,7 @@ var index = {
                     "purposes": {}
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent@0.38.1",
+                    "reference": "urn:tailjs:core#UserConsent@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -4190,19 +4126,19 @@ var index = {
             }
         },
         "CommerceEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {}
         },
         "CartUpdatedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Indicates that a shopping cart was updated.",
             "abstract": false,
             "readonly": false,
@@ -4210,9 +4146,9 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1",
-                "urn:tailjs:core#CommerceEvent@0.38.1",
-                "urn:tailjs:core#CartEventData@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1",
+                "urn:tailjs:core#CommerceEvent@0.39.1",
+                "urn:tailjs:core#CartEventData@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4230,15 +4166,15 @@ var index = {
             }
         },
         "CartEventData": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#OrderQuantity@0.38.1",
-                "urn:tailjs:core#ExternalUse@0.38.1"
+                "urn:tailjs:core#OrderQuantity@0.39.1",
+                "urn:tailjs:core#ExternalUse@0.39.1"
             ],
             "properties": {
                 "action": {
@@ -4259,7 +4195,7 @@ var index = {
             }
         },
         "OrderQuantity": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } .",
             "abstract": false,
             "readonly": false,
@@ -4267,7 +4203,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceData@0.38.1"
+                "urn:tailjs:core#CommerceData@0.39.1"
             ],
             "properties": {
                 "units": {
@@ -4280,7 +4216,7 @@ var index = {
                     "required": false
                 },
                 "item": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.38.1",
+                    "reference": "urn:tailjs:core#ExternalReference@0.39.1",
                     "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context.",
                     "readonly": false,
                     "visibility": "public",
@@ -4291,7 +4227,7 @@ var index = {
             }
         },
         "ExternalUse": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package.",
             "abstract": false,
             "readonly": false,
@@ -4302,7 +4238,7 @@ var index = {
             "properties": {}
         },
         "OrderEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "An order submitted by a user.",
             "abstract": false,
             "readonly": false,
@@ -4310,8 +4246,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent@0.38.1",
-                "urn:tailjs:core#Order@0.38.1"
+                "urn:tailjs:core#CommerceEvent@0.39.1",
+                "urn:tailjs:core#Order@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4329,7 +4265,7 @@ var index = {
             }
         },
         "Order": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Represents an order for tracking purposes.",
             "abstract": false,
             "readonly": false,
@@ -4337,7 +4273,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.38.1"
+                "urn:tailjs:core#Tagged@0.39.1"
             ],
             "properties": {
                 "internalId": {
@@ -4360,7 +4296,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine@0.38.1"
+                        "reference": "urn:tailjs:core#OrderLine@0.39.1"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -4430,15 +4366,15 @@ var index = {
             }
         },
         "OrderLine": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#OrderQuantity@0.38.1",
-                "urn:tailjs:core#Tagged@0.38.1"
+                "urn:tailjs:core#OrderQuantity@0.39.1",
+                "urn:tailjs:core#Tagged@0.39.1"
             ],
             "properties": {
                 "lineId": {
@@ -4473,7 +4409,7 @@ var index = {
             }
         },
         "CartAbandonedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented.",
             "abstract": false,
             "readonly": false,
@@ -4481,8 +4417,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent@0.38.1",
-                "urn:tailjs:core#Order@0.38.1"
+                "urn:tailjs:core#CommerceEvent@0.39.1",
+                "urn:tailjs:core#Order@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4509,7 +4445,7 @@ var index = {
             }
         },
         "OrderStatusEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Base event for events that related to an order changing status.",
             "abstract": true,
             "readonly": false,
@@ -4517,7 +4453,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "order": {
@@ -4532,7 +4468,7 @@ var index = {
             }
         },
         "OrderConfirmedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation.",
             "abstract": false,
             "readonly": false,
@@ -4540,7 +4476,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4558,7 +4494,7 @@ var index = {
             }
         },
         "OrderCancelledEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "An order was cancelled.",
             "abstract": false,
             "readonly": false,
@@ -4566,7 +4502,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4593,7 +4529,7 @@ var index = {
             }
         },
         "OrderCompletedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "An order was cancelled.",
             "abstract": false,
             "readonly": false,
@@ -4601,7 +4537,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4619,7 +4555,7 @@ var index = {
             }
         },
         "PaymentEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Events related to order payments.",
             "abstract": true,
             "readonly": false,
@@ -4627,7 +4563,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent@0.38.1"
+                "urn:tailjs:core#CommerceEvent@0.39.1"
             ],
             "properties": {
                 "orderReference": {
@@ -4670,7 +4606,7 @@ var index = {
             }
         },
         "PaymentAcceptedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The payment for an order was accepted.",
             "abstract": false,
             "readonly": false,
@@ -4678,7 +4614,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#PaymentEvent@0.38.1"
+                "urn:tailjs:core#PaymentEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4705,7 +4641,7 @@ var index = {
             }
         },
         "PaymentRejectedEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A payment for the order was rejected.",
             "abstract": false,
             "readonly": false,
@@ -4713,7 +4649,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#PaymentEvent@0.38.1"
+                "urn:tailjs:core#PaymentEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4731,7 +4667,7 @@ var index = {
             }
         },
         "AuthenticationEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Events related to users signing in, out etc..",
             "abstract": true,
             "readonly": false,
@@ -4739,12 +4675,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {}
         },
         "SignInEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A user signed in.",
             "abstract": false,
             "readonly": false,
@@ -4752,7 +4688,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#AuthenticationEvent@0.38.1"
+                "urn:tailjs:core#AuthenticationEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4788,7 +4724,7 @@ var index = {
             }
         },
         "SignOutEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "A user actively signed out. (Session expiry doesn't count).",
             "abstract": false,
             "readonly": false,
@@ -4796,7 +4732,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#AuthenticationEvent@0.38.1"
+                "urn:tailjs:core#AuthenticationEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4823,7 +4759,7 @@ var index = {
             }
         },
         "SystemEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics.",
             "abstract": true,
             "readonly": false,
@@ -4831,12 +4767,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "properties": {}
         },
         "ImpressionTextStats": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4910,7 +4846,7 @@ var index = {
             }
         },
         "ImpressionEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.\n\n\nThis only gets tracked for components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .",
             "abstract": false,
             "readonly": false,
@@ -4918,7 +4854,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.38.1"
+                "urn:tailjs:core#UserInteractionEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -4943,7 +4879,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "For how long the component was visible. This counter starts after an impression has been detected.",
                     "readonly": false,
                     "visibility": "public",
@@ -4952,7 +4888,7 @@ var index = {
                     "required": false
                 },
                 "regions": {
-                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.38.1",
+                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.39.1",
                     "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
                     "readonly": false,
                     "visibility": "public",
@@ -4961,7 +4897,7 @@ var index = {
                     "required": false
                 },
                 "text": {
-                    "reference": "urn:tailjs:core#ImpressionTextStats@0.38.1",
+                    "reference": "urn:tailjs:core#ImpressionTextStats@0.39.1",
                     "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all.",
                     "readonly": false,
                     "visibility": "public",
@@ -4992,7 +4928,7 @@ var index = {
             }
         },
         "ImpressionRegionStats": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -5038,7 +4974,7 @@ var index = {
             }
         },
         "ResetEvent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends.",
             "abstract": false,
             "readonly": false,
@@ -5046,8 +4982,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1",
-                "urn:tailjs:core#SystemEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1",
+                "urn:tailjs:core#SystemEvent@0.39.1"
             ],
             "properties": {
                 "type": {
@@ -5083,18 +5019,18 @@ var index = {
             }
         },
         "ConfiguredComponent": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Component@0.38.1"
+                "urn:tailjs:core#Component@0.39.1"
             ],
             "properties": {
                 "track": {
-                    "reference": "urn:tailjs:core#TrackingSettings@0.38.1",
+                    "reference": "urn:tailjs:core#TrackingSettings@0.39.1",
                     "description": "Settings for how the component will be tracked.\n\nThese settings are not tracked, that is, this property is stripped from the data sent to the server.",
                     "readonly": false,
                     "visibility": "public",
@@ -5105,7 +5041,7 @@ var index = {
             }
         },
         "TrackingSettings": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -5161,7 +5097,7 @@ var index = {
             }
         },
         "UserAgentEvent_timezone_type": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -5189,7 +5125,7 @@ var index = {
             }
         },
         "UserAgentEvent_screen_type": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Screen",
             "abstract": false,
             "readonly": false,
@@ -5237,7 +5173,7 @@ var index = {
             }
         },
         "ViewEvent_utm_type": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
             "abstract": false,
             "readonly": false,
@@ -5289,7 +5225,7 @@ var index = {
             }
         },
         "ViewEvent_externalReferrer_type": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
             "abstract": false,
             "readonly": false,
@@ -5307,7 +5243,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.38.1",
+                    "reference": "urn:tailjs:core#Domain@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -5317,7 +5253,7 @@ var index = {
             }
         },
         "ImpressionEvent_regions_type": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
             "abstract": false,
             "readonly": false,
@@ -5327,7 +5263,7 @@ var index = {
             "extends": [],
             "properties": {
                 "top": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.38.1",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.39.1",
                     "description": "The top 25 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -5336,7 +5272,7 @@ var index = {
                     "required": false
                 },
                 "middle": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.38.1",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.39.1",
                     "description": "The middle 25 - 75 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -5345,7 +5281,7 @@ var index = {
                     "required": false
                 },
                 "bottom": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.38.1",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.39.1",
                     "description": "The bottom 25 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -5356,7 +5292,7 @@ var index = {
             }
         },
         "FormEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#FormEvent.",
             "abstract": false,
             "readonly": false,
@@ -5364,7 +5300,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -5381,7 +5317,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5400,7 +5336,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5409,7 +5345,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5418,7 +5354,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5427,7 +5363,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5477,7 +5413,7 @@ var index = {
                         "required": true
                     },
                     "value": {
-                        "reference": "urn:tailjs:core#FormField@0.38.1"
+                        "reference": "urn:tailjs:core#FormField@0.39.1"
                     },
                     "description": "All fields in the form (as detected).",
                     "readonly": false,
@@ -5498,7 +5434,7 @@ var index = {
             }
         },
         "ComponentClickEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ComponentClickEvent.",
             "abstract": false,
             "readonly": false,
@@ -5506,7 +5442,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -5523,7 +5459,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5542,7 +5478,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5551,7 +5487,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5560,7 +5496,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5569,7 +5505,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5580,7 +5516,7 @@ var index = {
             }
         },
         "ComponentClickIntentEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ComponentClickIntentEvent.",
             "abstract": false,
             "readonly": false,
@@ -5588,7 +5524,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -5605,7 +5541,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5624,7 +5560,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5633,7 +5569,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5642,7 +5578,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5651,7 +5587,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5661,7 +5597,7 @@ var index = {
                 },
                 "clicks": {
                     "item": {
-                        "reference": "urn:tailjs:core#Position@0.38.1"
+                        "reference": "urn:tailjs:core#Position@0.39.1"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -5671,7 +5607,7 @@ var index = {
                 },
                 "clickables": {
                     "item": {
-                        "reference": "urn:tailjs:core#ComponentElementInfo@0.38.1"
+                        "reference": "urn:tailjs:core#ComponentElementInfo@0.39.1"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -5682,7 +5618,7 @@ var index = {
             }
         },
         "ComponentViewEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ComponentViewEvent.",
             "abstract": false,
             "readonly": false,
@@ -5690,7 +5626,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -5707,7 +5643,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5726,7 +5662,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5735,7 +5671,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5744,7 +5680,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5753,7 +5689,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5764,7 +5700,7 @@ var index = {
             }
         },
         "NavigationEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#NavigationEvent.",
             "abstract": false,
             "readonly": false,
@@ -5772,7 +5708,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -5789,7 +5725,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5808,7 +5744,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5817,7 +5753,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5826,7 +5762,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5835,7 +5771,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5889,7 +5825,7 @@ var index = {
                     "purposes": {}
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.38.1",
+                    "reference": "urn:tailjs:core#Domain@0.39.1",
                     "description": "The domain of the destination",
                     "readonly": false,
                     "visibility": "public",
@@ -5900,7 +5836,7 @@ var index = {
             }
         },
         "ScrollEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ScrollEvent.",
             "abstract": false,
             "readonly": false,
@@ -5908,7 +5844,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -5925,7 +5861,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5944,7 +5880,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5953,7 +5889,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5962,7 +5898,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5971,7 +5907,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5980,7 +5916,7 @@ var index = {
                     "required": false
                 },
                 "offset": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The offset relative to the page size (100 % is bottom, 0 % is top)",
                     "readonly": false,
                     "visibility": "public",
@@ -6008,7 +5944,7 @@ var index = {
             }
         },
         "SearchEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#SearchEvent.",
             "abstract": false,
             "readonly": false,
@@ -6016,7 +5952,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6033,7 +5969,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6052,7 +5988,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6061,7 +5997,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6070,7 +6006,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6079,7 +6015,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6098,7 +6034,7 @@ var index = {
                 },
                 "filters": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchFilter@0.38.1"
+                        "reference": "urn:tailjs:core#SearchFilter@0.39.1"
                     },
                     "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\"",
                     "readonly": false,
@@ -6118,7 +6054,7 @@ var index = {
                 },
                 "topHits": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchResult@0.38.1"
+                        "reference": "urn:tailjs:core#SearchResult@0.39.1"
                     },
                     "description": "If some or all of the results are relevant for analytics or AI, they can be included here.",
                     "readonly": false,
@@ -6130,7 +6066,7 @@ var index = {
             }
         },
         "SessionStartedEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#SessionStartedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6138,7 +6074,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6182,7 +6118,7 @@ var index = {
             }
         },
         "UserAgentEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#UserAgentEvent.",
             "abstract": false,
             "readonly": false,
@@ -6190,7 +6126,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6239,7 +6175,7 @@ var index = {
                 },
                 "languages": {
                     "item": {
-                        "reference": "urn:tailjs:core#UserAgentLanguage@0.38.1"
+                        "reference": "urn:tailjs:core#UserAgentLanguage@0.39.1"
                     },
                     "description": "The user's language preferences as configured in the user's device.",
                     "readonly": false,
@@ -6249,7 +6185,7 @@ var index = {
                     "required": false
                 },
                 "timezone": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.38.1",
+                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -6257,7 +6193,7 @@ var index = {
                     "required": false
                 },
                 "screen": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.38.1",
+                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.39.1",
                     "description": "Screen",
                     "readonly": false,
                     "visibility": "public",
@@ -6268,7 +6204,7 @@ var index = {
             }
         },
         "ViewEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ViewEvent.",
             "abstract": false,
             "readonly": false,
@@ -6276,7 +6212,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6328,7 +6264,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "For how long the view was active. This is set via patches",
                     "readonly": false,
                     "visibility": "public",
@@ -6346,7 +6282,7 @@ var index = {
                     "required": false
                 },
                 "utm": {
-                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.38.1",
+                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.39.1",
                     "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
                     "readonly": false,
                     "visibility": "public",
@@ -6372,7 +6308,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.38.1",
+                    "reference": "urn:tailjs:core#Domain@0.39.1",
                     "description": "The domain part of the href, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6454,7 +6390,7 @@ var index = {
                     "required": false
                 },
                 "externalReferrer": {
-                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.38.1",
+                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.39.1",
                     "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
                     "readonly": false,
                     "visibility": "public",
@@ -6463,7 +6399,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6481,7 +6417,7 @@ var index = {
                     "required": false
                 },
                 "definition": {
-                    "reference": "urn:tailjs:core#View@0.38.1",
+                    "reference": "urn:tailjs:core#View@0.39.1",
                     "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event.",
                     "readonly": false,
                     "visibility": "public",
@@ -6492,7 +6428,7 @@ var index = {
             }
         },
         "SessionLocationEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#SessionLocationEvent.",
             "abstract": false,
             "readonly": false,
@@ -6500,7 +6436,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6558,7 +6494,7 @@ var index = {
                     "required": false
                 },
                 "continent": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "description": "The continent is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -6569,7 +6505,7 @@ var index = {
                     "required": false
                 },
                 "country": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "description": "The country is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -6580,7 +6516,7 @@ var index = {
                     "required": false
                 },
                 "subdivision": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -6590,7 +6526,7 @@ var index = {
                     "required": false
                 },
                 "city": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.38.1",
+                    "reference": "urn:tailjs:core#GeoEntity@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -6602,7 +6538,7 @@ var index = {
             }
         },
         "AnchorNavigationEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#AnchorNavigationEvent.",
             "abstract": false,
             "readonly": false,
@@ -6610,7 +6546,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6627,7 +6563,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6646,7 +6582,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6655,7 +6591,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6664,7 +6600,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6673,7 +6609,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6693,7 +6629,7 @@ var index = {
             }
         },
         "ConsentEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ConsentEvent.",
             "abstract": false,
             "readonly": false,
@@ -6701,7 +6637,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6717,7 +6653,7 @@ var index = {
                     "purposes": {}
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent@0.38.1",
+                    "reference": "urn:tailjs:core#UserConsent@0.39.1",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -6727,7 +6663,7 @@ var index = {
             }
         },
         "CartUpdatedEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#CartUpdatedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6735,7 +6671,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6752,7 +6688,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6771,7 +6707,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6780,7 +6716,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6789,7 +6725,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6798,7 +6734,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6835,7 +6771,7 @@ var index = {
                     "required": false
                 },
                 "variation": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.38.1",
+                    "reference": "urn:tailjs:core#ExternalReference@0.39.1",
                     "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
                     "readonly": false,
                     "visibility": "public",
@@ -6862,7 +6798,7 @@ var index = {
                     "required": false
                 },
                 "item": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.38.1",
+                    "reference": "urn:tailjs:core#ExternalReference@0.39.1",
                     "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context.",
                     "readonly": false,
                     "visibility": "public",
@@ -6888,7 +6824,7 @@ var index = {
             }
         },
         "OrderEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#OrderEvent.",
             "abstract": false,
             "readonly": false,
@@ -6896,7 +6832,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -6931,7 +6867,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine@0.38.1"
+                        "reference": "urn:tailjs:core#OrderLine@0.39.1"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -7001,7 +6937,7 @@ var index = {
             }
         },
         "CartAbandonedEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#CartAbandonedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7009,7 +6945,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7044,7 +6980,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine@0.38.1"
+                        "reference": "urn:tailjs:core#OrderLine@0.39.1"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -7123,7 +7059,7 @@ var index = {
             }
         },
         "OrderConfirmedEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#OrderConfirmedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7131,7 +7067,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7149,7 +7085,7 @@ var index = {
             }
         },
         "OrderCancelledEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#OrderCancelledEvent.",
             "abstract": false,
             "readonly": false,
@@ -7157,7 +7093,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7184,7 +7120,7 @@ var index = {
             }
         },
         "OrderCompletedEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#OrderCompletedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7192,7 +7128,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7210,7 +7146,7 @@ var index = {
             }
         },
         "PaymentAcceptedEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#PaymentAcceptedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7218,7 +7154,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7282,7 +7218,7 @@ var index = {
             }
         },
         "PaymentRejectedEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#PaymentRejectedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7290,7 +7226,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7345,7 +7281,7 @@ var index = {
             }
         },
         "SignInEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#SignInEvent.",
             "abstract": false,
             "readonly": false,
@@ -7353,7 +7289,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7389,7 +7325,7 @@ var index = {
             }
         },
         "SignOutEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#SignOutEvent.",
             "abstract": false,
             "readonly": false,
@@ -7397,7 +7333,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7424,7 +7360,7 @@ var index = {
             }
         },
         "ImpressionEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ImpressionEvent.",
             "abstract": false,
             "readonly": false,
@@ -7432,7 +7368,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7449,7 +7385,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.38.1"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.39.1"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -7468,7 +7404,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -7477,7 +7413,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.38.1",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.39.1",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -7486,7 +7422,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.38.1",
+                    "reference": "urn:tailjs:core#Viewport@0.39.1",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -7495,7 +7431,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.38.1",
+                    "reference": "urn:tailjs:core#ElementInfo@0.39.1",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -7513,7 +7449,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.38.1",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.39.1",
                     "description": "For how long the component was visible. This counter starts after an impression has been detected.",
                     "readonly": false,
                     "visibility": "public",
@@ -7522,7 +7458,7 @@ var index = {
                     "required": false
                 },
                 "regions": {
-                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.38.1",
+                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.39.1",
                     "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
                     "readonly": false,
                     "visibility": "public",
@@ -7531,7 +7467,7 @@ var index = {
                     "required": false
                 },
                 "text": {
-                    "reference": "urn:tailjs:core#ImpressionTextStats@0.38.1",
+                    "reference": "urn:tailjs:core#ImpressionTextStats@0.39.1",
                     "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all.",
                     "readonly": false,
                     "visibility": "public",
@@ -7562,7 +7498,7 @@ var index = {
             }
         },
         "ResetEvent_patch": {
-            "version": "0.38.1",
+            "version": "0.39.1",
             "description": "Patch type for urn:tailjs:core#ResetEvent.",
             "abstract": false,
             "readonly": false,
@@ -7570,7 +7506,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.38.1"
+                "urn:tailjs:core#TrackedEvent@0.39.1"
             ],
             "system": "patch",
             "properties": {
@@ -7609,7 +7545,7 @@ var index = {
     "variables": {
         "session": {
             "@info": {
-                "reference": "urn:tailjs:core#SessionInfo@0.38.1",
+                "reference": "urn:tailjs:core#SessionInfo@0.39.1",
                 "readonly": false,
                 "visibility": "trusted-write",
                 "classification": "anonymous",
@@ -7625,7 +7561,7 @@ var index = {
                 "dynamic": false
             },
             "@consent": {
-                "reference": "urn:tailjs:core#UserConsent@0.38.1",
+                "reference": "urn:tailjs:core#UserConsent@0.39.1",
                 "description": "User consent is a dynamic variable that is resolved by the Tracker and cannot be set.",
                 "readonly": false,
                 "visibility": "public",
@@ -7636,7 +7572,7 @@ var index = {
         },
         "device": {
             "@info": {
-                "reference": "urn:tailjs:core#DeviceInfo@0.38.1",
+                "reference": "urn:tailjs:core#DeviceInfo@0.39.1",
                 "readonly": false,
                 "visibility": "trusted-write",
                 "classification": "indirect",
@@ -7648,8 +7584,8 @@ var index = {
 };
 
 const scripts$1 = {
-    production: "(()=>{var e,t,r,n,i,a,l,o,u,s,d,v,c,f,p,h,g,y,b,w,k,S,x,T,I;function j(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var U=(e,t=e=>Error(e))=>{throw el(e=e5(e))?t(e):e},M=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(!eu(e)&&!ec(e)||!eu(t)&&!ec(t)||e.length!==t.length)return!1;var i,n=0;for(i in e){if(e[i]!==t[i]&&!M(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length},F=(e,t,...r)=>e===t||0<r.length&&r.some(t=>F(e,t)),z=(e,t=!0,r)=>{try{return e()}catch(e){return eh(t)?es(e=t(e))?U(e):e:er(t)?console.error(t?U(e):e):t}finally{null!=r&&r()}};class R extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),j(this,\"_action\",void 0),j(this,\"_result\",void 0),this._action=e}}var P=e=>new R(async()=>e5(e)),D=async(e,t=!0,r)=>{try{return await e5(e)}catch(e){if(!er(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},B=e=>e,W=e=>!!e,J=e=>e===G,L=void 0,V=Number.MAX_SAFE_INTEGER,K=!1,G=!0,H=()=>{},X=e=>e,Z=e=>null!=e,Y=Symbol.iterator,Q=Symbol.asyncIterator,ee=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:L,et=(e,t)=>eh(t)?e!==L?t(e):L:(null==e?void 0:e[t])!==L?e:L,er=e=>\"boolean\"==typeof e,en=ee(er,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||L))),ei=e=>e!==K,ea=e=>\"number\"==typeof e,el=e=>\"string\"==typeof e,eo=ee(el,e=>null==e?void 0:e.toString()),eu=Array.isArray,es=e=>e instanceof Error,ed=(e,t=!1)=>null==e?L:!t&&eu(e)?e:eg(e)?[...e]:[e],ev=e=>e&&\"object\"==typeof e,ec=e=>(null==e?void 0:e.constructor)===Object,ef=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ep=e=>\"symbol\"==typeof e,eh=e=>\"function\"==typeof e,eg=(e,t=!1)=>!(null==e||!e[Y]||\"string\"==typeof e&&!t),ey=e=>e instanceof Map,em=e=>e instanceof Set,eb=(e,t)=>null==e?L:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,ew=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ek=e=>el(e)&&(ew(e,\"{\",\"}\")||ew(e,\"[\",\"]\")),eS=!1,ex=e=>(eS=!0,e),eT=e=>null==e?L:eh(e)?e:t=>t[e],eI=(e,t,r)=>(null!=t?t:r)!==L?(e=eT(e),null==t&&(t=0),null==r&&(r=V),(n,i)=>t--?L:r--?e?e(n,i):n:r):e,eA=e=>null==e?void 0:e.filter(Z),eE=(e,t,r,n)=>null==e?[]:!t&&eu(e)?eA(e):e[Y]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),eS){eS=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===L?t:eI(t,r,n)):ev(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),eS){eS=!1;break}}}(e,eI(t,r,n)):eE(eh(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eN=(e,t,r,n)=>eE(e,t,r,n),eO=(e,t,r=1,n=!1,i,a)=>function*e(t,r,n,i){if(null!=t)if(t[Y]||n&&ev(t))for(var a of i?eE(t):t)1!==r?yield*e(a,r-1,n,!0):yield a;else yield t}(eE(e,t,i,a),r+1,n,!1),e$=(e,t,r,n)=>{if(t=eT(t),eu(e)){var i=0,a=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!eS;r++){var l=e[r];null!=(t?l=t(l,i++):l)&&a.push(l)}return eS=!1,a}return null!=e?tX(eN(e,t,r,n)):L},e_=(e,t,r,n)=>null!=e?new Set([...eN(e,t,r,n)]):L,eC=(e,t,r=1,n=!1,i,a)=>tX(eO(e,t,r,n,i,a)),ej=(...e)=>{var t;return ez(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...tX(e))),t},eU=(e,t,r,n)=>{var i,a,l=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(a=t(e[r],l++))?a:i,eS)){eS=!1;break}return i},eM=(e,t)=>{var r,n,a,i=0;for(a of e)if(null!=a&&(r=null!=(n=t(a,i++))?n:r,eS)){eS=!1;break}return r},eF=(e,t)=>{var r,n,a,i=0;for(a in e)if(r=null!=(n=t([a,e[a]],i++))?n:r,eS){eS=!1;break}return r},eq=(e,t,r,n)=>{var i;if(null!=e){if(eu(e))return eU(e,t,r,n);if(r===L){if(e[Y])return eM(e,t);if(\"object\"==typeof e)return eF(e,t)}for(var a of eE(e,t,r,n))null!=a&&(i=a);return i}},ez=eq,eR=async(e,t,r,n)=>{var i,a;if(null==e)return L;for(a of eN(e,t,r,n))if(null!=(a=await a)&&(i=a),eS){eS=!1;break}return i},eP=(e,t)=>{if(null==e)return L;var r={};if(t){var n,a,i=0;for(a in e)(n=t([a,e[a]],i++))&&(r[n[0]]=n[1])}else for(var l of e)l&&(r[l[0]]=l[1]);return r},eD=(e,t,r)=>{var n,i,a;return null==e?L:er(t)||r?(a={},ez(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(a[e[0]],e[1]))&&(a[e[0]]=e[1]):e=>ez(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=a)[i=e[0]])?t:n[i]=[]).push(e[1]),a)}:e=>null!=(null==e?void 0:e[1])&&(a[e[0]]=e[1],a))),a):eP(e$(e,t?(e,r)=>et(t(e,r),1):e=>et(e,1)))},eB=(e,t,r,n,i)=>{var l=()=>eh(r)?r():r;return null!=(e=eq(e,(e,n)=>r=null!=(e=t(r,e,n))?e:l(),n,i))?e:l()},eW=(e,t,r,n)=>e$(e,(e,r)=>e&&null!=t&&t(e,r)?e:L,r,n),eL=(e,...t)=>null==e?L:ea(e)?Math.max(e,...t):eB(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ea(i)&&e<i?i:e,L,t[2],t[3]),eK=(e,t,r,n)=>{var i;return null==e?L:ec(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:W))?i:eq(e,t?(e,r)=>!!t(e,r)&&ex(!0):()=>ex(!0),r,n))&&i},eG=(e,t=e=>e)=>{var r;return null!=(r=ed(e))&&r.sort((e,r)=>t(e)-t(r)),e},eH=(e,t,r)=>(e.constructor===Object||eu(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eX=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=eh(r)?r():r)&&eH(e,t,n),n},eZ=(e,...t)=>(ez(t,t=>ez(t,([t,r])=>{null!=r&&(ec(e[t])&&ec(r)?eZ(e[t],r):e[t]=r)})),e),eY=(e,t,r,n)=>{if(e)return null!=r?eH(e,t,r,n):(ez(t,t=>eu(t)?eH(e,t[0],t[1]):ez(t,([t,r])=>eH(e,t,r))),e)},eQ=(e,t,r)=>{var n;return ef(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ef(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ec(e)&&delete e[t],e},e2=(e,t)=>{if(e)return eu(t)?(eu(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e2(e,t)):eu(e)?t<e.length?e.splice(t,1)[0]:void 0:((e,t)=>{var r;if(null!=(null!=e?e:t))return r=eX(e,t),ef(e,\"delete\")?e.delete(t):delete e[t],r})(e,t)},e5=e=>eh(e)?e():e,e3=(e,t=-1)=>eu(e)?t?e.map(e=>e3(e,t-1)):[...e]:ec(e)?t?eD(e,([e,r])=>[e,e3(r,t-1)]):{...e}:em(e)?new Set(t?e$(e,e=>e3(e,t-1)):e):ey(e)?new Map(t?e$(e,e=>[e[0],e3(e[1],t-1)]):e):e,e6=(e,...t)=>null==e?void 0:e.push(...t),e4=(e,...t)=>null==e?void 0:e.unshift(...t),e8=(e,t)=>{var r,i,a;if(e)return ec(t)?(a={},ec(e)&&(ez(e,([e,l])=>{if(!M(l,t[e],-1)){if(ec(r=l)){if(!(l=e8(l,t[e])))return;[l,r]=l}else ea(l)&&ea(void 0)&&(l=(r=l)-void 0);a[e]=l,(null!=i?i:i=e3(t))[e]=r}}),i)?[a,i]:void 0):[e,e]},e9=\"undefined\"!=typeof performance?(e=G)=>e?Math.trunc(e9(K)):performance.timeOrigin+performance.now():Date.now,e7=(e=!0,t=()=>e9())=>{var r,n=+e*t(),i=0;return(a=e,l)=>(r=e?i+=-n+(n=t()):i,l&&(i=0),(e=a)&&(n=t()),r)},tt=(e,t=0)=>{var e=eh(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:a=!1,trigger:l=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=to(!0).resolve(),c=e7(!a),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((m.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await D(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&y(!1),!(m.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{m.active&&p(),m.active&&h()},y=(e,t=!e)=>(c(e,t),clearTimeout(d),m.active=!!(d=e?h():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,y(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(y(!0),m.trigger(),m):y(!0):y(!1):m,trigger:async e=>await p(e)&&(y(m.active),!0)};return m.toggle(!a,l)};function tr(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tn{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new ti,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tr(this,\"_promise\",void 0),this.reset()}}class ti{then(e,t){return this._promise.then(e,t)}constructor(){var e;tr(this,\"_promise\",void 0),tr(this,\"resolve\",void 0),tr(this,\"reject\",void 0),tr(this,\"value\",void 0),tr(this,\"error\",void 0),tr(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===L||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var tl=(e,t)=>null==e||isFinite(e)?!e||e<=0?e5(t):new Promise(r=>setTimeout(async()=>r(await e5(t)),e)):U(`Invalid delay ${e}.`),to=e=>new(e?tn:ti),ts=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,a),a=()=>n!==(n=!1)&&(r(i),!0),l=()=>n!==(n=!0)&&(t(i),!0);return l(),[a,l]},ee=()=>{var e,t=new Set;return[(r,n)=>{var i=ts(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tv=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),tf=(e,t)=>{var l,r=[],n={},i={},a=0;for(l in t)l===t[l]&&(Object.defineProperty(i,l,{value:l,writable:!1,enumerable:!0,configurable:!1}),n[l]=a++,r.push(l));var o=(t,r=!0)=>null==t?L:null!=n[t]?t:r?U(`The ${e} \"${t}\" is not defined.`):L,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:+(t<e)},...u}}),i},tp=Symbol(),th=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,l;return e?(null==(l=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(l[1]=\"\"),l[2]=l[1]&&(el(t)?t=[t]:eu(t))&&tW(t,e=>1<(i=l[1].split(e)).length?tF(i):L)||(l[1]?[l[1]]:[]),l):L},tg=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?L:tk(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,a,l,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&L,authority:a,user:l,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):L,path:v,query:!1===t?c:c?ty(c,{...n,delimiters:t}):L,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":L),e}),ty=(e,t)=>tm(e,\"&\",t),tm=(e,t,{delimiters:r=!0,...n}={})=>{e=tJ(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,a,l]=null!=(e=th(e,{...n,delimiters:!1===r?[]:!0===r?L:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<l.length?l:a]:[e,a]:tM}),t=t7(tK(e,!1),([e,t])=>[e,!1!==r?1<t.length?tY(t):t[0]:t.join(\",\")]);return t&&(t[tp]=e),t},tb=(e,t)=>t&&null!=e?t.test(e):L,tw=(e,t,r)=>tk(e,t,r,!0),tk=(e,t,i,a=!1)=>null==(null!=e?e:t)?L:i?(r=L,a?(n=[],tk(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(a=e.match(t))?a:L,tS=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tx=/\\z./g,tT=(e,t)=>(t=ri(e_(eW(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tx,tI={},tA=e=>e instanceof RegExp,tE=(r,n=[\",\",\" \"])=>{var i;return tA(r)?r:eu(r)?tT(e$(r,e=>null==(e=tE(e,n))?void 0:e.source)):er(r)?r?/./g:tx:el(r)?null!=(i=(e=tI)[t=r])?i:e[t]=tk(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tT(e$(tN(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${ri(n,tS)}]`)),e=>e&&`^${ri(tN(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tS(tO(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):L},tN=(e,t,r=!0)=>null==e?L:r?tN(e,t,!1).filter(X):e.split(t),tO=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,t$=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eY(r,{push(n,i){for(var a=[n,i],l=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(a[1],d[0])<0)return l(r.splice(o,0,a));if(e(a[0],d[1])<=0){if(e(a[0],d[0])<0&&(u=d[0]=a[0]),0<e(a[1],d[1])&&(u=d[1]=a[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return l(null!=u);u=a=r.splice(o--,1)[0]}}return l(a&&(r[r.length]=a))},width:0})},t_=e=>{for(var t=e;t;)t=Object.getPrototypeOf(e=t);return e},tC=(e,t)=>{if(!e||t_(e)===t)return e;for(var r of e.document.getElementsByTagName(\"iframe\"))try{if(e=tC(r.contentWindow,t))return e}catch{}},tj=e=>null==e?e:globalThis.window?tC(window,t_(e)):globalThis,tU=!1,tM=Symbol(),tF=e=>(tU=!0,e),tq=Symbol(),tz=Symbol(),tR=Symbol.iterator,tP=(e,t,r)=>{if(null==e||e[tq])throw t;e=tj(e);if(!e)throw t;var l,i=()=>(e,t,r,n,i)=>{var a,o,l=0;for(o of e)if((a=t?t(o,l++,n,i):o)!==tM){if(a===tF)break;if(n=a,r&&r.push(a),tU){tU=!1;break}}return r||n},a=(e.Array.prototype[tq]=(e,t,r,n,i)=>{for(var l,o=0,u=e.length;o<u;o++)if(l=e[o],(l=t?t(l,o,n,i):l)!==tM){if(l===tF)break;if(n=l,r&&r.push(l),tU){tU=!1;break}}return r||n},i());for(l of(e.Object.prototype[tq]=(e,t,r,n,l)=>{if(e[tR])return(e.constructor===Object?a:Object.getPrototypeOf(e)[tq]=i())(e,t,r,n,l);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=t?t(u,s++,n,l):u)!==tM){if(u===tF)break;if(n=u,r&&r.push(u),tU){tU=!1;break}}return r||n},e.Object.prototype[tz]=function(){var t,e;return this[tR]||this[Q]?this.constructor===Object?null!=(e=this[Q]())?e:this[tR]():((e=Object.getPrototypeOf(this))[tz]=null!=(t=e[Q])?t:e[tR],this[tz]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[e.Map.prototype,e.WeakMap.prototype,e.Set.prototype,e.WeakSet.prototype,Object.getPrototypeOf(function*(){})]))l[tq]=i(),l[tz]=l[tR];return e.Number.prototype[tq]=(e,t,r,n,i)=>a(tD(e),t,r,n,i),e.Number.prototype[tz]=tD,e.Function.prototype[tq]=(e,t,r,n,i)=>a(tB(e),t,r,n,i),e.Function.prototype[tz]=tB,r()};function*tD(e=this){for(var t=0;t<e;t++)yield t}function*tB(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tW=(e,t,r,n)=>{try{return e?e[tq](e,t,void 0,r,n):null==e?e:void 0}catch(i){return tP(e,i,()=>tW(e,t,r,n))}},tJ=(e,t,r=[],n,i=e)=>{try{return e||0===e||\"\"===e?e[tq](e,t,r,n,i):null==e?e:void 0}catch(a){return tP(e,a,()=>tJ(e,t,r,n,i))}},tL=(e,t=!0,r=!1)=>tJ(e,!0===t?e=>null!=e?e:tM:t?t.has?e=>null==e||t.has(e)===r?tM:e:(e,n,i)=>!t(e,n,i)===r?e:tM:e=>e||tM),tV=(e,t,r=-1,n=[],i,a=e)=>tJ(e,(e,i,a)=>null!=(t?e=t(e,i,a):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tV(e,void 0,r-1,n,e),tM):e,n,i,a),tK=(e,t,r)=>{var n,i,a,l;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tW(e,!1!==r?(a=new Map,(e,r,n)=>{void 0!==(l=t?t(e,r,n):e)[0]&&t6(a,l[0],()=>[]).push(l[1])}):(a={},(e,r,o)=>(l=t?t(e,r,o):e)&&void 0!==l[0]&&(null!=(r=(n=a)[i=l[0]])?r:n[i]=[]).push(l[1]))),a},tX=e=>null==e||eu(e)?e:e[tR]&&\"string\"!=typeof e?[...e]:[e],tZ=(e,t)=>!0===tW(e,(r,n,i)=>(t?t(r,n,i,e):r)?tU=!0:r),tY=(e,...t)=>{var r,n;for(n of e=!t.length&&eg(e)?e:[e,...t])if(null!=n){if(eg(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},tQ=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),t1=Symbol(),t2=Symbol(),t5=Symbol(),t3=(e,t,r)=>{if(null==e||e[t2])throw t;var i,e=tj(e);if(!e||e.Object.prototype[t1])throw t;for({prototype:i}of[e.Map,e.WeakMap])i[t1]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},i[t2]=i.get;for({prototype:i}of[e.Set,e.WeakSet])i[t1]=function(e,t,r=!1){return t||r&&void 0===t?!this.has(e)&&!!this.add(e):this.delete(e)},i[t2]=i.has,i[t5]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for({prototype:i}of(e.Array.prototype[t5]=function(e){return this.push(...e),this},[e.Object,e.Array]))i[t1]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},i[t2]=function(e){return this[e]};return r()},t6=(e,t,r)=>{try{if(null==e)return e;var n=e[t2](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[t1](t,r));e[t1](t,n)}return n}catch(n){return t3(e,n,()=>t6(e,t,r))}},t4=(e,t,r)=>{try{return!0===(null==e?void 0:e[t1](t,r,!0))}catch(n){return t3(e,n,()=>t4(e,t,r))}},t8=(e,t,r)=>{try{return e[t1](t,r),r}catch(n){return t3(e,n,()=>t8(e,t,r))}},t9=(e,...t)=>{try{return null==e?e:e[t5](t)}catch(r){return t3(e,r,()=>t9(e,...t))}},t7=(e,t)=>{var r={};return tW(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==tM&&e!==tF)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==tM&&e!==tF)?r[e[0]]=e[1]:e),r},re=(e,...t)=>{try{return(null==e?void 0:e.constructor)===Object?tW(t,t=>tW(t,t=>t&&(e[t[0]]=t[1]))):tW(t,t=>tW(t,t=>t&&e[t1](t[0],t[1]))),e}catch(r){return t3(e,r,()=>re(e,...t))}},rt=(e,t,r={})=>{if(null!=e){var l,{deep:n=!0,overwrite:i=!0,nulls:a=!1}=r;for(l of void 0===t?[]:null!=t&&t[tR]&&\"string\"!=typeof t?t:[t])tW(l,t=>{var o,u;t&&([t,o]=t,u=e[t],(a?null==u:void 0===u)?e[t]=o:n&&(null==o?void 0:o.constructor)===Object&&(null==u?void 0:u.constructor)===Object?rt(u,o,r):i&&(e[t]=o))})}return e},rr=(e,t)=>null==e?e:t7(t,t=>void 0!==e[t]||t in e?[t,e[t]]:tM),rn=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),ri=(e,t,r)=>null==e?e:eg(e)?tL(\"function\"==typeof t?tJ(e,t):(r=t,e),rn,!0).join(null!=r?r:\"\"):rn(e)?\"\":e.toString(),ra=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?ra(tJ(e,t),r,n):(i=[],n=tW(e,(e,t,r)=>rn(e)?tM:(r&&i.push(r),e.toString())),[t,o]=eu(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},rl=tf(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),ro=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],ru=t7(ro,e=>[e,e]),rs=(Object.freeze(eP(ro.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),rd=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},rv={names:ro,specificNames:ro.filter(e=>\"necessary\"!==e),parse(e,{names:t=!1,includeDefault:r=!0,validate:n=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),el(e)&&(e=e.split(\",\")),eu(e)){var a,i={};for(a of e)if(a!==rg){if(!ru[a]){n&&U(`The purpose name '${a}' is not defined.`);continue}\"necessary\"!==a&&(i[a]=!0)}e=i}return t?(t=tJ(e,([e,t])=>ru[e]&&t?e:tM)).length||!r?t:[\"necessary\"]:e},get all(){return{functionality:!0,marketing:!0,performance:!0,personalization:!0,security:!0}},test(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=rs(i,n))&&!t[rs(i,n)])return!1;if(e=rd(e,n),t=rd(t,n),r){for(var a in t)if(ru[a]&&t[a]&&!e[a])return!1;if(\"all\"===r)for(var a in e)if(ru[a]&&e[a]&&!t[a])return!1;return!0}var l=!1;for(a in e)if(ru[a]&&e[a]){if(t[a])return!0;l=!0}return!l}},rf=(tf(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),{anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&rv.test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=rv.parse(e.purposes,{names:!0,includeDefault:!1});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var a;return e?([e,a]=e.split(\":\"),{classification:null!=(e=rl.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=rv.parse(a,{validate:!1}))?e:{}}):t?rf.clone(t):{classification:\"anonymous\",purposes:{}}}}),rp=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),rg=\"@schema\",ry=Symbol(),rm=e=>void 0===e?\"undefined\":tv(JSON.stringify(e),40,!0),rb=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,rw=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,rk=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rS=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,rx=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,rT=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rm(t)+` ${r}.`}),ry),rI=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rI((t?parseInt:parseFloat)(e),t,!1),rA={},ro=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=rA[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:rA[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:rT(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rb.test(e)&&!isNaN(+new Date(e))?e:rT(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rI(e,!1,!1)){if(!rI(e,!0,!1))return rT(n,e,\"is not a valid UNIX timestamp\");e*=1}else if(!rw.test(e)||isNaN(+new Date(e)))return rT(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rI(e,!0,!1)?+e:rT(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rI(e,!0,!1)?+e:rT(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rI(e,!1,!1)?e:rT(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rS.test(e)?e:rT(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rS.exec(e);return r?r[2]?e:rT(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):rT(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rS.exec(e);return r?\"urn\"!==r[1]||r[2]?rT(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:rT(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&rx.test(e)?e.toLowerCase():rT(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:rT(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=rk.exec(e))?void 0:r[1].toLowerCase():null)?r:rT(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rm(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==ry&&e.length>d?rT(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===ry||(null==c||c<=e)&&(null==f||e<=f)?e:rT(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===ry)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+ra(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===ry||u.has(e)?e:rT(t,e,p)}(e=>null==e||e instanceof Set||new Set(e[tR]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),tf(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rN=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),rO=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},r$=((A={})[A.Success=200]=\"Success\",A[A.Created=201]=\"Created\",A[A.NotModified=304]=\"NotModified\",A[A.Forbidden=403]=\"Forbidden\",A[A.NotFound=404]=\"NotFound\",A[A.BadRequest=405]=\"BadRequest\",A[A.Conflict=409]=\"Conflict\",A[A.Error=500]=\"Error\",A),r_=(e,t=!0)=>null!=(null==e?void 0:e.value)||!t&&(!e||404===e.status),rC=(e,t=!0)=>e&&(e.status<400||!t&&404===e.status);function rj(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rU=e=>{var t=rN(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${r$[e.status]}.`:`${t} failed with status ${e.status} - ${r$[e.status]}${r?` (${r})`:\"\"}.`};class rM extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),rj(this,\"succeeded\",void 0),rj(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rC(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rC(e,!1)))?t:[]}}var rF=e=>!!e.callback,rq=e=>!!e.poll,rz=Symbol(),rR=(e,t,r,{poll:n,logCallbackError:i}={})=>{var a=eu(t)?t:[t],l=[],o=(async()=>{var s,d,u,v,c,t=await r(a.filter(e=>e)),o=[];for(u of a)u&&null!=(d=t.get(u))&&(d[rz]=u,rF(u)&&o.push([u,d,e=>!0===u.callback(e)]),rq(u))&&o.push([u,d,e=>{var t;return!r_(e,!1)||(t=!r_(e,!1)||u.poll(e.value,e[rz]===u,s),s=e.value,t)}]);for([u,v,c]of o)try{var f=\"get\"===e?async e=>!0===await c(e)&&(null==n?void 0:n(u,f)):c;await f(v)}catch(t){var p=`${e} callback for ${rN(u)} failed: ${t}.`;i?i(p,u,t):l.push(p)}return t})(),u=async(r,n)=>{var d,v,c,i=await o,u=[],s=[];for(d of a)d?null==(c=i.get(d))?s.push(`No result for ${rN(d)}.`):!r||rC(c,n||\"set\"===e)?u.push(r&&c.status===r$.NotFound?void 0:1<r?null!=(v=c.value)?v:void 0:c):s.push(rU(c)):u.push(void 0);if(s.push(...l),s.length)throw 10<s.length&&s.push(`\n(and ${s.splice(10).length} more...)`),new rM(u,s.join(\"\\n\"));return a===t?u:u[0]};return Object.assign(P(()=>u(1,!1)),{as:()=>u(1,!1),all:()=>u(0,!1),require:()=>u(1,!0),value:(e=!1)=>u(2,e),values:(e=!1)=>u(2,e)})},rP=e=>e&&\"string\"==typeof e.type,rD=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),rB=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rW=(e,t)=>{var r;return t&&(!(l=e.get(a=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=l.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(a,t)},rJ=(e,t=\"\",r=new Map)=>{if(e)return eg(e)?tW(e,e=>rJ(e,t,r)):el(e)?tk(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,a,l,o,u)=>{i={tag:(n?rB(n)+\"::\":\"\")+t+rB(i),value:rB(null!=(n=null!=a?a:l)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),rW(r,i)}):rW(r,e),r},rL=tf(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rV=tf(\"variable scope\",{...rL,...ro}),rK=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rG=e=>null!=e&&!!e.scope&&null!=rL.ranks[e.scope],rH=e=>null==e?e:[e.scope,e.key,e.entityId].join(\"\\0\"),rX=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],entityId:e[2]}},rY=()=>()=>U(\"Not initialized.\"),rQ=window,r0=document,r1=r0.body,r2=(e,t)=>!(null==e||!e.matches(t)),r5=V,r3=(e,t,r=(e,t)=>r5<=t)=>{for(var n=0,i=K;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(a=e,i=t!==G&&null!=a),G),n-1)!==K&&!i;){var a,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==r0&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return a},r6=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||en(e);case\"n\":return parseFloat(e);case\"j\":return z(()=>JSON.parse(e),H);case\"h\":return z(()=>nY(e),H);case\"e\":return z(()=>null==n0?void 0:n0(e),H);default:return eu(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:r6(e,t[0])):void 0}},r4=(e,t,r)=>r6(null==e?void 0:e.getAttribute(t),r),r8=(e,t,r)=>r3(e,(e,n)=>n(r4(e,t,r))),r9=(e,t)=>null==(e=r4(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),r7=e=>null==e?void 0:e.getAttributeNames(),ne=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,nt=e=>null!=e?e.tagName:null,nn=e=>({x:eb(scrollX,e),y:eb(scrollY,e)}),ni=(e,t)=>tO(e,/#.*$/,\"\")===tO(t,/#.*$/,\"\"),na=(e,t,r=G)=>(u=nl(e,t))&&B({xpx:u.x,ypx:u.y,x:eb(u.x/r1.offsetWidth,4),y:eb(u.y/r1.offsetHeight,4),pageFolds:r?u.y/window.innerHeight:void 0}),nl=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:s,y:d}=nu(e),{x:s,y:d}):void 0,nu=(e,t=!0)=>e?(v=e.getBoundingClientRect(),o=t?nn(K):{x:0,y:0},{x:eb(v.left+o.x),y:eb(v.top+o.y),width:eb(v.width),height:eb(v.height)}):void 0,ns=(e,t,r,n={capture:!0,passive:!0})=>(t=tX(t),ts(r,r=>tW(t,t=>e.addEventListener(t,r,n)),r=>tW(t,t=>e.removeEventListener(t,r,n)))),nv=()=>({...o=nn(G),width:window.innerWidth,height:window.innerHeight,totalWidth:r1.offsetWidth,totalHeight:r1.offsetHeight}),nc=new WeakMap,nf=e=>nc.get(e),np=(e,t=K)=>(t?\"--track-\":\"track-\")+e,nh=(e,t,r,n,i,a)=>(null==t?void 0:t[1])&&tW(r7(e),l=>{var o;return null!=(o=(c=t[0])[f=l])?o:c[f]=(a=K,!el(n=tW(t[1],([t,r,n],i)=>tb(l,t)&&(a=void 0,!r||r2(e,r))&&ex(null!=n?n:l)))||(i=e.getAttribute(l))&&!en(i)||rJ(i,tO(n,/\\-/g,\":\"),r),a)}),ng=()=>{},ny=(e,t)=>{if(p===(p=nT.tags))return ng(e,t);var r=e=>e?tA(e)?[[e]]:eg(e)?eC(e,r):[ec(e)?[tE(e.match),e.selector,e.prefix]:[tE(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tV(p,([,e])=>e,1))]];(ng=(e,t)=>nh(e,n,t))(e,t)},nm=(e,t)=>ri(ej(ne(e,np(t,G)),ne(e,np(\"base-\"+t,G))),\" \"),nb={},nw=(e,t,r=nm(e,\"attributes\"))=>{var n;r&&nh(e,null!=(n=nb[r])?n:nb[r]=[{},tw(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tE(r||n),,t])],t),rJ(nm(e,\"tags\"),void 0,t)},nk=(e,t,r=K,n)=>null!=(r=null!=(r=r?r3(e,(e,r)=>r(nk(e,t,K)),eh(r)?r:void 0):ri(ej(r4(e,np(t)),ne(e,np(t,G))),\" \"))?r:n&&(h=nf(e))&&n(h))?r:null,nS=(e,t,r=K,n)=>\"\"===(g=nk(e,t,r,n))||(null==g?g:en(g)),nx=(e,t,r,n)=>e&&(null==n&&(n=new Map),nw(e,n),r3(e,e=>{ny(e,n),rJ(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},nT={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},nI=[],nA=[],nE=(e,t=0)=>e.charCodeAt(t),nO=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>nI[nA[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(nA[(16515072&t)>>18],nA[(258048&t)>>12],nA[(4032&t)>>6],nA[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),n_={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nC=(e=256)=>e*Math.random()|0,nU={exports:{}},{deserialize:nM,serialize:nF}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),a=0;if(t&&t.multiple)for(var l=0;l<e.length;l++)o(e[l]);else o(e);return i.subarray(0,a);function o(e,i){var c,l;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(l=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,a=new Uint8Array(e.length*(t?1:4)),l=0;l!==r;l++){var o=e.charCodeAt(l);if(o<128)a[i++]=o;else{if(o<2048)a[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++l>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(l);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+l+\" out of range\");a[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,a[i++]=o>>12&63|128}else a[i++]=o>>12|224;a[i++]=o>>6&63|128}a[i++]=63&o|128}}return t?a:a.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(l);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((l=(c=e).length)<=255?d([196,l]):d(l<=65535?[197,l>>>8,l]:[198,l>>>24,l>>>16,l>>>8,l]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<a+1){for(var t=2*i.length;t<a+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[a]=e,a++}function d(e){if(i.length<a+e.length){for(var t=2*i.length;t<a+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,a),a+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return l(1);if(205===t)return l(2);if(206===t)return l(4);if(207===t)return l(8);if(208===t)return a(1);if(209===t)return a(2);if(210===t)return a(4);if(211===t)return a(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function a(t){for(var a,r=0,i=!0;0<t--;)i?(r+=127&(a=e[n++]),128&a&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function l(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=l(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=l(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=l(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=l(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var a=e[n++];if(127<a)if(191<a&&a<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");a=(31&a)<<6|63&e[n++]}else if(223<a&&a<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");a=(15&a)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<a&&a<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+a.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");a=(7&a)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(a<=65535)i+=String.fromCharCode(a);else{if(!(a<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+a.toString(16)+\" exceeds UTF-16 reach\");a-=65536,i=(i+=String.fromCharCode(a>>10|55296))+String.fromCharCode(1023&a|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=l(t));t=l(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=a(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};nU.exports=n})(),(A=nU.exports)&&A.__esModule&&Object.prototype.hasOwnProperty.call(A,\"default\")?A.default:A),nq=\"$ref\",nz=(e,t,r)=>ep(e)?L:r?t!==L:null===t||t,nR=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,a,l,o=(e,t,n=e[t],i=nz(t,n,r)?s(n):L)=>(n!==i&&(i!==L||eu(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||eh(e)||ep(e))return L;if(ev(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(l=null==a?void 0:a.get(e)))return e[nq]||(e[nq]=l,u(()=>delete e[nq])),{[nq]:l};if(ec(e))for(var t in(null!=a?a:a=new Map).set(e,a.size+1),e)o(e,t);else!eg(e)||e instanceof Uint8Array||(!eu(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return z(()=>{var r;return t?nF(null!=(r=s(e))?r:null):z(()=>JSON.stringify(e,L,2*!!n),()=>JSON.stringify(s(e),L,2*!!n))},!0,()=>null==i?void 0:i.forEach(e=>e()))},nP=e=>{var t,r,n=e=>ev(e)?e[nq]&&(r=(null!=t?t:t=[])[e[nq]])?r:(e[nq]&&delete(t[e[nq]]=e)[nq],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(el(e)?z(()=>JSON.parse(e),()=>(console.error(\"Invalid JSON received.\",e,Error().stack),L)):null!=e?z(()=>nM(e),()=>(console.error(\"Invalid message received.\",e,Error().stack),L)):e)},nD=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var l,o,u,i=(e,r)=>ea(e)&&!0===r?e:u(e=el(e)?new Uint8Array(tJ(e.length,t=>255&e.charCodeAt(t))):t?z(()=>JSON.stringify(e),()=>JSON.stringify(nR(e,!1,n))):nR(e,!0,n),r),a=e=>null==e?L:z(()=>nP(e),L);return t?[e=>nR(e,!1,n),a,(e,t)=>i(e,t)]:([l,o,u]=(e=>{for(var t,r,n,i,a,o,l=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,a=new Uint8Array(4+t+i),n=0;n<3;a[n++]=g(nC()));for(r=0,a[n++]=g(v^16*nC(16)+i);r<t;a[n++]=g(v^e[r++]));for(;i--;)a[n++]=nC();return a}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,a=new Uint8Array(t);n<t;a[n++]=v^g(e[r++]));return a}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=er(t)?64:t,h(),[l,u]=n_[o],r=0;r<e.length;l=BigInt.asUintN(o,(l^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+l%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):l.toString(36)}]})(e),[(e,t)=>(t?X:nO)(l(nR(e,!0,n))),e=>null!=e?nP(o(e instanceof Uint8Array?e:(r&&ek(e)?a:e=>{for(var t,r=0,n=0,i=e.length,a=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)a[n++]=nI[nE(e,r++)]<<2|(t=nI[nE(e,r++)])>>4,r<i&&(a[n++]=(15&t)<<4|(t=nI[nE(e,r++)])>>2,r<i)&&(a[n++]=(3&t)<<6|nI[nE(e,r++)]);return a})(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=y?y:y=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},tf=(nD(),nD(null,{json:!0,decodeJson:!0}),nD(null,{json:!0,prettify:!0}),tN(\"\"+r0.currentScript.src,\"#\")),ro=tN(\"\"+(tf[1]||\"\"),\";\"),nJ=tf[0],nL=ro[1]||(null==(A=tg(nJ,{delimiters:!1}))?void 0:A.host),nV=e=>!(!nL||(null==(e=tg(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nL))!==G),tf=(...e)=>tO(ri(e),/(^(?=\\?))|(^\\.(?=\\/))/,nJ.split(\"?\")[0]),nG=tf(\"?\",\"var\"),nH=tf(\"?\",\"mnt\"),nX=(tf(\"?\",\"usr\"),Symbol()),[nZ,nY]=nD(),[nQ,n0]=[rY,rY],n1=!0,[ro,n5]=ee(),n4=(...e)=>{var r,a=e.shift();console.error(e[1]instanceof Error?e[1].message:el(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=a.id)?r:a,...e)},[n8,n9]=ee(),[n7,ie]=ee(),it=e=>ii!==(ii=e)&&n9(ii,io(!0,!0)),ir=e=>ia!==(ia=!!e&&\"visible\"===document.visibilityState)&&ie(ia,!e,il(!0,!0)),ii=(n8(ir),!0),ia=!1,il=e7(!1),io=e7(!1),iu=(ns(window,[\"pagehide\",\"freeze\",\"beforeunload\"],()=>it(!1)),ns(window,[\"pageshow\",\"resume\"],()=>it(!0)),ns(document,\"visibilitychange\",()=>(ir(!0),ia&&it(!0))),n9(ii,io(!0,!0)),!1),is=e7(!1),[,iv]=ee(),ic=tt({callback:()=>iu&&iv(iu=!1,is(!1)),frequency:2e4,once:!0,paused:!0}),A=()=>!iu&&(iv(iu=!0,is(!0)),ic.restart()),ih=(ns(window,[\"focus\",\"scroll\"],A),ns(window,\"blur\",()=>ic.trigger()),ns(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],A),A(),()=>is()),ig=0,iy=void 0,im=()=>(null!=iy?iy:rY())+\"_\"+ib(),ib=()=>(e9(!0)-(parseInt(iy.slice(0,-2),36)||0)).toString(36)+\"_\"+(++ig).toString(36),iS=new Map,ix={id:iy,heartbeat:e9()},iT={knownTabs:new Map([[iy,ix]]),variables:new Map},[iI,iA]=ee(),[iE,iN]=ee(),iO=rY,i$=(e,t=e9())=>{e=iS.get(el(e)?e:rH(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},i_=(...e)=>{var t=e9();return ij(tJ(e,e=>(e.cache=[t],[rO(e),{...e,created:t,modified:t,version:\"0\"}])))},iC=e=>null!=(e=tJ(e,e=>{var t,r;return e&&(t=rH(e[0]),(r=iS.get(t))!==e[1])?[t,e[1],r,e[0]]:tM}))?e:[],ij=e=>{var r,n,e=iC(e);null!=e&&e.length&&(r=e9(),tW(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),re(iS,e),(n=tL(e,([,,,e])=>0<rV.compare(e.scope,\"tab\"))).length&&iO({type:\"patch\",payload:t7(n)}),iN(tJ(e,([,e,t,r])=>[r,e,t]),iS,!0))},[,iM]=(ro((e,t)=>{n8(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),iy=null!=(n=null==r?void 0:r[0])?n:e9(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),iS=new Map(tY(tL(iS,([,e])=>\"view\"===(null==e?void 0:e.scope)),tJ(null==r?void 0:r[1],e=>[rH(e),e])))):sessionStorage.setItem(\"_tail:state\",e([iy,tJ(iS,([,e])=>e&&\"view\"!==e.scope?e:tM)]))},!0),iO=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([iy,t,r])),localStorage.removeItem(\"_tail:state\"))},ns(window,\"storage\",e=>{var a,l,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==iy||([e,{type:a,payload:l}]=e,\"query\"===a?r.active||iO({type:\"set\",payload:[tJ(iT.knownTabs),tJ(iT.variables)]},e):\"set\"===a&&r.active?(iT.knownTabs=new Map(l[0]),iT.variables=new Map(l[1]),iS=new Map(l[1]),r.trigger()):\"patch\"===a?(o=iC(tJ(l,([e,t])=>[rX(e),t])),re(iT.variables,l),re(iS,l),iN(tJ(o,([,e,t,r])=>[r,e,t]),iS,!1)):\"tab\"===a&&(t8(iT.knownTabs,e,l),l)&&iA(\"tab\",l,!1))});var r=tt(()=>iA(\"ready\",iT,!0),-25),n=tt({callback(){var e=e9()-1e4;tW(iT.knownTabs,([t,r])=>r[0]<e&&t8(iT.knownTabs,t,void 0)),ix.heartbeat=e9(),iO({type:\"tab\",payload:ix})},frequency:5e3,paused:!0});n8(e=>(e=>{iO({type:\"tab\",payload:e?ix:void 0}),e?(r.restart(),iO({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),ee()),[iF,iq]=ee(),iz=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?n0:nY)(localStorage.getItem(\"_tail:rq\")),a=0,l=()=>localStorage.setItem(\"_tail:rq\",(r?nQ:nZ)([iy,e9()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e9())&&(l(),(null==(d=i())?void 0:d[0])===iy))return 0<t&&(a=setInterval(()=>l(),t/2)),D(r,!0,()=>{clearInterval(a),localStorage.removeItem(\"_tail:rq\")});var v=to(),[d]=ns(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[tl(null!=o?o:t),v],await Promise.race(e.map(e=>eh(e)?e():e)),d()}var e;null==o&&U(\"_tail:rq could not be acquired.\")}})(),iR=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&n1;var i,a,l=!1,o=r=>{var o=eh(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iM(e,i=null!=o&&!0!==o?o:i,r,e=>(l=i===L,i=e)),!l)&&(a=n?nQ(i,!0):JSON.stringify(i))};if(!r)return iz(()=>eR(1,async t=>{var l;return o(t)?400<=(l=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:a})).status?0===t?ex(U(\"Invalid response: \"+await l.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tl(200*(1+t))):(null!=(l=null!=(t=n?new Uint8Array(await l.arrayBuffer()):await l.text())&&t.length?null==(l=n?n0:JSON.parse)?void 0:l(t):L)&&iq(l),ex(l)):ex()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[a]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&U(\"Beacon send failed.\")},tf=[\"scope\",\"key\",\"entityId\",\"source\"],iD=[...tf,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\",\"passive\"],iB=[...tf,\"value\",\"force\",\"ttl\",\"version\"],iW=Symbol(),iJ=new Map,iV=Symbol(),iH=Symbol(),iX=[.75,.33],iZ=[.25,.33],iQ=e=>tJ(((e,t,r)=>tX(e).sort(\"function\"==typeof t?(e,n)=>tQ(t(e),t(n),r):eu(t)?t.length?(e,n)=>{for(var i=0,a=0;a<t.length&&!i;a++)i=tQ(t[a](e),t[a](n),r);return i}:(e,t)=>tQ(e,t,r):(e,r)=>tQ(e,r,t)))(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rN(e)}, ${rG(e)?\"client-side memory only\":(e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${ra(rv.parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`})(null==(e=e.schema)?void 0:e.usage)})`,K]:tM),i5=(e,t=\"A\"===nt(e)&&r4(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),i3=(e,t=nt(e),r=nS(e,\"button\"))=>r!==K&&(F(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&F(r9(e,\"type\"),\"button\",\"submit\")||r===G),i6=(e,t=!1)=>{var r;return{tagName:e.tagName,text:tv((null==(r=r4(e,\"title\"))?void 0:r.trim())||(null==(r=r4(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?nu(e):void 0}},i8=()=>null==S?void 0:S.clientId,i9={scope:\"shared\",key:\"referrer\"},i7=(e,t)=>{k.variables.set({...i9,value:[i8(),e]}),t&&k.variables.get({scope:i9.scope,key:i9.key,poll:(r,n,i)=>!!r||(null==i?void 0:i[1])===e&&t()&&!1})},ae=e7(),at=e7(),ar=1,[ai,aa]=ee(),al=e=>{var t=e7(e,ae),r=e7(e,at),n=e7(e,ih),i=e7(e,()=>ar);return(e,a)=>({totalTime:t(e,a),visibleTime:r(e,a),activeTime:n(e,a),activations:i(e,a)})},ao=al(),[as,ad]=ee(),av=(e,t)=>(t&&tW(af,t=>e(t,()=>!1)),as(e)),ac=new WeakSet,af=document.getElementsByTagName(\"iframe\");function ah(e){if(e){if(null!=e.units&&F(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var ay=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),am=e=>nx(e,t=>t!==e&&!!ay(nc.get(t)),e=>(T=nc.get(e),(T=nc.get(e))&&eC(ej(T.component,T.content,T),\"tags\"))),ab=(e,t)=>t?e:{...e,rect:void 0,content:(I=e.content)&&tJ(I,e=>({...e,rect:void 0}))},aw=(e,t=K,r)=>{var n,i,a,l=[],o=[],u=0;return r3(e,e=>{var s,a,i=nc.get(e);i&&(ay(i)&&(a=eW(tX(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==G||(null==(r=e.track)?void 0:r.promote))}),n=(null!=r?r:eK(a,e=>null==(e=e.track)?void 0:e.region))&&nu(e)||void 0,s=am(e),i.content&&e4(l,...tJ(i.content,e=>({...e,rect:n,...s}))),null!=a)&&a.length&&(e4(o,...tJ(a,e=>{var t;return u=eL(u,null!=(t=e.track)&&t.secondary?1:2),ab({...e,content:l.length?l:void 0,rect:n,...s},!!n)})),l=[]),a=i.area||nk(e,\"area\"))&&e4(o,a)}),l.length&&e6(o,ab({id:\"\",rect:n,content:l})),tW(o,e=>{el(e)?e6(null!=i?i:i=[],e):(null==e.area&&(e.area=ri(i,\"/\")),e4(null!=a?a:a=[],e))}),a||i?{components:a,area:ri(i,\"/\")}:void 0},ak=Symbol(),aS=[{id:\"context\",setup(e){tt(()=>tW(af,e=>t4(ac,e)&&ad(e)),500).trigger(),e.variables.get({scope:\"view\",key:\"view\",poll(t){return null==S||!t||null!=S&&S.definition?null!=(n=t)&&t.navigation&&f(!0):(S.definition=t,null!=(t=S.metadata)&&t.posted&&e.events.postPatch(S,{definition:n})),!0}});var n,t,d=null!=(t=null==(t=i$({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=i$({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&i_({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=i$({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=i$({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=K)=>{var a,l,o,i,p;ni(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:a}=tg(location.href+\"\",{requireAuthority:!0}),S={type:\"view\",timestamp:e9(),clientId:im(),tab:iy,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:a},tabNumber:v+1,tabViewNumber:d+1,viewport:nv(),duration:ao(void 0,!0)},0===v&&(S.firstTab=G),0===v&&0===d&&(S.landingPage=G),i_({scope:\"tab\",key:\"viewIndex\",value:++d}),l=ty(location.href),tJ([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return null!=(e=(null!=(n=(o=S).utm)?n:o.utm={})[e]=null==(n=tX(l[\"utm_\"+e]))?void 0:n[0])?e:tM}),!(S.navigationType=x)&&performance&&tW(performance.getEntriesByType(\"navigation\"),e=>{S.redirects=e.redirectCount,S.navigationType=tO(e.type,/\\_/g,\"-\")}),x=void 0,\"navigate\"===(null!=(t=S.navigationType)?t:S.navigationType=\"navigate\")&&(p=null==(i=i$(i9))?void 0:i.value)&&nV(document.referrer)&&(S.view=null==p?void 0:p[0],S.relatedEventId=null==p?void 0:p[1],e.variables.set({...i9,value:void 0})),(p=document.referrer||null)&&!nV(p)&&(S.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=tg(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),S.definition=n,n=void 0,e.events.post(S),e.events.registerEventPatchSource(S,()=>({duration:ao()})),aa(S))};return n7(e=>{e?(at(G),++ar):at(K)}),ns(window,\"popstate\",()=>(x=\"back-forward\",f())),tW([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),x=\"navigate\",f()}}),f(),{processCommand:t=>aI(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),G),decorate(e){!S||rD(e)||(e=>!(null==e||!e.patchTargetId))(e)||(e.view=S.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tW(e,e=>{var t,r;return null==(t=(r=e.target)[iH])?void 0:t.call(r,e)})),r=new Set,n=(tt({callback:()=>tW(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=r0.createRange();return(a,l)=>{var o,u,s,d,v,c,f,p,h,g,y,m,b,w,k,S;l&&(o=eW(null==l?void 0:l.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==G}))&&(e=>{var r,n;return null==e?L:null!=(r=null!=(n=e.length)?n:e.size)?r:e[Y]?(r=0,null!=(n=eq(e,()=>++r))?n:0):Object.keys(e).length})(o)&&(p=f=K,g=h=0,y=(e,t,r,n)=>{var i,a=null!=(a=(i=null!=u?u:u=[])[e])?a:i[e]=[{duration:0,impressions:0},e7(!1,ih),!1,!1,0,0,0,t$()];a[4]=t,a[5]=r,a[6]=n},m=[t$(),t$()],b=al(!1),w=e7(!1,ih),k=-1,S=()=>{var O,t=a.getBoundingClientRect(),r=window.innerWidth,l=window.innerHeight,S=[n(t.top,l),n(t.right,r),n(t.bottom,l),n(t.left,r)],x=S[2]-S[0],S=S[1]-S[3],E=f?iZ:iX,r=(E[0]*l<x||E[0]<(x/t.height||0))&&(E[0]*r<S||E[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=nT.impressionThreshold-250)&&(++h,b(f),s||(s=tJ(o,e=>((null==(e=e.track)?void 0:e.impressions)||nS(a,\"impressions\",G,e=>null==(e=e.track)?void 0:e.impressions))&&B({type:\"impression\",pos:na(a),viewport:nv(),timeOffset:ao(),impressions:h,...aw(a,G)})||tM),e(s)),null!=s)&&s.length&&(O=b(),d=tJ(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:O,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:O.activeTime&&c&&n(O.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;E=a.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),a=0,l=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,a+=r[0].length,6<r[0].length&&++o,++l);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*a|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:eb(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:a,words:l,sentences:u,lix:eb(l/u+100*o/l),readTime:eb(l/238*6e4),boundaries:v}})(null!=E?E:\"\"),u||t.height>=1.25*l){var _=r0.createTreeWalker(a,NodeFilter.SHOW_TEXT),C=0,j=0;for(null==u&&(u=[]);j<v.length&&(U=_.nextNode());){var U,M,F,P,D,z=null!=(M=null==(M=U.textContent)?void 0:M.length)?M:0;for(C+=z;C>=(null==(F=v[j])?void 0:F.offset);)i[j%2?\"setEnd\":\"setStart\"](U,v[j].offset-C+z),j++%2&&({top:F,bottom:P}=i.getBoundingClientRect(),D=t.top,j<3?y(0,F-D,P-D,v[1].readTime):(y(1,u[0][4],F-D,v[2].readTime),y(2,F-D,P-D,v[3].readTime)))}}}var r=t.left<0?-t.left:0,E=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=m[0].push(E,E+x)*m[1].push(r,r+S)/L),u&&tW(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>l?l:t.bottom,e[5],e[4]),a=f&&0<i-r,o=e[0];o.duration=e[1](a),a&&(e[3]!==(e[3]=a)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},a[iH]=({isIntersecting:e})=>{eY(r,S,e),e||(tW(d,e=>e()),S())},t.observe(a))}})(e),n=({boundary:e,...n})=>{eQ(nc,e,e=>{var t;return(e=>null==e?void 0:{...e,component:tX(e.component),content:tX(e.content),tags:tX(e.tags)})(\"add\"in n?{...e,component:ej(null==e?void 0:e.component,n.component),content:ej(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:ej(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,nc.get(e))};return{decorate(e){tW(e.components,t=>{t8(t,\"track\",void 0),tW(e.clickables,e=>t8(e,\"track\",void 0))})},processCommand:e=>aN(e)?(n(e),G):aU(e)?(tW(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var a=[];null!=r4(i,e);){((e,t)=>e instanceof Set||e instanceof WeakSet?e.has(t)||e.add(t):eX(e,t)||eH(e,t,!0))(n,i);var l,o=tN(r4(i,e),\"|\");r4(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=eo(d))?s:\"\",36);if(s<0)a.length+=s;else{if(0===u&&(a.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch{}0<=s&&t[s]&&(d=t[s]),e6(a,d)}}}e6(r,...tJ(a,e=>({add:G,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(l=i.parentNode)&&l.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),G):K}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{ns(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,a,l,o,u,s=K;if(r3(n.target,e=>{i3(e)&&null==l&&(l=e),s=s||\"NAV\"===nt(e);var t,d=nf(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tW(e.querySelectorAll(\"a,button\"),t=>i3(t)&&(3<(null!=u?u:u=[]).length?ex():u.push({...i6(t,!0),component:r3(t,(e,t,r,n=null==(i=nf(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=nS(e,\"clicks\",G,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eK(d,e=>(null==(e=e.track)?void 0:e.clicks)!==K)),null==a&&(a=null!=(t=nS(e,\"region\",G,e=>null==(e=e.track)?void 0:e.region))?t:d&&eK(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=l){var d,v=u&&!l&&i,c=aw(null!=l?l:o,!1,v),f=nx(null!=l?l:o,void 0,e=>tL(tX(null==(e=nc.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(a=null==a?G:a)?{pos:na(l,n),viewport:nv()}:null,...((e,t)=>{var n;return r3(null!=e?e:t,e=>\"IMG\"===nt(e)||e===t?(n={element:i6(e,!1)},K):G),n})(n.target,null!=l?l:o),...c,timeOffset:ao(),...f});if(l)if(i5(l)){var h=l,c=h.hostname!==location.hostname,{host:f,scheme:m,source:b}=tg(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(B({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,x,w=B({clientId:im(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:m},self:G,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||r4(h,\"target\")!==window.name?(i7(w.clientId),w.self=K,e(w)):ni(location.href,h.href)||(w.exit=w.external,i7(w.clientId))):(k=h.href,(b=nV(k))?i7(w.clientId,()=>e(w)):(x=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||nT.captureContextMenu&&(h.href=nH+\"=\"+x+encodeURIComponent(k),ns(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===x&&e(w),r())),ns(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{r3(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>el(e=null==e||e!==G&&\"\"!==e?e:\"add\")&&F(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ev(e)?e:void 0)(null!=(r=null==(r=nf(e))?void 0:r.cart)?r:nk(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?L:eu(e)||el(e)?e[e.length-1]:eq(e,(e,r)=>e,void 0,void 0))(null==(r=nf(e))?void 0:r.content))&&t(d)});c=ah(d);(c||i)&&e(B(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eQ(t,o,r=>{var i=nl(o,n);return r?e6(r,i):(i=B({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),av(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=nn(G);ai(()=>{return e=()=>(t={},r=nn(G)),setTimeout(e,250);var e}),ns(window,\"scroll\",()=>{var a,n=nn(),i={x:(o=nn(K)).x/(r1.offsetWidth-window.innerWidth)||0,y:o.y/(r1.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(a=[],!t.fold&&n.y>=r.y+200&&(t.fold=G,e6(a,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=G,e6(a,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=G,e6(a,\"page-end\")),(n=tJ(a,e=>B({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return aT(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=ah(r))&&e({...r,type:\"cart_updated\"}),G):aj(t)?(e({type:\"order\",...t.order}),G):K}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||r8(e,np(\"form-value\")),e=(t&&(r=r?en(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&tv(e,200)),r?e:void 0},i=t=>{var i,l,s,a=t.form;if(a)return l=r8(a,np(\"ref\"))||\"track_ref\",(s=t6(r,a,()=>{var t,r=new Map,n={type:\"form\",name:r8(a,np(\"form-name\"))||r4(a,\"name\")||a.id||void 0,activeTime:0,totalTime:0,fields:{}},l=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:ao()})),()=>{1!==t[3]&&(o(),2<=t[3]&&(n.completed=3===t[3]||!(a.isConnected&&nu(a).width)),e.events.postPatch(n,{...i,completed:n.completed,totalTime:e9(G)-t[4]}),t[3]=1)}),s=((e=0)=>{var t,r,n=(i,a=e)=>{if(void 0===i)return!!r;clearTimeout(t),er(i)?i&&(a<0?ei:J)(null==r?void 0:r())?n(r,a):r=void 0:(r=i,t=setTimeout(()=>n(!0,a),a<0?-a:a))};return n})();return ns(a.ownerDocument.body,\"submit\",e=>{var r,n;i=aw(a),t[3]=3,e.defaultPrevented?([r]=n8(e=>{e||(n||3===t[3]&&l(),r())}),n=!1,s(()=>{if((()=>{for(var e=a.ownerDocument;e;){if(tZ(e.querySelectorAll(\"iframe\"),e=>e.src.match(RegExp(\"https:\\\\/\\\\/www.google.com\\\\/.*(?<=\\\\/)recaptcha\\\\/.*(?<=\\\\/)bframe\",\"gi\"))&&(e=>{if(!e||!e.isConnected||nu(e,!1).width<=0)return!1;for(;e;){var t=null==(t=e.ownerDocument.defaultView)?void 0:t.getComputedStyle(e);if(\"hidden\"===t.visibility||\"0\"===t.opacity)return!1;e=e.parentElement}return!0})(e)))return!0;e=z(()=>{var r;return null==(r=e.defaultView)||null==(r=r.frameElement)?void 0:r.ownerDocument},()=>{})}return!1})())return t[3]=2,n=!0;n&&(n=!1,t[3]=3),a.isConnected&&0<nu(a).width?t[3]=2:l(),r()},1750)):l()},{capture:!1}),t=[n,r,a,0,e9(G),1]}))[1].get(t)||tW(a.querySelectorAll(\"INPUT,SELECT,TEXTAREA,BUTTON\"),(e,t)=>{var d,v,a;\"BUTTON\"===e.tagName&&\"submit\"!==e.type||(e.name&&\"hidden\"!==e.type?(a=null!=(d=(a=s[0].fields)[v=e.name])?d:a[v]={id:e.id||v,name:v,label:tO(null!=(v=null==(d=e.labels)||null==(a=d[0])?void 0:a.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[ak]:n(e),value:n(e,!0)},s[0].fields[a.name]=a,s[1].set(e,a)):\"hidden\"!==e.type||e.name!==l&&!nS(e,\"ref\")||(e.value||(e.value=tO(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value))}),[t,s]},a=(e,[r,n]=null!=(t=i(e))?t:[],a=null==n?void 0:n[1].get(r))=>a&&[n[0],a,r,n],l=null,o=()=>{var r,i,a,o,d,v,c;l&&([r,i,a,o]=l,d=-(u-(u=at())),v=-(s-(s=e9(G))),c=i[ak],(i[ak]=n(a))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=G,o[3]=2,tW(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(a,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,l=null)},u=0,s=0,d=e=>e&&ns(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(l=r,\"focusin\"===e.type?(s=e9(G),u=at()):o()));d(document),av(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",poll:t,refresh:!t,passive:!t}).value(),i=async t=>{var r;if(t)return!(r=await n())||rf.equals(r,t)?[!1,r]:(await e.events.post(B({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},a=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=rQ.dataLayer,i=t,a=null==n?void 0:n.length;if(a&&(t!==(t=n[a-1])||!t))for(;a--&&((e=n[a])!==i||!i);){var l={},o=!0;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tJ(r,([t,r])=>\"granted\"===e[2][t]&&(l[r]=!0,o=o&&(\"security\"===r||\"necessary\"===r))),{classification:o?\"anonymous\":\"direct\",purposes:l}}}}}}),{});return{processCommand(e){var t,r,l,u,s;return aq(e)?((t=e.consent.get)&&n((e,r,n)=>!e||t(e,n)),(r=e.consent.set)&&(async()=>{var e,t,n;\"consent\"in r?([t,n]=await i(r.consent),null!=(e=r.callback)&&e.call(r,t,n)):i(r)})(),(l=e.consent.externalSource)&&(e=l.key,(null!=(u=a[e])?u:a[e]=tt({frequency:null!=(u=l.frequency)?u:1e3})).restart(l.frequency,async()=>{var e;r0.hasFocus()&&(e=l.poll(s))&&!rf.equals(s,e)&&(await i(e),s=e)}).trigger()),G):K}}}}],A=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),aT=A(\"cart\"),aI=A(\"username\"),aA=A(\"tagAttributes\"),aE=A(\"disable\"),aN=A(\"boundary\"),aO=A(\"extension\"),a$=A(G,\"flush\"),a_=A(\"get\"),aC=A(\"listener\"),aj=A(\"order\"),aU=A(\"scan\"),aM=A(\"set\"),aF=e=>\"function\"==typeof e,aq=A(\"consent\");(e=>{if(!k){el(e)&&([r,e]=nY(e),e=nD(r,{decodeJson:!0})[1](e)),rt(nT,[e],{overwrite:!0}),(e=>{n0===rY&&([nQ,n0]=nD(e,{json:!e,prettify:!1}),n1=!!e,n5(nQ,n0))})(e2(nT,\"encryptionKey\"));var r,l,o,u,s,d,v,c,f,p,h,g,y,i=e2(nT,\"key\"),a=null!=(e=null==(r=rQ[nT.name])?void 0:r._)?e:[];if(eu(a))return l=[],o=[],u=(e,...t)=>{var r=G;o=eW(o,n=>z(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:k,unsubscribe:()=>r=K}),r},(e=>t=>n4(e,t))(n)))},s=[],v=((e,t)=>{var r=tt(async()=>{var e=tJ(iJ,([e,t])=>tZ(t,e=>null==(e=e[iW])?void 0:e.refresh)?{...rX(e),refresh:!0}:tM);e.length&&await a.get(e)},3e3),n=(e,t)=>t&&!!t6(iJ,e,()=>new Set).add(t),a=(n8((e,t)=>r.toggle(e,e&&3e3<=t),!0),iE(e=>tW(e,([e,t])=>{null!=t&&t.passive?delete t.passive:(e=>{var t,r;e&&(t=rH(e),null!=(r=e2(iJ,t)))&&r.size&&tW(r,r=>!0===r(e)&&n(t,r))})(t?{status:r$.Success,...t}:{status:r$.NotFound,...e})})),{get:r=>rR(\"get\",r,async r=>{r[0]&&!el(r[0])||(l=r[0],r=r.slice(1)),null!=t&&t.validateKey(l);var o=new Map,u=[],s=tJ(r,e=>{var t=i$(rH(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))o.set(e,{...e,status:r$.Forbidden,error:`No consent for '${r}'.`});else if(!e.refresh&&t)o.set(e,{status:r$.Success,...t});else{if(!rG(e))return[rr(e,iD),e];var i,r=null==(i=e.init)?void 0:i.call(e);r?(r={...rO(e),version:\"1\",created:d,modified:d,value:r,cache:[d,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},t9(u,[rO(r),r]),o.set(e,{status:r$.Success,...r})):o.set(e,{status:r$.NotFound,...rO(e)})}return tM}),d=e9(),l=s.length&&(null==(l=await iR(e,{variables:{get:tJ(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=l.variables)?void 0:r.get)||[],c=[];return tW(l,(e,t)=>{var n,r;(null==e?void 0:e.status)===r$.NotFound?null!=(r=null==(r=(n=s[t][1]).init)?void 0:r.call(n))&&c.push([n,{...rO(n),value:r}]):o.set(s[t][1],rK(e))}),c.length&&tW(await a.set(tJ(c,([,e])=>e)).all(),(e,t)=>o.set(c[t][0],rK(e.status===r$.Conflict?{...e,status:r$.Success}:e.status===r$.Success&&null==e.value?{...e,status:r$.NotFound}:e))),u.length&&ij(u),o},{poll:(e,t)=>(t[iW]=e,n(rH(e),t)),logCallbackError:(e,t,r)=>n4(\"Variables.get\",e,{operation:t,error:r})}),set:r=>rR(\"set\",r,async r=>{r[0]&&!el(r[0])||(n=r[0],r=r.slice(1)),null!=t&&t.validateKey(n);for(var n,i,l=[],o=new Map,u=e9(),s=[],d=tJ(r,e=>{var i,r,t=i$(rH(e));return rG(e)?((r=null==(i=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...rO(e),created:null!=(r=null==t?void 0:t.created)?r:u,modified:u,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:i,cache:[u,e.ttl]})&&(r.cache=[u,null!=(i=e.ttl)?i:3e3]),o.set(e,r?{status:t?r$.Success:r$.Created,...r}:{status:r$.Success,...rO(e)}),t9(l,[rO(e),r]),tM):e.patch?(s.push(e),tM):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[rr(e,iB),e])}),v=0;!v++||s.length;)tW(await a.get(tJ(s,e=>rO(e))).all(),(e,t)=>{var r=s[t];rC(e,!1)?t9(d,[{...r,patch:void 0,value:s[t].patch(null==e?void 0:e.value),version:e.version},r]):o.set(r,e)}),s=[],tW(d.length?(e=>null!=e?e:U(\"No result.\",e=>TypeError(e.replace(\"...\",\" is required.\"))))(null==(i=(await iR(e,{variables:{set:tJ(d,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:i.set):[],(e,t)=>{var[,t]=d[t];v<=3&&t.patch&&((null==e?void 0:e.status)===r$.Conflict||(null==e?void 0:e.status)===r$.NotFound)?t9(s,t):o.set(t,rK(e))});return l.length&&ij(l),o},{logCallbackError:(e,t,r)=>n4(\"Variables.set\",e,{operation:t,error:r})})});return iF(({variables:e})=>{e&&null!=(e=tY(tJ(e.get,e=>r_(e)?e:tM),tJ(e.set,e=>rC(e)?e:tM)))&&e.length&&ij(tJ(e,e=>[rO(e),rC(e)?e:void 0]))}),a})(nG,d={applyEventExtensions(e){return null==e.clientId&&(e.clientId=im()),null==e.timestamp&&(e.timestamp=e9()),h=G,tW(l,([,t])=>{var r;return(null==(r=t.decorate)?void 0:r.call(t,e))===K&&tF(!0)})?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&U(`'${e}' is not a valid key.`)}),c=((e,t,r=5e3)=>{var n=[],i=new WeakMap,a=new Map,l=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eZ(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):U(\"Source event not queued.\")},o=e=>{i.set(e,e3(e))},u=async(r,n=!0,i)=>{var a;return r[0]&&!el(r[0])||(a=r[0],r=r.slice(1)),iR(e,{events:r=tJ(r,e=>{if(null!=t&&t.validateKey(null!=a?a:e.key),eZ(e,{metadata:{posted:!0}}),e[iV]){if(tW(e[iV],(t,r,n)=>!1===t(e)||n,!1))return;delete e[iV]}return eZ(rp(e3(e),!0),{timestamp:e.timestamp-e9()})}),variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},s=async(e,{flush:r=!1,async:i=!0,variables:a}={})=>{var l=[];if(e=tJ(tX(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e6(l,e),null!=(r=rt(t.applyEventExtensions(e),{metadata:{queued:!0}}))?r:tM}),tW(l,e=>{}),!i)return u(e,!1,a);r?(n.length&&e4(e,...n.splice(0)),e.length&&await u(e,!0,a)):e.length&&e6(n,...e)};return 0<r&&tt(()=>s([],{flush:!0}),r),n7((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=tJ(a,([e,t])=>{var[t,n]=t();return n&&(a.delete(e),i.delete(e)),null!=t?t:tM}),n.length||e.length)&&s(ej(n.splice(0),e),{flush:!0})}),{post:s,postPatch:(e,t,r)=>s(l(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var u=!1,d=()=>{u=!0};return o(e),((e,t)=>{(null!=(e=(b=e)[w=iV])?e:b[w]=new Set).add(t)})(e,o),a.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))d();else{var a=i.get(e),[r,s]=null!=(r=e8(t(a,d),a))?r:[];if(r&&!M(s,a))return i.set(e,e3(s)),[l(e,r),u]}return[void 0,u]}),r&&s(e),d}}})(nG,d),f=null,p=0,g=h=K,y=!1,k=(...e)=>{if(y){if(e.length){1<e.length&&(!e[0]||el(e[0]))&&(t=e[0],e=e.slice(1)),el(e[0])&&(r=e[0],e=ek(r)?JSON.parse(r):nY(r));var t,n=K;if((e=eW(tV(e,e=>el(e)?nY(e):e),e=>{if(!e)return K;if(aA(e))nT.tags=eY({},nT.tags,e.tagAttributes);else{if(aE(e))return nT.disabled=e.disable,K;if(a$(e))return n=G,K;if(aF(e))return e(k),K}return g||aC(e)||aO(e)?G:(s.push(e),K)})).length||n){var r=eG(e,e=>aO(e)?-100:aC(e)?-50:aM(e)?-10:90*!!rP(e));if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var m=f[p];m&&(d.validateKey(null!=t?t:m.key),z(()=>{var e=f[p];if(u(\"command\",e),h=K,rP(e))c.post(e);else if(a_(e))v.get(tX(e.get));else if(aM(e))v.set(tX(e.set));else if(aC(e))e6(o,e.listener);else if(aO(e))(t=z(()=>e.extension.setup(k),t=>n4(e.extension.id,t)))&&(e6(l,[null!=(r=e.priority)?r:100,t,e.extension]),eG(l,([e])=>e));else if(aF(e))e(k);else{var r,n,t,a=K;for([,t]of l)if(a=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:K)break;a||n4(\"invalid-command\",e,\"Loaded extensions:\",tJ(l,e=>e[2].id))}},e=>n4(k,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else a.push(...e)},Object.defineProperty(rQ,nT.name,{value:Object.freeze(Object.assign(k,{id:\"tracker_\"+im(),events:c,variables:v,__isTracker:G})),configurable:!1,writable:!1}),iE((e,t,r)=>{ej(iQ(tJ(e,([,e])=>e||tM)),[[{[nX]:iQ(tJ(t,([,e])=>e||tM))},\"All variables\",G]])}),iI(async(e,t,r,n)=>{var l;\"ready\"===e&&([e,l]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:V}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||((e=>{e(B({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==S?void 0:S.clientId,languages:tJ(navigator.languages,(e,t)=>{var[r,n]=e.split(\"-\");return B({id:e,language:r,region:n,primary:0===t,preference:t+1})}),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...(r=null==rQ?void 0:rQ.screen,r?({width:r,height:i,orientation:a}=r,l=r<i,-90!==(a=null!=(a=null!=(a=null==a?void 0:a.angle)?a:rQ.orientation)?a:0)&&90!==a||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:rQ.devicePixelRatio,width:r,height:i,landscape:l}}):{})}));var i,l,a,r})(k),e.hasUserAgent=!0),g=!0,s.length&&k(s),n(),y=!0,k(...tJ(aS,e=>({extension:e})),...a),k({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0);U(`The global variable for the tracker \"${nT.name}\" is used for something else than an array of queued commands.`)}})(\"{{CONFIG}}\")})();\n",
-    debug: "(()=>{var e,t,r,n,i,a,l,o,u,s,d,v,c,f,p,h,g,m,b,w,k,S,x,T,I;function F(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var j=(e,t=e=>Error(e))=>{throw el(e=e5(e))?t(e):e},U=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(!eu(e)&&!ec(e)||!eu(t)&&!ec(t)||e.length!==t.length)return!1;var i,n=0;for(i in e){if(e[i]!==t[i]&&!U(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length},M=(e,t,...r)=>e===t||0<r.length&&r.some(t=>M(e,t)),z=(e,t=!0,r)=>{try{return e()}catch(e){return eh(t)?es(e=t(e))?j(e):e:er(t)?console.error(t?j(e):e):t}finally{null!=r&&r()}};class R extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),F(this,\"_action\",void 0),F(this,\"_result\",void 0),this._action=e}}var P=e=>new R(async()=>e5(e)),D=async(e,t=!0,r)=>{try{return await e5(e)}catch(e){if(!er(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},B=e=>e,W=e=>!!e,J=e=>e===K,L=void 0,V=Number.MAX_SAFE_INTEGER,H=!1,K=!0,G=()=>{},X=e=>e,Z=e=>null!=e,Y=Symbol.iterator,Q=Symbol.asyncIterator,ee=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:L,et=(e,t)=>eh(t)?e!==L?t(e):L:(null==e?void 0:e[t])!==L?e:L,er=e=>\"boolean\"==typeof e,en=ee(er,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||L))),ei=e=>e!==H,ea=e=>\"number\"==typeof e,el=e=>\"string\"==typeof e,eo=ee(el,e=>null==e?void 0:e.toString()),eu=Array.isArray,es=e=>e instanceof Error,ed=(e,t=!1)=>null==e?L:!t&&eu(e)?e:eg(e)?[...e]:[e],ev=e=>e&&\"object\"==typeof e,ec=e=>(null==e?void 0:e.constructor)===Object,ef=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ep=e=>\"symbol\"==typeof e,eh=e=>\"function\"==typeof e,eg=(e,t=!1)=>!(null==e||!e[Y]||\"string\"==typeof e&&!t),em=e=>e instanceof Map,ey=e=>e instanceof Set,eb=(e,t)=>null==e?L:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,ew=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ek=e=>el(e)&&(ew(e,\"{\",\"}\")||ew(e,\"[\",\"]\")),eS=!1,ex=e=>(eS=!0,e),eT=e=>null==e?L:eh(e)?e:t=>t[e],eI=(e,t,r)=>(null!=t?t:r)!==L?(e=eT(e),null==t&&(t=0),null==r&&(r=V),(n,i)=>t--?L:r--?e?e(n,i):n:r):e,eA=e=>null==e?void 0:e.filter(Z),eE=(e,t,r,n)=>null==e?[]:!t&&eu(e)?eA(e):e[Y]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),eS){eS=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===L?t:eI(t,r,n)):ev(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),eS){eS=!1;break}}}(e,eI(t,r,n)):eE(eh(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eN=(e,t,r,n)=>eE(e,t,r,n),e$=(e,t,r=1,n=!1,i,a)=>function*e(t,r,n,i){if(null!=t)if(t[Y]||n&&ev(t))for(var a of i?eE(t):t)1!==r?yield*e(a,r-1,n,!0):yield a;else yield t}(eE(e,t,i,a),r+1,n,!1),eO=(e,t,r,n)=>{if(t=eT(t),eu(e)){var i=0,a=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!eS;r++){var l=e[r];null!=(t?l=t(l,i++):l)&&a.push(l)}return eS=!1,a}return null!=e?tQ(eN(e,t,r,n)):L},eC=(e,t,r,n)=>null!=e?new Set([...eN(e,t,r,n)]):L,e_=(e,t,r=1,n=!1,i,a)=>tQ(e$(e,t,r,n,i,a)),eF=(...e)=>{var t;return ez(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...tQ(e))),t},ej=(e,t,r,n)=>{var i,a,l=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(a=t(e[r],l++))?a:i,eS)){eS=!1;break}return i},eU=(e,t)=>{var r,n,a,i=0;for(a of e)if(null!=a&&(r=null!=(n=t(a,i++))?n:r,eS)){eS=!1;break}return r},eM=(e,t)=>{var r,n,a,i=0;for(a in e)if(r=null!=(n=t([a,e[a]],i++))?n:r,eS){eS=!1;break}return r},eq=(e,t,r,n)=>{var i;if(null!=e){if(eu(e))return ej(e,t,r,n);if(r===L){if(e[Y])return eU(e,t);if(\"object\"==typeof e)return eM(e,t)}for(var a of eE(e,t,r,n))null!=a&&(i=a);return i}},ez=eq,eR=async(e,t,r,n)=>{var i,a;if(null==e)return L;for(a of eN(e,t,r,n))if(null!=(a=await a)&&(i=a),eS){eS=!1;break}return i},eP=(e,t)=>{if(null==e)return L;var r={};if(t){var n,a,i=0;for(a in e)(n=t([a,e[a]],i++))&&(r[n[0]]=n[1])}else for(var l of e)l&&(r[l[0]]=l[1]);return r},eD=(e,t,r)=>{var n,i,a;return null==e?L:er(t)||r?(a={},ez(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(a[e[0]],e[1]))&&(a[e[0]]=e[1]):e=>ez(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=a)[i=e[0]])?t:n[i]=[]).push(e[1]),a)}:e=>null!=(null==e?void 0:e[1])&&(a[e[0]]=e[1],a))),a):eP(eO(e,t?(e,r)=>et(t(e,r),1):e=>et(e,1)))},eB=(e,t,r,n,i)=>{var l=()=>eh(r)?r():r;return null!=(e=eq(e,(e,n)=>r=null!=(e=t(r,e,n))?e:l(),n,i))?e:l()},eW=(e,t,r,n)=>eO(e,(e,r)=>e&&null!=t&&t(e,r)?e:L,r,n),eJ=(e,t)=>{var r,n;if(null==e)return L;if(!t){if(null!=(r=null!=(n=e.length)?n:e.size))return r;if(!e[Y])return Object.keys(e).length}return r=0,null!=(n=eq(e,t?(e,n)=>t(e,n)?++r:r:()=>++r))?n:0},eL=(e,...t)=>null==e?L:ea(e)?Math.max(e,...t):eB(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ea(i)&&e<i?i:e,L,t[2],t[3]),eH=(e,t,r,n)=>{var i;return null==e?L:ec(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:W))?i:eq(e,t?(e,r)=>!!t(e,r)&&ex(!0):()=>ex(!0),r,n))&&i},eK=(e,t=e=>e)=>{var r;return null!=(r=ed(e))&&r.sort((e,r)=>t(e)-t(r)),e},eG=(e,t,r)=>(e.constructor===Object||eu(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eX=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=eh(r)?r():r)&&eG(e,t,n),n},eZ=(e,...t)=>(ez(t,t=>ez(t,([t,r])=>{null!=r&&(ec(e[t])&&ec(r)?eZ(e[t],r):e[t]=r)})),e),eY=(e,t,r,n)=>{if(e)return null!=r?eG(e,t,r,n):(ez(t,t=>eu(t)?eG(e,t[0],t[1]):ez(t,([t,r])=>eG(e,t,r))),e)},eQ=(e,t,r)=>{var n;return ef(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ef(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ec(e)&&delete e[t],e},e2=(e,t)=>{if(e)return eu(t)?(eu(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e2(e,t)):eu(e)?t<e.length?e.splice(t,1)[0]:void 0:((e,t)=>{var r;if(null!=(null!=e?e:t))return r=eX(e,t),ef(e,\"delete\")?e.delete(t):delete e[t],r})(e,t)},e5=e=>eh(e)?e():e,e3=(e,t=-1)=>eu(e)?t?e.map(e=>e3(e,t-1)):[...e]:ec(e)?t?eD(e,([e,r])=>[e,e3(r,t-1)]):{...e}:ey(e)?new Set(t?eO(e,e=>e3(e,t-1)):e):em(e)?new Map(t?eO(e,e=>[e[0],e3(e[1],t-1)]):e):e,e6=(e,...t)=>null==e?void 0:e.push(...t),e4=(e,...t)=>null==e?void 0:e.unshift(...t),e8=(e,t)=>{var r,i,a;if(e)return ec(t)?(a={},ec(e)&&(ez(e,([e,l])=>{if(!U(l,t[e],-1)){if(ec(r=l)){if(!(l=e8(l,t[e])))return;[l,r]=l}else ea(l)&&ea(void 0)&&(l=(r=l)-void 0);a[e]=l,(null!=i?i:i=e3(t))[e]=r}}),i)?[a,i]:void 0):[e,e]},e9=\"undefined\"!=typeof performance?(e=K)=>e?Math.trunc(e9(H)):performance.timeOrigin+performance.now():Date.now,e7=(e=!0,t=()=>e9())=>{var r,n=+e*t(),i=0;return(a=e,l)=>(r=e?i+=-n+(n=t()):i,l&&(i=0),(e=a)&&(n=t()),r)},tt=(e,t=0)=>{var e=eh(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:a=!1,trigger:l=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=to(!0).resolve(),c=e7(!a),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((y.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await D(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&m(!1),!(y.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{y.active&&p(),y.active&&h()},m=(e,t=!e)=>(c(e,t),clearTimeout(d),y.active=!!(d=e?h():0),y),y={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,m(!0,!0)),toggle:(e,t)=>e!==y.active?e?t?(m(!0),y.trigger(),y):m(!0):m(!1):y,trigger:async e=>await p(e)&&(m(y.active),!0)};return y.toggle(!a,l)};function tr(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tn{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new ti,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tr(this,\"_promise\",void 0),this.reset()}}class ti{then(e,t){return this._promise.then(e,t)}constructor(){var e;tr(this,\"_promise\",void 0),tr(this,\"resolve\",void 0),tr(this,\"reject\",void 0),tr(this,\"value\",void 0),tr(this,\"error\",void 0),tr(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===L||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var tl=(e,t)=>null==e||isFinite(e)?!e||e<=0?e5(t):new Promise(r=>setTimeout(async()=>r(await e5(t)),e)):j(`Invalid delay ${e}.`),to=e=>new(e?tn:ti),ts=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,a),a=()=>n!==(n=!1)&&(r(i),!0),l=()=>n!==(n=!0)&&(t(i),!0);return l(),[a,l]},ee=()=>{var e,t=new Set;return[(r,n)=>{var i=ts(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tv=(e,t,r)=>null==e?L:eu(t)?null==(t=t[0])?L:t+\" \"+tv(e,t,r):null==t?L:1===t?e:null!=r?r:\"is\"===e?\"are\":e+\"s\",tc=!0,tf=(e,t,r)=>r?(tc&&e6(r,\"\u001b[\",t,\"m\"),eu(e)?e6(r,...e):e6(r,e),tc&&e6(r,\"\u001b[m\"),r):tf(e,t,[]).join(\"\"),tp=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),tg=(e,t)=>{var l,r=[],n={},i={},a=0;for(l in t)l===t[l]&&(Object.defineProperty(i,l,{value:l,writable:!1,enumerable:!0,configurable:!1}),n[l]=a++,r.push(l));var o=(t,r=!0)=>null==t?L:null!=n[t]?t:r?j(`The ${e} \"${t}\" is not defined.`):L,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:+(t<e)},...u}}),i},tm=Symbol(),ty=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,l;return e?(null==(l=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(l[1]=\"\"),l[2]=l[1]&&(el(t)?t=[t]:eu(t))&&tV(t,e=>1<(i=l[1].split(e)).length?tR(i):L)||(l[1]?[l[1]]:[]),l):L},tb=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?L:tT(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,a,l,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&L,authority:a,user:l,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):L,path:v,query:!1===t?c:c?tw(c,{...n,delimiters:t}):L,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":L),e}),tw=(e,t)=>tk(e,\"&\",t),tk=(e,t,{delimiters:r=!0,...n}={})=>{e=tH(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,a,l]=null!=(e=ty(e,{...n,delimiters:!1===r?[]:!0===r?L:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<l.length?l:a]:[e,a]:tz}),t=rr(tX(e,!1),([e,t])=>[e,!1!==r?1<t.length?t1(t):t[0]:t.join(\",\")]);return t&&(t[tm]=e),t},tS=(e,t)=>t&&null!=e?t.test(e):L,tx=(e,t,r)=>tT(e,t,r,!0),tT=(e,t,i,a=!1)=>null==(null!=e?e:t)?L:i?(r=L,a?(n=[],tT(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(a=e.match(t))?a:L,tI=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tA=/\\z./g,tE=(e,t)=>(t=ro(eC(eW(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tA,tN={},t$=e=>e instanceof RegExp,tO=(r,n=[\",\",\" \"])=>{var i;return t$(r)?r:eu(r)?tE(eO(r,e=>null==(e=tO(e,n))?void 0:e.source)):er(r)?r?/./g:tA:el(r)?null!=(i=(e=tN)[t=r])?i:e[t]=tT(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tE(eO(tC(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${ro(n,tI)}]`)),e=>e&&`^${ro(tC(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tI(t_(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):L},tC=(e,t,r=!0)=>null==e?L:r?tC(e,t,!1).filter(X):e.split(t),t_=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,tF=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eY(r,{push(n,i){for(var a=[n,i],l=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(a[1],d[0])<0)return l(r.splice(o,0,a));if(e(a[0],d[1])<=0){if(e(a[0],d[0])<0&&(u=d[0]=a[0]),0<e(a[1],d[1])&&(u=d[1]=a[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return l(null!=u);u=a=r.splice(o--,1)[0]}}return l(a&&(r[r.length]=a))},width:0})},tj=e=>{for(var t=e;t;)t=Object.getPrototypeOf(e=t);return e},tU=(e,t)=>{if(!e||tj(e)===t)return e;for(var r of e.document.getElementsByTagName(\"iframe\"))try{if(e=tU(r.contentWindow,t))return e}catch{}},tM=e=>null==e?e:globalThis.window?tU(window,tj(e)):globalThis,tq=!1,tz=Symbol(),tR=e=>(tq=!0,e),tP=Symbol(),tD=Symbol(),tB=Symbol.iterator,tW=(e,t,r)=>{if(null==e||e[tP])throw t;e=tM(e);if(!e)throw t;var l,i=()=>(e,t,r,n,i)=>{var a,o,l=0;for(o of e)if((a=t?t(o,l++,n,i):o)!==tz){if(a===tR)break;if(n=a,r&&r.push(a),tq){tq=!1;break}}return r||n},a=(e.Array.prototype[tP]=(e,t,r,n,i)=>{for(var l,o=0,u=e.length;o<u;o++)if(l=e[o],(l=t?t(l,o,n,i):l)!==tz){if(l===tR)break;if(n=l,r&&r.push(l),tq){tq=!1;break}}return r||n},i());for(l of(e.Object.prototype[tP]=(e,t,r,n,l)=>{if(e[tB])return(e.constructor===Object?a:Object.getPrototypeOf(e)[tP]=i())(e,t,r,n,l);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=t?t(u,s++,n,l):u)!==tz){if(u===tR)break;if(n=u,r&&r.push(u),tq){tq=!1;break}}return r||n},e.Object.prototype[tD]=function(){var t,e;return this[tB]||this[Q]?this.constructor===Object?null!=(e=this[Q]())?e:this[tB]():((e=Object.getPrototypeOf(this))[tD]=null!=(t=e[Q])?t:e[tB],this[tD]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[e.Map.prototype,e.WeakMap.prototype,e.Set.prototype,e.WeakSet.prototype,Object.getPrototypeOf(function*(){})]))l[tP]=i(),l[tD]=l[tB];return e.Number.prototype[tP]=(e,t,r,n,i)=>a(tJ(e),t,r,n,i),e.Number.prototype[tD]=tJ,e.Function.prototype[tP]=(e,t,r,n,i)=>a(tL(e),t,r,n,i),e.Function.prototype[tD]=tL,r()};function*tJ(e=this){for(var t=0;t<e;t++)yield t}function*tL(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tV=(e,t,r,n)=>{try{return e?e[tP](e,t,void 0,r,n):null==e?e:void 0}catch(i){return tW(e,i,()=>tV(e,t,r,n))}},tH=(e,t,r=[],n,i=e)=>{try{return e||0===e||\"\"===e?e[tP](e,t,r,n,i):null==e?e:void 0}catch(a){return tW(e,a,()=>tH(e,t,r,n,i))}},tK=(e,t=!0,r=!1)=>tH(e,!0===t?e=>null!=e?e:tz:t?t.has?e=>null==e||t.has(e)===r?tz:e:(e,n,i)=>!t(e,n,i)===r?e:tz:e=>e||tz),tG=(e,t,r=-1,n=[],i,a=e)=>tH(e,(e,i,a)=>null!=(t?e=t(e,i,a):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tG(e,void 0,r-1,n,e),tz):e,n,i,a),tX=(e,t,r)=>{var n,i,a,l;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tV(e,!1!==r?(a=new Map,(e,r,n)=>{void 0!==(l=t?t(e,r,n):e)[0]&&t9(a,l[0],()=>[]).push(l[1])}):(a={},(e,r,o)=>(l=t?t(e,r,o):e)&&void 0!==l[0]&&(null!=(r=(n=a)[i=l[0]])?r:n[i]=[]).push(l[1]))),a},tQ=e=>null==e||eu(e)?e:e[tB]&&\"string\"!=typeof e?[...e]:[e],t0=(e,t)=>!0===tV(e,(r,n,i)=>(t?t(r,n,i,e):r)?tq=!0:r),t1=(e,...t)=>{var r,n;for(n of e=!t.length&&eg(e)?e:[e,...t])if(null!=n){if(eg(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},t2=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),t3=Symbol(),t6=Symbol(),t4=Symbol(),t8=(e,t,r)=>{if(null==e||e[t6])throw t;var i,e=tM(e);if(!e||e.Object.prototype[t3])throw t;for({prototype:i}of[e.Map,e.WeakMap])i[t3]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},i[t6]=i.get;for({prototype:i}of[e.Set,e.WeakSet])i[t3]=function(e,t,r=!1){return t||r&&void 0===t?!this.has(e)&&!!this.add(e):this.delete(e)},i[t6]=i.has,i[t4]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for({prototype:i}of(e.Array.prototype[t4]=function(e){return this.push(...e),this},[e.Object,e.Array]))i[t3]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},i[t6]=function(e){return this[e]};return r()},t9=(e,t,r)=>{try{if(null==e)return e;var n=e[t6](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[t3](t,r));e[t3](t,n)}return n}catch(n){return t8(e,n,()=>t9(e,t,r))}},t7=(e,t,r)=>{try{return!0===(null==e?void 0:e[t3](t,r,!0))}catch(n){return t8(e,n,()=>t7(e,t,r))}},re=(e,t,r)=>{try{return e[t3](t,r),r}catch(n){return t8(e,n,()=>re(e,t,r))}},rt=(e,...t)=>{try{return null==e?e:e[t4](t)}catch(r){return t8(e,r,()=>rt(e,...t))}},rr=(e,t)=>{var r={};return tV(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==tz&&e!==tR)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==tz&&e!==tR)?r[e[0]]=e[1]:e),r},rn=(e,...t)=>{try{return(null==e?void 0:e.constructor)===Object?tV(t,t=>tV(t,t=>t&&(e[t[0]]=t[1]))):tV(t,t=>tV(t,t=>t&&e[t3](t[0],t[1]))),e}catch(r){return t8(e,r,()=>rn(e,...t))}},ri=(e,t,r={})=>{if(null!=e){var l,{deep:n=!0,overwrite:i=!0,nulls:a=!1}=r;for(l of void 0===t?[]:null!=t&&t[tB]&&\"string\"!=typeof t?t:[t])tV(l,t=>{var o,u;t&&([t,o]=t,u=e[t],(a?null==u:void 0===u)?e[t]=o:n&&(null==o?void 0:o.constructor)===Object&&(null==u?void 0:u.constructor)===Object?ri(u,o,r):i&&(e[t]=o))})}return e},ra=(e,t)=>null==e?e:rr(t,t=>void 0!==e[t]||t in e?[t,e[t]]:tz),rl=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),ro=(e,t,r)=>null==e?e:eg(e)?tK(\"function\"==typeof t?tH(e,t):(r=t,e),rl,!0).join(null!=r?r:\"\"):rl(e)?\"\":e.toString(),ru=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?ru(tH(e,t),r,n):(i=[],n=tV(e,(e,t,r)=>rl(e)?tz:(r&&i.push(r),e.toString())),[t,o]=eu(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},rs=tg(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),rd=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],rv=rr(rd,e=>[e,e]),rc=(Object.freeze(eP(rd.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),rf=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},rp={names:rd,specificNames:rd.filter(e=>\"necessary\"!==e),parse(e,{names:t=!1,includeDefault:r=!0,validate:n=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),el(e)&&(e=e.split(\",\")),eu(e)){var a,i={};for(a of e)if(a!==rb){if(!rv[a]){n&&j(`The purpose name '${a}' is not defined.`);continue}\"necessary\"!==a&&(i[a]=!0)}e=i}return t?(t=tH(e,([e,t])=>rv[e]&&t?e:tz)).length||!r?t:[\"necessary\"]:e},get all(){return{functionality:!0,marketing:!0,performance:!0,personalization:!0,security:!0}},test(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=rc(i,n))&&!t[rc(i,n)])return!1;if(e=rf(e,n),t=rf(t,n),r){for(var a in t)if(rv[a]&&t[a]&&!e[a])return!1;if(\"all\"===r)for(var a in e)if(rv[a]&&e[a]&&!t[a])return!1;return!0}var l=!1;for(a in e)if(rv[a]&&e[a]){if(t[a])return!0;l=!0}return!l}},rg=(tg(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),{anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&rp.test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=rp.parse(e.purposes,{names:!0,includeDefault:!1});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var a;return e?([e,a]=e.split(\":\"),{classification:null!=(e=rs.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=rp.parse(a,{validate:!1}))?e:{}}):t?rg.clone(t):{classification:\"anonymous\",purposes:{}}}}),rm=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),ry=e=>!(null==e||!e.patchTargetId),rb=\"@schema\",rw=Symbol(),rk=e=>void 0===e?\"undefined\":tp(JSON.stringify(e),40,!0),rS=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,rx=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,rT=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rI=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,rA=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,rE=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rk(t)+` ${r}.`}),rw),rN=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rN((t?parseInt:parseFloat)(e),t,!1),r$={},rd=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=r$[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:r$[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:rE(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rS.test(e)&&!isNaN(+new Date(e))?e:rE(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rN(e,!1,!1)){if(!rN(e,!0,!1))return rE(n,e,\"is not a valid UNIX timestamp\");e*=1}else if(!rx.test(e)||isNaN(+new Date(e)))return rE(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rN(e,!0,!1)?+e:rE(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rN(e,!0,!1)?+e:rE(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rN(e,!1,!1)?e:rE(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rI.test(e)?e:rE(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rI.exec(e);return r?r[2]?e:rE(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):rE(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rI.exec(e);return r?\"urn\"!==r[1]||r[2]?rE(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:rE(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&rA.test(e)?e.toLowerCase():rE(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:rE(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=rT.exec(e))?void 0:r[1].toLowerCase():null)?r:rE(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rk(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==rw&&e.length>d?rE(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===rw||(null==c||c<=e)&&(null==f||e<=f)?e:rE(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===rw)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+ru(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===rw||u.has(e)?e:rE(t,e,p)}(e=>null==e||e instanceof Set||new Set(e[tB]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),tg(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rC=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),r_=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},rF=((A={})[A.Success=200]=\"Success\",A[A.Created=201]=\"Created\",A[A.NotModified=304]=\"NotModified\",A[A.Forbidden=403]=\"Forbidden\",A[A.NotFound=404]=\"NotFound\",A[A.BadRequest=405]=\"BadRequest\",A[A.Conflict=409]=\"Conflict\",A[A.Error=500]=\"Error\",A),rj=(e,t=!0)=>null!=(null==e?void 0:e.value)||!t&&(!e||404===e.status),rU=(e,t=!0)=>e&&(e.status<400||!t&&404===e.status);function rM(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rq=e=>{var t=rC(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${rF[e.status]}.`:`${t} failed with status ${e.status} - ${rF[e.status]}${r?` (${r})`:\"\"}.`};class rz extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),rM(this,\"succeeded\",void 0),rM(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rU(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rU(e,!1)))?t:[]}}var rR=e=>!!e.callback,rP=e=>!!e.poll,rD=Symbol(),rB=(e,t,r,{poll:n,logCallbackError:i}={})=>{var a=eu(t)?t:[t],l=[],o=(async()=>{var s,d,u,v,c,t=await r(a.filter(e=>e)),o=[];for(u of a)u&&null!=(d=t.get(u))&&(d[rD]=u,rR(u)&&o.push([u,d,e=>!0===u.callback(e)]),rP(u))&&o.push([u,d,e=>{var t;return!rj(e,!1)||(t=!rj(e,!1)||u.poll(e.value,e[rD]===u,s),s=e.value,t)}]);for([u,v,c]of o)try{var f=\"get\"===e?async e=>!0===await c(e)&&(null==n?void 0:n(u,f)):c;await f(v)}catch(t){var p=`${e} callback for ${rC(u)} failed: ${t}.`;i?i(p,u,t):l.push(p)}return t})(),u=async(r,n)=>{var d,v,c,i=await o,u=[],s=[];for(d of a)d?null==(c=i.get(d))?s.push(`No result for ${rC(d)}.`):!r||rU(c,n||\"set\"===e)?u.push(r&&c.status===rF.NotFound?void 0:1<r?null!=(v=c.value)?v:void 0:c):s.push(rq(c)):u.push(void 0);if(s.push(...l),s.length)throw 10<s.length&&s.push(`\n(and ${s.splice(10).length} more...)`),new rz(u,s.join(\"\\n\"));return a===t?u:u[0]};return Object.assign(P(()=>u(1,!1)),{as:()=>u(1,!1),all:()=>u(0,!1),require:()=>u(1,!0),value:(e=!1)=>u(2,e),values:(e=!1)=>u(2,e)})},rW=e=>e&&\"string\"==typeof e.type,rJ=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),rL=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rV=(e,t)=>{var r;return t&&(!(l=e.get(a=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=l.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(a,t)},rH=(e,t=\"\",r=new Map)=>{if(e)return eg(e)?tV(e,e=>rH(e,t,r)):el(e)?tT(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,a,l,o,u)=>{i={tag:(n?rL(n)+\"::\":\"\")+t+rL(i),value:rL(null!=(n=null!=a?a:l)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),rV(r,i)}):rV(r,e),r},rK=tg(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rG=tg(\"variable scope\",{...rK,...rd}),rX=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rZ=e=>null!=e&&!!e.scope&&null!=rK.ranks[e.scope],rY=e=>null==e?e:[e.scope,e.key,e.entityId].join(\"\\0\"),rQ=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],entityId:e[2]}},r1=()=>()=>j(\"Not initialized.\"),r2=window,r5=document,r3=r5.body,r6=(e,t)=>!(null==e||!e.matches(t)),r4=((e=>tc=e)(!!r2.chrome),V),r8=(e,t,r=(e,t)=>r4<=t)=>{for(var n=0,i=H;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(a=e,i=t!==K&&null!=a),K),n-1)!==H&&!i;){var a,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==r5&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return a},r9=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||en(e);case\"n\":return parseFloat(e);case\"j\":return z(()=>JSON.parse(e),G);case\"h\":return z(()=>n6(e),G);case\"e\":return z(()=>null==n8?void 0:n8(e),G);default:return eu(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:r9(e,t[0])):void 0}},r7=(e,t,r)=>r9(null==e?void 0:e.getAttribute(t),r),ne=(e,t,r)=>r8(e,(e,n)=>n(r7(e,t,r))),nt=(e,t)=>null==(e=r7(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),nr=e=>null==e?void 0:e.getAttributeNames(),nn=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,ni=e=>null!=e?e.tagName:null,nl=e=>({x:eb(scrollX,e),y:eb(scrollY,e)}),no=(e,t)=>t_(e,/#.*$/,\"\")===t_(t,/#.*$/,\"\"),nu=(e,t,r=K)=>(u=ns(e,t))&&B({xpx:u.x,ypx:u.y,x:eb(u.x/r3.offsetWidth,4),y:eb(u.y/r3.offsetHeight,4),pageFolds:r?u.y/window.innerHeight:void 0}),ns=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:s,y:d}=nv(e),{x:s,y:d}):void 0,nv=(e,t=!0)=>e?(v=e.getBoundingClientRect(),o=t?nl(H):{x:0,y:0},{x:eb(v.left+o.x),y:eb(v.top+o.y),width:eb(v.width),height:eb(v.height)}):void 0,nc=(e,t,r,n={capture:!0,passive:!0})=>(t=tQ(t),ts(r,r=>tV(t,t=>e.addEventListener(t,r,n)),r=>tV(t,t=>e.removeEventListener(t,r,n)))),np=()=>({...o=nl(K),width:window.innerWidth,height:window.innerHeight,totalWidth:r3.offsetWidth,totalHeight:r3.offsetHeight}),nh=new WeakMap,ng=e=>nh.get(e),nm=(e,t=H)=>(t?\"--track-\":\"track-\")+e,ny=(e,t,r,n,i,a)=>(null==t?void 0:t[1])&&tV(nr(e),l=>{var o;return null!=(o=(c=t[0])[f=l])?o:c[f]=(a=H,!el(n=tV(t[1],([t,r,n],i)=>tS(l,t)&&(a=void 0,!r||r6(e,r))&&ex(null!=n?n:l)))||(i=e.getAttribute(l))&&!en(i)||rH(i,t_(n,/\\-/g,\":\"),r),a)}),nb=()=>{},nw=(e,t)=>{if(p===(p=nE.tags))return nb(e,t);var r=e=>e?t$(e)?[[e]]:eg(e)?e_(e,r):[ec(e)?[tO(e.match),e.selector,e.prefix]:[tO(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tG(p,([,e])=>e,1))]];(nb=(e,t)=>ny(e,n,t))(e,t)},nk=(e,t)=>ro(eF(nn(e,nm(t,K)),nn(e,nm(\"base-\"+t,K))),\" \"),nS={},nx=(e,t,r=nk(e,\"attributes\"))=>{var n;r&&ny(e,null!=(n=nS[r])?n:nS[r]=[{},tx(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tO(r||n),,t])],t),rH(nk(e,\"tags\"),void 0,t)},nT=(e,t,r=H,n)=>null!=(r=null!=(r=r?r8(e,(e,r)=>r(nT(e,t,H)),eh(r)?r:void 0):ro(eF(r7(e,nm(t)),nn(e,nm(t,K))),\" \"))?r:n&&(h=ng(e))&&n(h))?r:null,nI=(e,t,r=H,n)=>\"\"===(g=nT(e,t,r,n))||(null==g?g:en(g)),nA=(e,t,r,n)=>e&&(null==n&&(n=new Map),nx(e,n),r8(e,e=>{nw(e,n),rH(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},nE={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},nN=[],n$=[],nO=(e,t=0)=>e.charCodeAt(t),n_=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>nN[n$[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(n$[(16515072&t)>>18],n$[(258048&t)>>12],n$[(4032&t)>>6],n$[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),nj={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nU=(e=256)=>e*Math.random()|0,nq={exports:{}},{deserialize:nz,serialize:nR}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),a=0;if(t&&t.multiple)for(var l=0;l<e.length;l++)o(e[l]);else o(e);return i.subarray(0,a);function o(e,i){var c,l;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(l=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,a=new Uint8Array(e.length*(t?1:4)),l=0;l!==r;l++){var o=e.charCodeAt(l);if(o<128)a[i++]=o;else{if(o<2048)a[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++l>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(l);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+l+\" out of range\");a[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,a[i++]=o>>12&63|128}else a[i++]=o>>12|224;a[i++]=o>>6&63|128}a[i++]=63&o|128}}return t?a:a.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(l);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((l=(c=e).length)<=255?d([196,l]):d(l<=65535?[197,l>>>8,l]:[198,l>>>24,l>>>16,l>>>8,l]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<a+1){for(var t=2*i.length;t<a+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[a]=e,a++}function d(e){if(i.length<a+e.length){for(var t=2*i.length;t<a+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,a),a+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return l(1);if(205===t)return l(2);if(206===t)return l(4);if(207===t)return l(8);if(208===t)return a(1);if(209===t)return a(2);if(210===t)return a(4);if(211===t)return a(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function a(t){for(var a,r=0,i=!0;0<t--;)i?(r+=127&(a=e[n++]),128&a&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function l(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=l(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=l(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=l(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=l(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var a=e[n++];if(127<a)if(191<a&&a<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");a=(31&a)<<6|63&e[n++]}else if(223<a&&a<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");a=(15&a)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<a&&a<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+a.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");a=(7&a)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(a<=65535)i+=String.fromCharCode(a);else{if(!(a<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+a.toString(16)+\" exceeds UTF-16 reach\");a-=65536,i=(i+=String.fromCharCode(a>>10|55296))+String.fromCharCode(1023&a|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=l(t));t=l(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=a(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};nq.exports=n})(),(A=nq.exports)&&A.__esModule&&Object.prototype.hasOwnProperty.call(A,\"default\")?A.default:A),nP=\"$ref\",nD=(e,t,r)=>ep(e)?L:r?t!==L:null===t||t,nB=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,a,l,o=(e,t,n=e[t],i=nD(t,n,r)?s(n):L)=>(n!==i&&(i!==L||eu(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||eh(e)||ep(e))return L;if(ev(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(l=null==a?void 0:a.get(e)))return e[nP]||(e[nP]=l,u(()=>delete e[nP])),{[nP]:l};if(ec(e))for(var t in(null!=a?a:a=new Map).set(e,a.size+1),e)o(e,t);else!eg(e)||e instanceof Uint8Array||(!eu(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return z(()=>{var r;return t?nR(null!=(r=s(e))?r:null):z(()=>JSON.stringify(e,L,2*!!n),()=>JSON.stringify(s(e),L,2*!!n))},!0,()=>null==i?void 0:i.forEach(e=>e()))},nW=e=>{var t,r,n=e=>ev(e)?e[nP]&&(r=(null!=t?t:t=[])[e[nP]])?r:(e[nP]&&delete(t[e[nP]]=e)[nP],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(el(e)?z(()=>JSON.parse(e),()=>(console.error(\"Invalid JSON received.\",e,Error().stack),L)):null!=e?z(()=>nz(e),()=>(console.error(\"Invalid message received.\",e,Error().stack),L)):e)},nJ=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var l,o,u,i=(e,r)=>ea(e)&&!0===r?e:u(e=el(e)?new Uint8Array(tH(e.length,t=>255&e.charCodeAt(t))):t?z(()=>JSON.stringify(e),()=>JSON.stringify(nB(e,!1,n))):nB(e,!0,n),r),a=e=>null==e?L:z(()=>nW(e),L);return t?[e=>nB(e,!1,n),a,(e,t)=>i(e,t)]:([l,o,u]=(e=>{for(var t,r,n,i,a,o,l=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,a=new Uint8Array(4+t+i),n=0;n<3;a[n++]=g(nU()));for(r=0,a[n++]=g(v^16*nU(16)+i);r<t;a[n++]=g(v^e[r++]));for(;i--;)a[n++]=nU();return a}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,a=new Uint8Array(t);n<t;a[n++]=v^g(e[r++]));return a}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=er(t)?64:t,h(),[l,u]=nj[o],r=0;r<e.length;l=BigInt.asUintN(o,(l^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+l%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):l.toString(36)}]})(e),[(e,t)=>(t?X:n_)(l(nB(e,!0,n))),e=>null!=e?nW(o(e instanceof Uint8Array?e:(r&&ek(e)?a:e=>{for(var t,r=0,n=0,i=e.length,a=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)a[n++]=nN[nO(e,r++)]<<2|(t=nN[nO(e,r++)])>>4,r<i&&(a[n++]=(15&t)<<4|(t=nN[nO(e,r++)])>>2,r<i)&&(a[n++]=(3&t)<<6|nN[nO(e,r++)]);return a})(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=m?m:m=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},[nL,,]=(nJ(),nJ(null,{json:!0,decodeJson:!0}),nJ(null,{json:!0,prettify:!0})),tg=tC(\"\"+r5.currentScript.src,\"#\"),rd=tC(\"\"+(tg[1]||\"\"),\";\"),nG=tg[0],nX=rd[1]||(null==(A=tb(nG,{delimiters:!1}))?void 0:A.host),nZ=e=>!(!nX||(null==(e=tb(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nX))!==K),tg=(...e)=>t_(ro(e),/(^(?=\\?))|(^\\.(?=\\/))/,nG.split(\"?\")[0]),nQ=tg(\"?\",\"var\"),n0=tg(\"?\",\"mnt\"),n1=(tg(\"?\",\"usr\"),Symbol()),n2=Symbol(),n5=(e,t,r=K,n=H)=>{t&&(r?console.groupCollapsed:console.group)((n?\"\":tf(\"tail.js: \",\"90;3\"))+t);r=null==e?void 0:e[n2];null!=(e=r?e[n1]:e)&&console.log(ev(e)?tf(nL(e),\"94\"):eh(e)?\"\"+e:e),r&&r.forEach(([e,t,r])=>n5(e,t,r,!0)),t&&console.groupEnd()},[n3,n6]=nJ(),[n4,n8]=[r1,r1],n9=!0,[rd,ie]=ee(),ii=(...e)=>{var r,a=e.shift();console.error(e[1]instanceof Error?e[1].message:el(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=a.id)?r:a,...e)},[ia,il]=ee(),[io,iu]=ee(),is=e=>iv!==(iv=e)&&il(iv,ih(!0,!0)),id=e=>ic!==(ic=!!e&&\"visible\"===document.visibilityState)&&iu(ic,!e,ip(!0,!0)),iv=(ia(id),!0),ic=!1,ip=e7(!1),ih=e7(!1),ig=(nc(window,[\"pagehide\",\"freeze\",\"beforeunload\"],()=>is(!1)),nc(window,[\"pageshow\",\"resume\"],()=>is(!0)),nc(document,\"visibilitychange\",()=>(id(!0),ic&&is(!0))),il(iv,ih(!0,!0)),!1),im=e7(!1),[,ib]=ee(),iw=tt({callback:()=>ig&&ib(ig=!1,im(!1)),frequency:2e4,once:!0,paused:!0}),A=()=>!ig&&(ib(ig=!0,im(!0)),iw.restart()),iS=(nc(window,[\"focus\",\"scroll\"],A),nc(window,\"blur\",()=>iw.trigger()),nc(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],A),A(),()=>im()),ix=0,iT=void 0,iI=()=>(null!=iT?iT:r1())+\"_\"+iA(),iA=()=>(e9(!0)-(parseInt(iT.slice(0,-2),36)||0)).toString(36)+\"_\"+(++ix).toString(36),i$=new Map,iO={id:iT,heartbeat:e9()},iC={knownTabs:new Map([[iT,iO]]),variables:new Map},[i_,iF]=ee(),[ij,iU]=ee(),iM=r1,iq=(e,t=e9())=>{e=i$.get(el(e)?e:rY(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},iz=(...e)=>{var t=e9();return iP(tH(e,e=>(e.cache=[t],[r_(e),{...e,created:t,modified:t,version:\"0\"}])))},iR=e=>null!=(e=tH(e,e=>{var t,r;return e&&(t=rY(e[0]),(r=i$.get(t))!==e[1])?[t,e[1],r,e[0]]:tz}))?e:[],iP=e=>{var r,n,e=iR(e);null!=e&&e.length&&(r=e9(),tV(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),rn(i$,e),(n=tK(e,([,,,e])=>0<rG.compare(e.scope,\"tab\"))).length&&iM({type:\"patch\",payload:rr(n)}),iU(tH(e,([,e,t,r])=>[r,e,t]),i$,!0))},[,iB]=(rd((e,t)=>{ia(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),iT=null!=(n=null==r?void 0:r[0])?n:e9(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),i$=new Map(t1(tK(i$,([,e])=>\"view\"===(null==e?void 0:e.scope)),tH(null==r?void 0:r[1],e=>[rY(e),e])))):sessionStorage.setItem(\"_tail:state\",e([iT,tH(i$,([,e])=>e&&\"view\"!==e.scope?e:tz)]))},!0),iM=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([iT,t,r])),localStorage.removeItem(\"_tail:state\"))},nc(window,\"storage\",e=>{var a,l,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==iT||([e,{type:a,payload:l}]=e,\"query\"===a?r.active||iM({type:\"set\",payload:[tH(iC.knownTabs),tH(iC.variables)]},e):\"set\"===a&&r.active?(iC.knownTabs=new Map(l[0]),iC.variables=new Map(l[1]),i$=new Map(l[1]),r.trigger()):\"patch\"===a?(o=iR(tH(l,([e,t])=>[rQ(e),t])),rn(iC.variables,l),rn(i$,l),iU(tH(o,([,e,t,r])=>[r,e,t]),i$,!1)):\"tab\"===a&&(re(iC.knownTabs,e,l),l)&&iF(\"tab\",l,!1))});var r=tt(()=>iF(\"ready\",iC,!0),-25),n=tt({callback(){var e=e9()-1e4;tV(iC.knownTabs,([t,r])=>r[0]<e&&re(iC.knownTabs,t,void 0)),iO.heartbeat=e9(),iM({type:\"tab\",payload:iO})},frequency:5e3,paused:!0});ia(e=>(e=>{iM({type:\"tab\",payload:e?iO:void 0}),e?(r.restart(),iM({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),ee()),[iW,iJ]=ee(),iL=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?n8:n6)(localStorage.getItem(\"_tail:rq\")),a=0,l=()=>localStorage.setItem(\"_tail:rq\",(r?n4:n3)([iT,e9()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e9())&&(l(),(null==(d=i())?void 0:d[0])===iT))return 0<t&&(a=setInterval(()=>l(),t/2)),D(r,!0,()=>{clearInterval(a),localStorage.removeItem(\"_tail:rq\")});var v=to(),[d]=nc(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[tl(null!=o?o:t),v],await Promise.race(e.map(e=>eh(e)?e():e)),d()}var e;null==o&&j(\"_tail:rq could not be acquired.\")}})(),iV=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&n9;var i,a,l=!1,o=r=>{var o=eh(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iB(e,i=null!=o&&!0!==o?o:i,r,e=>(l=i===L,i=e)),!l)&&(a=n?n4(i,!0):JSON.stringify(i))};if(!r)return iL(()=>eR(1,async t=>{var l;return o(t)?400<=(l=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:a})).status?0===t?ex(j(\"Invalid response: \"+await l.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tl(200*(1+t))):(null!=(l=null!=(t=n?new Uint8Array(await l.arrayBuffer()):await l.text())&&t.length?null==(l=n?n8:JSON.parse)?void 0:l(t):L)&&iJ(l),ex(l)):ex()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[a]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&j(\"Beacon send failed.\")},tg=[\"scope\",\"key\",\"entityId\",\"source\"],iK=[...tg,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\",\"passive\"],iG=[...tg,\"value\",\"force\",\"ttl\",\"version\"],iX=Symbol(),iZ=new Map,iQ=Symbol(),i2=Symbol(),i5=[.75,.33],i3=[.25,.33],i4=e=>tH(((e,t,r)=>tQ(e).sort(\"function\"==typeof t?(e,n)=>t2(t(e),t(n),r):eu(t)?t.length?(e,n)=>{for(var i=0,a=0;a<t.length&&!i;a++)i=t2(t[a](e),t[a](n),r);return i}:(e,t)=>t2(e,t,r):(e,r)=>t2(e,r,t)))(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rC(e)}, ${rZ(e)?\"client-side memory only\":(e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${ru(rp.parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`})(null==(e=e.schema)?void 0:e.usage)})`,H]:tz),ae=(e,t=\"A\"===ni(e)&&r7(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),at=(e,t=ni(e),r=nI(e,\"button\"))=>r!==H&&(M(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&M(nt(e,\"type\"),\"button\",\"submit\")||r===K),ar=(e,t=!1)=>{var r;return{tagName:e.tagName,text:tp((null==(r=r7(e,\"title\"))?void 0:r.trim())||(null==(r=r7(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?nv(e):void 0}},ai=()=>null==S?void 0:S.clientId,aa={scope:\"shared\",key:\"referrer\"},al=(e,t)=>{k.variables.set({...aa,value:[ai(),e]}),t&&k.variables.get({scope:aa.scope,key:aa.key,poll:(r,n,i)=>!!r||(null==i?void 0:i[1])===e&&t()&&!1})},ao=e7(),au=e7(),as=1,[av,ac]=ee(),af=e=>{var t=e7(e,ao),r=e7(e,au),n=e7(e,iS),i=e7(e,()=>as);return(e,a)=>({totalTime:t(e,a),visibleTime:r(e,a),activeTime:n(e,a),activations:i(e,a)})},ap=af(),[ag,am]=ee(),ay=(e,t)=>(t&&tV(aw,t=>e(t,()=>!1)),ag(e)),ab=new WeakSet,aw=document.getElementsByTagName(\"iframe\");function aS(e){if(e){if(null!=e.units&&M(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var aT=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),aI=e=>nA(e,t=>t!==e&&!!aT(nh.get(t)),e=>(T=nh.get(e),(T=nh.get(e))&&e_(eF(T.component,T.content,T),\"tags\"))),aA=(e,t)=>t?e:{...e,rect:void 0,content:(I=e.content)&&tH(I,e=>({...e,rect:void 0}))},aE=(e,t=H,r)=>{var n,i,a,l=[],o=[],u=0;return r8(e,e=>{var s,a,i=nh.get(e);i&&(aT(i)&&(a=eW(tQ(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==K||(null==(r=e.track)?void 0:r.promote))}),n=(null!=r?r:eH(a,e=>null==(e=e.track)?void 0:e.region))&&nv(e)||void 0,s=aI(e),i.content&&e4(l,...tH(i.content,e=>({...e,rect:n,...s}))),null!=a)&&a.length&&(e4(o,...tH(a,e=>{var t;return u=eL(u,null!=(t=e.track)&&t.secondary?1:2),aA({...e,content:l.length?l:void 0,rect:n,...s},!!n)})),l=[]),a=i.area||nT(e,\"area\"))&&e4(o,a)}),l.length&&e6(o,aA({id:\"\",rect:n,content:l})),tV(o,e=>{el(e)?e6(null!=i?i:i=[],e):(null==e.area&&(e.area=ro(i,\"/\")),e4(null!=a?a:a=[],e))}),a||i?{components:a,area:ro(i,\"/\")}:void 0},aN=Symbol(),a$=[{id:\"context\",setup(e){tt(()=>tV(aw,e=>t7(ab,e)&&am(e)),500).trigger(),e.variables.get({scope:\"view\",key:\"view\",poll(t){return null==S||!t||null!=S&&S.definition?null!=(n=t)&&t.navigation&&f(!0):(S.definition=t,null!=(t=S.metadata)&&t.posted?e.events.postPatch(S,{definition:n}):n5(S,S.type+\" (definition updated)\")),!0}});var n,t,d=null!=(t=null==(t=iq({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=iq({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&iz({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=iq({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=iq({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=H)=>{var a,l,o,i,p;no(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:a}=tb(location.href+\"\",{requireAuthority:!0}),S={type:\"view\",timestamp:e9(),clientId:iI(),tab:iT,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:a},tabNumber:v+1,tabViewNumber:d+1,viewport:np(),duration:ap(void 0,!0)},0===v&&(S.firstTab=K),0===v&&0===d&&(S.landingPage=K),iz({scope:\"tab\",key:\"viewIndex\",value:++d}),l=tw(location.href),tH([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return null!=(e=(null!=(n=(o=S).utm)?n:o.utm={})[e]=null==(n=tQ(l[\"utm_\"+e]))?void 0:n[0])?e:tz}),!(S.navigationType=x)&&performance&&tV(performance.getEntriesByType(\"navigation\"),e=>{S.redirects=e.redirectCount,S.navigationType=t_(e.type,/\\_/g,\"-\")}),x=void 0,\"navigate\"===(null!=(t=S.navigationType)?t:S.navigationType=\"navigate\")&&(p=null==(i=iq(aa))?void 0:i.value)&&nZ(document.referrer)&&(S.view=null==p?void 0:p[0],S.relatedEventId=null==p?void 0:p[1],e.variables.set({...aa,value:void 0})),(p=document.referrer||null)&&!nZ(p)&&(S.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=tb(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),S.definition=n,n=void 0,e.events.post(S),e.events.registerEventPatchSource(S,()=>({duration:ap()})),ac(S))};return io(e=>{e?(au(K),++as):au(H)}),nc(window,\"popstate\",()=>(x=\"back-forward\",f())),tV([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),x=\"navigate\",f()}}),f(),{processCommand:t=>a_(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),K),decorate(e){!S||rJ(e)||ry(e)||(e.view=S.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tV(e,e=>{var t,r;return null==(t=(r=e.target)[i2])?void 0:t.call(r,e)})),r=new Set,n=(tt({callback:()=>tV(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=r5.createRange();return(a,l)=>{var o,u,s,d,v,c,f,p,h,g,m,y,b,w,k,S;l&&(o=eW(null==l?void 0:l.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==K}))&&eJ(o)&&(p=f=H,g=h=0,m=(e,t,r,n)=>{var i,a=null!=(a=(i=null!=u?u:u=[])[e])?a:i[e]=[{duration:0,impressions:0},e7(!1,iS),!1,!1,0,0,0,tF()];a[4]=t,a[5]=r,a[6]=n},y=[tF(),tF()],b=af(!1),w=e7(!1,iS),k=-1,S=()=>{var $,t=a.getBoundingClientRect(),r=window.innerWidth,l=window.innerHeight,S=[n(t.top,l),n(t.right,r),n(t.bottom,l),n(t.left,r)],x=S[2]-S[0],S=S[1]-S[3],E=f?i3:i5,r=(E[0]*l<x||E[0]<(x/t.height||0))&&(E[0]*r<S||E[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=nE.impressionThreshold-250)&&(++h,b(f),s||(s=tH(o,e=>((null==(e=e.track)?void 0:e.impressions)||nI(a,\"impressions\",K,e=>null==(e=e.track)?void 0:e.impressions))&&B({type:\"impression\",pos:nu(a),viewport:np(),timeOffset:ap(),impressions:h,...aE(a,K)})||tz),e(s)),null!=s)&&s.length&&($=b(),d=tH(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:$,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:$.activeTime&&c&&n($.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;E=a.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),a=0,l=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,a+=r[0].length,6<r[0].length&&++o,++l);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*a|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:eb(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:a,words:l,sentences:u,lix:eb(l/u+100*o/l),readTime:eb(l/238*6e4),boundaries:v}})(null!=E?E:\"\"),u||t.height>=1.25*l){var C=r5.createTreeWalker(a,NodeFilter.SHOW_TEXT),_=0,F=0;for(null==u&&(u=[]);F<v.length&&(j=C.nextNode());){var j,U,M,P,D,z=null!=(U=null==(U=j.textContent)?void 0:U.length)?U:0;for(_+=z;_>=(null==(M=v[F])?void 0:M.offset);)i[F%2?\"setEnd\":\"setStart\"](j,v[F].offset-_+z),F++%2&&({top:M,bottom:P}=i.getBoundingClientRect(),D=t.top,F<3?m(0,M-D,P-D,v[1].readTime):(m(1,u[0][4],M-D,v[2].readTime),m(2,M-D,P-D,v[3].readTime)))}}}var r=t.left<0?-t.left:0,E=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=y[0].push(E,E+x)*y[1].push(r,r+S)/L),u&&tV(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>l?l:t.bottom,e[5],e[4]),a=f&&0<i-r,o=e[0];o.duration=e[1](a),a&&(e[3]!==(e[3]=a)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},a[i2]=({isIntersecting:e})=>{eY(r,S,e),e||(tV(d,e=>e()),S())},t.observe(a))}})(e),n=({boundary:e,...n})=>{eQ(nh,e,e=>{var t;return(e=>null==e?void 0:{...e,component:tQ(e.component),content:tQ(e.content),tags:tQ(e.tags)})(\"add\"in n?{...e,component:eF(null==e?void 0:e.component,n.component),content:eF(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:eF(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,nh.get(e))};return{decorate(e){tV(e.components,t=>{re(t,\"track\",void 0),tV(e.clickables,e=>re(e,\"track\",void 0))})},processCommand:e=>aU(e)?(n(e),K):aD(e)?(tV(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var a=[];null!=r7(i,e);){((e,t)=>e instanceof Set||e instanceof WeakSet?e.has(t)||e.add(t):eX(e,t)||eG(e,t,!0))(n,i);var l,o=tC(r7(i,e),\"|\");r7(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=eo(d))?s:\"\",36);if(s<0)a.length+=s;else{if(0===u&&(a.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch{}0<=s&&t[s]&&(d=t[s]),e6(a,d)}}}e6(r,...tH(a,e=>({add:K,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(l=i.parentNode)&&l.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),K):H}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{nc(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,a,l,o,u,s=H;if(r8(n.target,e=>{at(e)&&null==l&&(l=e),s=s||\"NAV\"===ni(e);var t,d=ng(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tV(e.querySelectorAll(\"a,button\"),t=>at(t)&&(3<(null!=u?u:u=[]).length?ex():u.push({...ar(t,!0),component:r8(t,(e,t,r,n=null==(i=ng(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=nI(e,\"clicks\",K,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eH(d,e=>(null==(e=e.track)?void 0:e.clicks)!==H)),null==a&&(a=null!=(t=nI(e,\"region\",K,e=>null==(e=e.track)?void 0:e.region))?t:d&&eH(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=l){var d,v=u&&!l&&i,c=aE(null!=l?l:o,!1,v),f=nA(null!=l?l:o,void 0,e=>tK(tQ(null==(e=nh.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(a=null==a?K:a)?{pos:nu(l,n),viewport:np()}:null,...((e,t)=>{var n;return r8(null!=e?e:t,e=>\"IMG\"===ni(e)||e===t?(n={element:ar(e,!1)},H):K),n})(n.target,null!=l?l:o),...c,timeOffset:ap(),...f});if(l)if(ae(l)){var h=l,c=h.hostname!==location.hostname,{host:f,scheme:y,source:b}=tb(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(B({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,x,w=B({clientId:iI(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:y},self:K,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||r7(h,\"target\")!==window.name?(al(w.clientId),w.self=H,e(w)):no(location.href,h.href)||(w.exit=w.external,al(w.clientId))):(k=h.href,(b=nZ(k))?al(w.clientId,()=>e(w)):(x=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||nE.captureContextMenu&&(h.href=n0+\"=\"+x+encodeURIComponent(k),nc(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===x&&e(w),r())),nc(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{r8(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>el(e=null==e||e!==K&&\"\"!==e?e:\"add\")&&M(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ev(e)?e:void 0)(null!=(r=null==(r=ng(e))?void 0:r.cart)?r:nT(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?L:eu(e)||el(e)?e[e.length-1]:eq(e,(e,r)=>e,void 0,void 0))(null==(r=ng(e))?void 0:r.content))&&t(d)});c=aS(d);(c||i)&&e(B(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eQ(t,o,r=>{var i=ns(o,n);return r?e6(r,i):(i=B({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),ay(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=nl(K);av(()=>{return e=()=>(t={},r=nl(K)),setTimeout(e,250);var e}),nc(window,\"scroll\",()=>{var a,n=nl(),i={x:(o=nl(H)).x/(r3.offsetWidth-window.innerWidth)||0,y:o.y/(r3.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(a=[],!t.fold&&n.y>=r.y+200&&(t.fold=K,e6(a,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=K,e6(a,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=K,e6(a,\"page-end\")),(n=tH(a,e=>B({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return aC(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=aS(r))&&e({...r,type:\"cart_updated\"}),K):aP(t)?(e({type:\"order\",...t.order}),K):H}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||ne(e,nm(\"form-value\")),e=(t&&(r=r?en(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&tp(e,200)),r?e:void 0},i=t=>{var i,l,s,a=t.form;if(a)return l=ne(a,nm(\"ref\"))||\"track_ref\",(s=t9(r,a,()=>{var t,r=new Map,n={type:\"form\",name:ne(a,nm(\"form-name\"))||r7(a,\"name\")||a.id||void 0,activeTime:0,totalTime:0,fields:{}},l=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:ap()})),()=>{1!==t[3]&&(o(),2<=t[3]&&(n.completed=3===t[3]||!(a.isConnected&&nv(a).width)),e.events.postPatch(n,{...i,completed:n.completed,totalTime:e9(K)-t[4]}),t[3]=1)}),s=((e=0)=>{var t,r,n=(i,a=e)=>{if(void 0===i)return!!r;clearTimeout(t),er(i)?i&&(a<0?ei:J)(null==r?void 0:r())?n(r,a):r=void 0:(r=i,t=setTimeout(()=>n(!0,a),a<0?-a:a))};return n})();return nc(a.ownerDocument.body,\"submit\",e=>{var r,n;i=aE(a),t[3]=3,e.defaultPrevented?([r]=ia(e=>{e||(n?n5(\"The browser is navigating to another page after submit leaving a reCAPTCHA challenge. \"+tf(\"Form not submitted\",1)):3===t[3]?(n5(\"The browser is navigating to another page after submit. \"+tf(\"Form submitted\",1)),l()):n5(\"The browser is navigating to another page after submit, but submit was earlier cancelled because of validation errors. \"+tf(\"Form not submitted.\",1)),r())}),n=!1,s(()=>{if((()=>{for(var e=a.ownerDocument;e;){if(t0(e.querySelectorAll(\"iframe\"),e=>e.src.match(RegExp(\"https:\\\\/\\\\/www.google.com\\\\/.*(?<=\\\\/)recaptcha\\\\/.*(?<=\\\\/)bframe\",\"gi\"))&&(e=>{if(!e||!e.isConnected||nv(e,!1).width<=0)return!1;for(;e;){var t=null==(t=e.ownerDocument.defaultView)?void 0:t.getComputedStyle(e);if(\"hidden\"===t.visibility||\"0\"===t.opacity)return!1;e=e.parentElement}return!0})(e)))return!0;e=z(()=>{var r;return null==(r=e.defaultView)||null==(r=r.frameElement)?void 0:r.ownerDocument},()=>{})}return!1})())return t[3]=2,n5(\"reCAPTCHA challenge is active.\"),n=!0;n&&(n=!1,n5(\"reCAPTCHA challenge ended (for better or worse).\"),t[3]=3),a.isConnected&&0<nv(a).width?(t[3]=2,n5(\"Form is still visible after 1750 ms, validation errors assumed. \"+tf(\"Form not submitted\",1))):(n5(\"Form is no longer visible 1750 ms after submit. \"+tf(\"Form submitted\",1)),l()),r()},1750)):(n5(\"Submit event triggered and default not prevented. \"+tf(\"Form submitted\",1)),l())},{capture:!1}),t=[n,r,a,0,e9(K),1]}))[1].get(t)||tV(a.querySelectorAll(\"INPUT,SELECT,TEXTAREA,BUTTON\"),(e,t)=>{var d,v,a;\"BUTTON\"===e.tagName&&\"submit\"!==e.type||(e.name&&\"hidden\"!==e.type?(a=null!=(d=(a=s[0].fields)[v=e.name])?d:a[v]={id:e.id||v,name:v,label:t_(null!=(v=null==(d=e.labels)||null==(a=d[0])?void 0:a.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[aN]:n(e),value:n(e,!0)},s[0].fields[a.name]=a,s[1].set(e,a)):\"hidden\"!==e.type||e.name!==l&&!nI(e,\"ref\")||(e.value||(e.value=t_(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value))}),[t,s]},a=(e,[r,n]=null!=(t=i(e))?t:[],a=null==n?void 0:n[1].get(r))=>a&&[n[0],a,r,n],l=null,o=()=>{var r,i,a,o,d,v,c;l&&([r,i,a,o]=l,d=-(u-(u=au())),v=-(s-(s=e9(K))),c=i[aN],(i[aN]=n(a))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=K,o[3]=2,tV(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(a,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,l=null)},u=0,s=0,d=e=>e&&nc(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(l=r,\"focusin\"===e.type?(s=e9(K),u=au()):o()));d(document),ay(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",poll:t,refresh:!t,passive:!t}).value(),i=async t=>{var r;if(t)return!(r=await n())||rg.equals(r,t)?[!1,r]:(await e.events.post(B({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},a=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=r2.dataLayer,i=t,a=null==n?void 0:n.length;if(a&&(t!==(t=n[a-1])||!t))for(;a--&&((e=n[a])!==i||!i);){var l={},o=!0;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tH(r,([t,r])=>\"granted\"===e[2][t]&&(l[r]=!0,o=o&&(\"security\"===r||\"necessary\"===r))),{classification:o?\"anonymous\":\"direct\",purposes:l}}}}}}),{});return{processCommand(e){var t,r,l,s,d;return aJ(e)?((t=e.consent.get)&&n((e,r,n)=>!e||t(e,n)),(r=e.consent.set)&&(async()=>{var e,t,n;\"consent\"in r?([t,n]=await i(r.consent),null!=(e=r.callback)&&e.call(r,t,n)):i(r)})(),(l=e.consent.externalSource)&&(d=l.key,(null!=(e=a[d])?e:a[d]=tt({frequency:null!=(e=l.frequency)?e:1e3})).restart(l.frequency,async()=>{var e,t,r;r5.hasFocus()&&(e=l.poll(s))&&!rg.equals(s,e)&&([t,r]=await i(e),t&&n5(r,\"Consent was updated from \"+d),s=e)}).trigger()),K):H}}}}],A=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),aC=A(\"cart\"),a_=A(\"username\"),aF=A(\"tagAttributes\"),aj=A(\"disable\"),aU=A(\"boundary\"),aM=A(\"extension\"),aq=A(K,\"flush\"),az=A(\"get\"),aR=A(\"listener\"),aP=A(\"order\"),aD=A(\"scan\"),aB=A(\"set\"),aW=e=>\"function\"==typeof e,aJ=A(\"consent\");(e=>{if(!k){el(e)&&([r,e]=n6(e),e=nJ(r,{decodeJson:!0})[1](e)),ri(nE,[e],{overwrite:!0}),(e=>{n8===r1&&([n4,n8]=nJ(e,{json:!e,prettify:!1}),n9=!!e,ie(n4,n8))})(e2(nE,\"encryptionKey\"));var r,l,o,u,s,d,v,c,f,p,h,g,m,i=e2(nE,\"key\"),a=null!=(e=null==(r=r2[nE.name])?void 0:r._)?e:[];if(eu(a))return l=[],o=[],u=(e,...t)=>{var r=K;o=eW(o,n=>z(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:k,unsubscribe:()=>r=H}),r},(e=>t=>ii(e,t))(n)))},s=[],v=((e,t)=>{var r=tt(async()=>{var e=tH(iZ,([e,t])=>t0(t,e=>null==(e=e[iX])?void 0:e.refresh)?{...rQ(e),refresh:!0}:tz);e.length&&await a.get(e)},3e3),n=(e,t)=>t&&!!t9(iZ,e,()=>new Set).add(t),a=(ia((e,t)=>r.toggle(e,e&&3e3<=t),!0),ij(e=>tV(e,([e,t])=>{null!=t&&t.passive?delete t.passive:(e=>{var t,r;e&&(t=rY(e),null!=(r=e2(iZ,t)))&&r.size&&tV(r,r=>!0===r(e)&&n(t,r))})(t?{status:rF.Success,...t}:{status:rF.NotFound,...e})})),{get:r=>rB(\"get\",r,async r=>{r[0]&&!el(r[0])||(l=r[0],r=r.slice(1)),null!=t&&t.validateKey(l);var o=new Map,u=[],s=tH(r,e=>{var t=iq(rY(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))o.set(e,{...e,status:rF.Forbidden,error:`No consent for '${r}'.`});else if(!e.refresh&&t)o.set(e,{status:rF.Success,...t});else{if(!rZ(e))return[ra(e,iK),e];var i,r=null==(i=e.init)?void 0:i.call(e);r?(r={...r_(e),version:\"1\",created:d,modified:d,value:r,cache:[d,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},rt(u,[r_(r),r]),o.set(e,{status:rF.Success,...r})):o.set(e,{status:rF.NotFound,...r_(e)})}return tz}),d=e9(),l=s.length&&(null==(l=await iV(e,{variables:{get:tH(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=l.variables)?void 0:r.get)||[],c=[];return tV(l,(e,t)=>{var n,r;(null==e?void 0:e.status)===rF.NotFound?null!=(r=null==(r=(n=s[t][1]).init)?void 0:r.call(n))&&c.push([n,{...r_(n),value:r}]):o.set(s[t][1],rX(e))}),c.length&&tV(await a.set(tH(c,([,e])=>e)).all(),(e,t)=>o.set(c[t][0],rX(e.status===rF.Conflict?{...e,status:rF.Success}:e.status===rF.Success&&null==e.value?{...e,status:rF.NotFound}:e))),u.length&&iP(u),o},{poll:(e,t)=>(t[iX]=e,n(rY(e),t)),logCallbackError:(e,t,r)=>ii(\"Variables.get\",e,{operation:t,error:r})}),set:r=>rB(\"set\",r,async r=>{r[0]&&!el(r[0])||(n=r[0],r=r.slice(1)),null!=t&&t.validateKey(n);for(var n,i,l=[],o=new Map,u=e9(),s=[],d=tH(r,e=>{var i,r,t=iq(rY(e));return rZ(e)?((r=null==(i=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...r_(e),created:null!=(r=null==t?void 0:t.created)?r:u,modified:u,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:i,cache:[u,e.ttl]})&&(r.cache=[u,null!=(i=e.ttl)?i:3e3]),o.set(e,r?{status:t?rF.Success:rF.Created,...r}:{status:rF.Success,...r_(e)}),rt(l,[r_(e),r]),tz):e.patch?(s.push(e),tz):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[ra(e,iG),e])}),v=0;!v++||s.length;)tV(await a.get(tH(s,e=>r_(e))).all(),(e,t)=>{var r=s[t];rU(e,!1)?rt(d,[{...r,patch:void 0,value:s[t].patch(null==e?void 0:e.value),version:e.version},r]):o.set(r,e)}),s=[],tV(d.length?(e=>null!=e?e:j(\"No result.\",e=>TypeError(e.replace(\"...\",\" is required.\"))))(null==(i=(await iV(e,{variables:{set:tH(d,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:i.set):[],(e,t)=>{var[,t]=d[t];v<=3&&t.patch&&((null==e?void 0:e.status)===rF.Conflict||(null==e?void 0:e.status)===rF.NotFound)?rt(s,t):o.set(t,rX(e))});return l.length&&iP(l),o},{logCallbackError:(e,t,r)=>ii(\"Variables.set\",e,{operation:t,error:r})})});return iW(({variables:e})=>{e&&null!=(e=t1(tH(e.get,e=>rj(e)?e:tz),tH(e.set,e=>rU(e)?e:tz)))&&e.length&&iP(tH(e,e=>[r_(e),rU(e)?e:void 0]))}),a})(nQ,d={applyEventExtensions(e){return null==e.clientId&&(e.clientId=iI()),null==e.timestamp&&(e.timestamp=e9()),h=K,tV(l,([,t])=>{var r;return(null==(r=t.decorate)?void 0:r.call(t,e))===H&&tR(!0)})?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&j(`'${e}' is not a valid key.`)}),c=((e,t,r=5e3)=>{var n=[],i=new WeakMap,a=new Map,l=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eZ(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):j(\"Source event not queued.\")},o=e=>{i.set(e,e3(e))},u=async(r,n=!0,i)=>{var a;return r[0]&&!el(r[0])||(a=r[0],r=r.slice(1)),r=tH(r,e=>{if(null!=t&&t.validateKey(null!=a?a:e.key),eZ(e,{metadata:{posted:!0}}),e[iQ]){if(tV(e[iQ],(t,r,n)=>!1===t(e)||n,!1))return;delete e[iQ]}return eZ(rm(e3(e),!0),{timestamp:e.timestamp-e9()})}),n5({[n2]:tH(r,e=>[e,e.type,H])},\"Posting \"+ru([tv(\"new event\",[eJ(r,e=>!ry(e))||void 0]),tv(\"event patch\",[eJ(r,e=>ry(e))||void 0])])+(n?\" asynchronously\":\" synchronously\")+\".\"),iV(e,{events:r,variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},s=async(e,{flush:r=!1,async:i=!0,variables:a}={})=>{var l=[];if(e=tH(tQ(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e6(l,e),null!=(r=ri(t.applyEventExtensions(e),{metadata:{queued:!0}}))?r:tz}),tV(l,e=>n5(e,e.type)),!i)return u(e,!1,a);r?(n.length&&e4(e,...n.splice(0)),e.length&&await u(e,!0,a)):e.length&&e6(n,...e)};return 0<r&&tt(()=>s([],{flush:!0}),r),io((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=tH(a,([e,t])=>{var[t,n]=t();return n&&(a.delete(e),i.delete(e)),null!=t?t:tz}),n.length||e.length)&&s(eF(n.splice(0),e),{flush:!0})}),{post:s,postPatch:(e,t,r)=>s(l(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var u=!1,d=()=>{u=!0};return o(e),((e,t)=>{(null!=(e=(b=e)[w=iQ])?e:b[w]=new Set).add(t)})(e,o),a.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))d();else{var a=i.get(e),o=t(a,d),[o,v]=(n5({diff:{snapshot:a,patched:o},stack:Error().stack},\"Patch \"+a.type),null!=(o=e8(o,a))?o:[]);if(o&&!U(v,a))return i.set(e,e3(v)),[l(e,o),u]}return[void 0,u]}),r&&s(e),d}}})(nQ,d),f=null,p=0,g=h=H,m=!1,k=(...e)=>{if(m){if(e.length){1<e.length&&(!e[0]||el(e[0]))&&(t=e[0],e=e.slice(1)),el(e[0])&&(r=e[0],e=ek(r)?JSON.parse(r):n6(r));var t,n=H;if((e=eW(tG(e,e=>el(e)?n6(e):e),e=>{if(!e)return H;if(aF(e))nE.tags=eY({},nE.tags,e.tagAttributes);else{if(aj(e))return nE.disabled=e.disable,H;if(aq(e))return n=K,H;if(aW(e))return e(k),H}return g||aR(e)||aM(e)?K:(s.push(e),H)})).length||n){var r=eK(e,e=>aM(e)?-100:aR(e)?-50:aB(e)?-10:90*!!rW(e));if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var y=f[p];y&&(d.validateKey(null!=t?t:y.key),z(()=>{var e=f[p];if(u(\"command\",e),h=H,rW(e))c.post(e);else if(az(e))v.get(tQ(e.get));else if(aB(e))v.set(tQ(e.set));else if(aR(e))e6(o,e.listener);else if(aM(e))(t=z(()=>e.extension.setup(k),t=>ii(e.extension.id,t)))&&(e6(l,[null!=(r=e.priority)?r:100,t,e.extension]),eK(l,([e])=>e));else if(aW(e))e(k);else{var r,n,t,a=H;for([,t]of l)if(a=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:H)break;a||ii(\"invalid-command\",e,\"Loaded extensions:\",tH(l,e=>e[2].id))}},e=>ii(k,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else a.push(...e)},Object.defineProperty(r2,nE.name,{value:Object.freeze(Object.assign(k,{id:\"tracker_\"+iI(),events:c,variables:v,__isTracker:K})),configurable:!1,writable:!1}),ij((e,t,r)=>{var n=eF(i4(tH(e,([,e])=>e||tz)),[[{[n2]:i4(tH(t,([,e])=>e||tz))},\"All variables\",K]]);n5({[n2]:n},tf(`Variables changed${r?\"\":\" - merging changes from another tab\"} (${e.length} changed, ${eJ(t)} in total).`,\"2;3\"))}),i_(async(e,t,r,n)=>{var l;\"ready\"===e&&([e,l]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:V}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||((e=>{e(B({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==S?void 0:S.clientId,languages:tH(navigator.languages,(e,t)=>{var[r,n]=e.split(\"-\");return B({id:e,language:r,region:n,primary:0===t,preference:t+1})}),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...(r=null==r2?void 0:r2.screen,r?({width:r,height:i,orientation:a}=r,l=r<i,-90!==(a=null!=(a=null!=(a=null==a?void 0:a.angle)?a:r2.orientation)?a:0)&&90!==a||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:r2.devicePixelRatio,width:r,height:i,landscape:l}}):{})}));var i,l,a,r})(k),e.hasUserAgent=!0),g=!0,s.length&&k(s),n(),m=!0,k(...tH(a$,e=>({extension:e})),...a),k({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0);j(`The global variable for the tracker \"${nE.name}\" is used for something else than an array of queued commands.`)}})(\"{{CONFIG}}\")})();\n//# sourceMappingURL=tail.debug.js.map\n"
+    production: "(()=>{var e,t,r,n,i,a,l,o,u,s,d,v,c,f,p,h,g,y,b,w,k,S,x,T,I;function j(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var U=(e,t=e=>Error(e))=>{throw el(e=e5(e))?t(e):e},M=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(!eu(e)&&!ec(e)||!eu(t)&&!ec(t)||e.length!==t.length)return!1;var i,n=0;for(i in e){if(e[i]!==t[i]&&!M(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length},F=(e,t,...r)=>e===t||0<r.length&&r.some(t=>F(e,t)),z=(e,t=!0,r)=>{try{return e()}catch(e){return eh(t)?es(e=t(e))?U(e):e:er(t)?console.error(t?U(e):e):t}finally{null!=r&&r()}};class R extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),j(this,\"_action\",void 0),j(this,\"_result\",void 0),this._action=e}}var P=e=>new R(async()=>e5(e)),D=async(e,t=!0,r)=>{try{return await e5(e)}catch(e){if(!er(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},B=e=>e,W=e=>!!e,J=e=>e===G,L=void 0,V=Number.MAX_SAFE_INTEGER,K=!1,G=!0,H=()=>{},X=e=>e,Z=e=>null!=e,Y=Symbol.iterator,Q=Symbol.asyncIterator,ee=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:L,et=(e,t)=>eh(t)?e!==L?t(e):L:(null==e?void 0:e[t])!==L?e:L,er=e=>\"boolean\"==typeof e,en=ee(er,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||L))),ei=e=>e!==K,ea=e=>\"number\"==typeof e,el=e=>\"string\"==typeof e,eo=ee(el,e=>null==e?void 0:e.toString()),eu=Array.isArray,es=e=>e instanceof Error,ed=(e,t=!1)=>null==e?L:!t&&eu(e)?e:eg(e)?[...e]:[e],ev=e=>e&&\"object\"==typeof e,ec=e=>(null==e?void 0:e.constructor)===Object,ef=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ep=e=>\"symbol\"==typeof e,eh=e=>\"function\"==typeof e,eg=(e,t=!1)=>!(null==e||!e[Y]||\"string\"==typeof e&&!t),ey=e=>e instanceof Map,em=e=>e instanceof Set,eb=(e,t)=>null==e?L:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,ew=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ek=e=>el(e)&&(ew(e,\"{\",\"}\")||ew(e,\"[\",\"]\")),eS=!1,ex=e=>(eS=!0,e),eT=e=>null==e?L:eh(e)?e:t=>t[e],eI=(e,t,r)=>(null!=t?t:r)!==L?(e=eT(e),null==t&&(t=0),null==r&&(r=V),(n,i)=>t--?L:r--?e?e(n,i):n:r):e,eA=e=>null==e?void 0:e.filter(Z),eE=(e,t,r,n)=>null==e?[]:!t&&eu(e)?eA(e):e[Y]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),eS){eS=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===L?t:eI(t,r,n)):ev(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),eS){eS=!1;break}}}(e,eI(t,r,n)):eE(eh(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eN=(e,t,r,n)=>eE(e,t,r,n),eO=(e,t,r=1,n=!1,i,a)=>function*e(t,r,n,i){if(null!=t)if(t[Y]||n&&ev(t))for(var a of i?eE(t):t)1!==r?yield*e(a,r-1,n,!0):yield a;else yield t}(eE(e,t,i,a),r+1,n,!1),e$=(e,t,r,n)=>{if(t=eT(t),eu(e)){var i=0,a=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!eS;r++){var l=e[r];null!=(t?l=t(l,i++):l)&&a.push(l)}return eS=!1,a}return null!=e?tX(eN(e,t,r,n)):L},e_=(e,t,r,n)=>null!=e?new Set([...eN(e,t,r,n)]):L,eC=(e,t,r=1,n=!1,i,a)=>tX(eO(e,t,r,n,i,a)),ej=(...e)=>{var t;return ez(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...tX(e))),t},eU=(e,t,r,n)=>{var i,a,l=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(a=t(e[r],l++))?a:i,eS)){eS=!1;break}return i},eM=(e,t)=>{var r,n,a,i=0;for(a of e)if(null!=a&&(r=null!=(n=t(a,i++))?n:r,eS)){eS=!1;break}return r},eF=(e,t)=>{var r,n,a,i=0;for(a in e)if(r=null!=(n=t([a,e[a]],i++))?n:r,eS){eS=!1;break}return r},eq=(e,t,r,n)=>{var i;if(null!=e){if(eu(e))return eU(e,t,r,n);if(r===L){if(e[Y])return eM(e,t);if(\"object\"==typeof e)return eF(e,t)}for(var a of eE(e,t,r,n))null!=a&&(i=a);return i}},ez=eq,eR=async(e,t,r,n)=>{var i,a;if(null==e)return L;for(a of eN(e,t,r,n))if(null!=(a=await a)&&(i=a),eS){eS=!1;break}return i},eP=(e,t)=>{if(null==e)return L;var r={};if(t){var n,a,i=0;for(a in e)(n=t([a,e[a]],i++))&&(r[n[0]]=n[1])}else for(var l of e)l&&(r[l[0]]=l[1]);return r},eD=(e,t,r)=>{var n,i,a;return null==e?L:er(t)||r?(a={},ez(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(a[e[0]],e[1]))&&(a[e[0]]=e[1]):e=>ez(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=a)[i=e[0]])?t:n[i]=[]).push(e[1]),a)}:e=>null!=(null==e?void 0:e[1])&&(a[e[0]]=e[1],a))),a):eP(e$(e,t?(e,r)=>et(t(e,r),1):e=>et(e,1)))},eB=(e,t,r,n,i)=>{var l=()=>eh(r)?r():r;return null!=(e=eq(e,(e,n)=>r=null!=(e=t(r,e,n))?e:l(),n,i))?e:l()},eW=(e,t,r,n)=>e$(e,(e,r)=>e&&null!=t&&t(e,r)?e:L,r,n),eL=(e,...t)=>null==e?L:ea(e)?Math.max(e,...t):eB(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ea(i)&&e<i?i:e,L,t[2],t[3]),eK=(e,t,r,n)=>{var i;return null==e?L:ec(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:W))?i:eq(e,t?(e,r)=>!!t(e,r)&&ex(!0):()=>ex(!0),r,n))&&i},eG=(e,t=e=>e)=>{var r;return null!=(r=ed(e))&&r.sort((e,r)=>t(e)-t(r)),e},eH=(e,t,r)=>(e.constructor===Object||eu(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eX=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=eh(r)?r():r)&&eH(e,t,n),n},eZ=(e,...t)=>(ez(t,t=>ez(t,([t,r])=>{null!=r&&(ec(e[t])&&ec(r)?eZ(e[t],r):e[t]=r)})),e),eY=(e,t,r,n)=>{if(e)return null!=r?eH(e,t,r,n):(ez(t,t=>eu(t)?eH(e,t[0],t[1]):ez(t,([t,r])=>eH(e,t,r))),e)},eQ=(e,t,r)=>{var n;return ef(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ef(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ec(e)&&delete e[t],e},e2=(e,t)=>{if(e)return eu(t)?(eu(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e2(e,t)):eu(e)?t<e.length?e.splice(t,1)[0]:void 0:((e,t)=>{var r;if(null!=(null!=e?e:t))return r=eX(e,t),ef(e,\"delete\")?e.delete(t):delete e[t],r})(e,t)},e5=e=>eh(e)?e():e,e3=(e,t=-1)=>eu(e)?t?e.map(e=>e3(e,t-1)):[...e]:ec(e)?t?eD(e,([e,r])=>[e,e3(r,t-1)]):{...e}:em(e)?new Set(t?e$(e,e=>e3(e,t-1)):e):ey(e)?new Map(t?e$(e,e=>[e[0],e3(e[1],t-1)]):e):e,e6=(e,...t)=>null==e?void 0:e.push(...t),e4=(e,...t)=>null==e?void 0:e.unshift(...t),e8=(e,t)=>{var r,i,a;if(e)return ec(t)?(a={},ec(e)&&(ez(e,([e,l])=>{if(!M(l,t[e],-1)){if(ec(r=l)){if(!(l=e8(l,t[e])))return;[l,r]=l}else ea(l)&&ea(void 0)&&(l=(r=l)-void 0);a[e]=l,(null!=i?i:i=e3(t))[e]=r}}),i)?[a,i]:void 0):[e,e]},e9=\"undefined\"!=typeof performance?(e=G)=>e?Math.trunc(e9(K)):performance.timeOrigin+performance.now():Date.now,e7=(e=!0,t=()=>e9())=>{var r,n=+e*t(),i=0;return(a=e,l)=>(r=e?i+=-n+(n=t()):i,l&&(i=0),(e=a)&&(n=t()),r)},tt=(e,t=0)=>{var e=eh(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:a=!1,trigger:l=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=to(!0).resolve(),c=e7(!a),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((m.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await D(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&y(!1),!(m.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{m.active&&p(),m.active&&h()},y=(e,t=!e)=>(c(e,t),clearTimeout(d),m.active=!!(d=e?h():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,y(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(y(!0),m.trigger(),m):y(!0):y(!1):m,trigger:async e=>await p(e)&&(y(m.active),!0)};return m.toggle(!a,l)};function tr(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tn{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new ti,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tr(this,\"_promise\",void 0),this.reset()}}class ti{then(e,t){return this._promise.then(e,t)}constructor(){var e;tr(this,\"_promise\",void 0),tr(this,\"resolve\",void 0),tr(this,\"reject\",void 0),tr(this,\"value\",void 0),tr(this,\"error\",void 0),tr(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===L||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var tl=(e,t)=>null==e||isFinite(e)?!e||e<=0?e5(t):new Promise(r=>setTimeout(async()=>r(await e5(t)),e)):U(`Invalid delay ${e}.`),to=e=>new(e?tn:ti),ts=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,a),a=()=>n!==(n=!1)&&(r(i),!0),l=()=>n!==(n=!0)&&(t(i),!0);return l(),[a,l]},ee=()=>{var e,t=new Set;return[(r,n)=>{var i=ts(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tv=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),tf=(e,t)=>{var l,r=[],n={},i={},a=0;for(l in t)l===t[l]&&(Object.defineProperty(i,l,{value:l,writable:!1,enumerable:!0,configurable:!1}),n[l]=a++,r.push(l));var o=(t,r=!0)=>null==t?L:null!=n[t]?t:r?U(`The ${e} \"${t}\" is not defined.`):L,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:+(t<e)},...u}}),i},tp=Symbol(),th=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,l;return e?(null==(l=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(l[1]=\"\"),l[2]=l[1]&&(el(t)?t=[t]:eu(t))&&tW(t,e=>1<(i=l[1].split(e)).length?tF(i):L)||(l[1]?[l[1]]:[]),l):L},tg=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?L:tk(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,a,l,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&L,authority:a,user:l,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):L,path:v,query:!1===t?c:c?ty(c,{...n,delimiters:t}):L,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":L),e}),ty=(e,t)=>tm(e,\"&\",t),tm=(e,t,{delimiters:r=!0,...n}={})=>{e=tJ(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,a,l]=null!=(e=th(e,{...n,delimiters:!1===r?[]:!0===r?L:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<l.length?l:a]:[e,a]:tM}),t=t7(tK(e,!1),([e,t])=>[e,!1!==r?1<t.length?tY(t):t[0]:t.join(\",\")]);return t&&(t[tp]=e),t},tb=(e,t)=>t&&null!=e?t.test(e):L,tw=(e,t,r)=>tk(e,t,r,!0),tk=(e,t,i,a=!1)=>null==(null!=e?e:t)?L:i?(r=L,a?(n=[],tk(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(a=e.match(t))?a:L,tS=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tx=/\\z./g,tT=(e,t)=>(t=ri(e_(eW(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tx,tI={},tA=e=>e instanceof RegExp,tE=(r,n=[\",\",\" \"])=>{var i;return tA(r)?r:eu(r)?tT(e$(r,e=>null==(e=tE(e,n))?void 0:e.source)):er(r)?r?/./g:tx:el(r)?null!=(i=(e=tI)[t=r])?i:e[t]=tk(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tT(e$(tN(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${ri(n,tS)}]`)),e=>e&&`^${ri(tN(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tS(tO(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):L},tN=(e,t,r=!0)=>null==e?L:r?tN(e,t,!1).filter(X):e.split(t),tO=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,t$=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eY(r,{push(n,i){for(var a=[n,i],l=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(a[1],d[0])<0)return l(r.splice(o,0,a));if(e(a[0],d[1])<=0){if(e(a[0],d[0])<0&&(u=d[0]=a[0]),0<e(a[1],d[1])&&(u=d[1]=a[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return l(null!=u);u=a=r.splice(o--,1)[0]}}return l(a&&(r[r.length]=a))},width:0})},t_=e=>{for(var t=e;t;)t=Object.getPrototypeOf(e=t);return e},tC=(e,t)=>{if(!e||t_(e)===t)return e;for(var r of e.document.getElementsByTagName(\"iframe\"))try{if(e=tC(r.contentWindow,t))return e}catch{}},tj=e=>null==e?e:globalThis.window?tC(window,t_(e)):globalThis,tU=!1,tM=Symbol(),tF=e=>(tU=!0,e),tq=Symbol(),tz=Symbol(),tR=Symbol.iterator,tP=(e,t,r)=>{if(null==e||e[tq])throw t;e=tj(e);if(!e)throw t;var l,i=()=>(e,t,r,n,i)=>{var a,o,l=0;for(o of e)if((a=t?t(o,l++,n,i):o)!==tM){if(a===tF)break;if(n=a,r&&r.push(a),tU){tU=!1;break}}return r||n},a=(e.Array.prototype[tq]=(e,t,r,n,i)=>{for(var l,o=0,u=e.length;o<u;o++)if(l=e[o],(l=t?t(l,o,n,i):l)!==tM){if(l===tF)break;if(n=l,r&&r.push(l),tU){tU=!1;break}}return r||n},i());for(l of(e.Object.prototype[tq]=(e,t,r,n,l)=>{if(e[tR])return(e.constructor===Object?a:Object.getPrototypeOf(e)[tq]=i())(e,t,r,n,l);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=t?t(u,s++,n,l):u)!==tM){if(u===tF)break;if(n=u,r&&r.push(u),tU){tU=!1;break}}return r||n},e.Object.prototype[tz]=function(){var t,e;return this[tR]||this[Q]?this.constructor===Object?null!=(e=this[Q]())?e:this[tR]():((e=Object.getPrototypeOf(this))[tz]=null!=(t=e[Q])?t:e[tR],this[tz]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[e.Map.prototype,e.WeakMap.prototype,e.Set.prototype,e.WeakSet.prototype,Object.getPrototypeOf(function*(){})]))l[tq]=i(),l[tz]=l[tR];return e.Number.prototype[tq]=(e,t,r,n,i)=>a(tD(e),t,r,n,i),e.Number.prototype[tz]=tD,e.Function.prototype[tq]=(e,t,r,n,i)=>a(tB(e),t,r,n,i),e.Function.prototype[tz]=tB,r()};function*tD(e=this){for(var t=0;t<e;t++)yield t}function*tB(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tW=(e,t,r,n)=>{try{return e?e[tq](e,t,void 0,r,n):null==e?e:void 0}catch(i){return tP(e,i,()=>tW(e,t,r,n))}},tJ=(e,t,r=[],n,i=e)=>{try{return e||0===e||\"\"===e?e[tq](e,t,r,n,i):null==e?e:void 0}catch(a){return tP(e,a,()=>tJ(e,t,r,n,i))}},tL=(e,t=!0,r=!1)=>tJ(e,!0===t?e=>null!=e?e:tM:t?t.has?e=>null==e||t.has(e)===r?tM:e:(e,n,i)=>!t(e,n,i)===r?e:tM:e=>e||tM),tV=(e,t,r=-1,n=[],i,a=e)=>tJ(e,(e,i,a)=>null!=(t?e=t(e,i,a):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tV(e,void 0,r-1,n,e),tM):e,n,i,a),tK=(e,t,r)=>{var n,i,a,l;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tW(e,!1!==r?(a=new Map,(e,r,n)=>{void 0!==(l=t?t(e,r,n):e)[0]&&t6(a,l[0],()=>[]).push(l[1])}):(a={},(e,r,o)=>(l=t?t(e,r,o):e)&&void 0!==l[0]&&(null!=(r=(n=a)[i=l[0]])?r:n[i]=[]).push(l[1]))),a},tX=e=>null==e||eu(e)?e:e[tR]&&\"string\"!=typeof e?[...e]:[e],tZ=(e,t)=>!0===tW(e,(r,n,i)=>(t?t(r,n,i,e):r)?tU=!0:r),tY=(e,...t)=>{var r,n;for(n of e=!t.length&&eg(e)?e:[e,...t])if(null!=n){if(eg(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},tQ=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),t1=Symbol(),t2=Symbol(),t5=Symbol(),t3=(e,t,r)=>{if(null==e||e[t2])throw t;var i,e=tj(e);if(!e||e.Object.prototype[t1])throw t;for({prototype:i}of[e.Map,e.WeakMap])i[t1]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},i[t2]=i.get;for({prototype:i}of[e.Set,e.WeakSet])i[t1]=function(e,t,r=!1){return t||r&&void 0===t?!this.has(e)&&!!this.add(e):this.delete(e)},i[t2]=i.has,i[t5]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for({prototype:i}of(e.Array.prototype[t5]=function(e){return this.push(...e),this},[e.Object,e.Array]))i[t1]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},i[t2]=function(e){return this[e]};return r()},t6=(e,t,r)=>{try{if(null==e)return e;var n=e[t2](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[t1](t,r));e[t1](t,n)}return n}catch(n){return t3(e,n,()=>t6(e,t,r))}},t4=(e,t,r)=>{try{return!0===(null==e?void 0:e[t1](t,r,!0))}catch(n){return t3(e,n,()=>t4(e,t,r))}},t8=(e,t,r)=>{try{return e[t1](t,r),r}catch(n){return t3(e,n,()=>t8(e,t,r))}},t9=(e,...t)=>{try{return null==e?e:e[t5](t)}catch(r){return t3(e,r,()=>t9(e,...t))}},t7=(e,t)=>{var r={};return tW(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==tM&&e!==tF)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==tM&&e!==tF)?r[e[0]]=e[1]:e),r},re=(e,...t)=>{try{return(null==e?void 0:e.constructor)===Object?tW(t,t=>tW(t,t=>t&&(e[t[0]]=t[1]))):tW(t,t=>tW(t,t=>t&&e[t1](t[0],t[1]))),e}catch(r){return t3(e,r,()=>re(e,...t))}},rt=(e,t,r={})=>{if(null!=e){var l,{deep:n=!0,overwrite:i=!0,nulls:a=!1}=r;for(l of void 0===t?[]:null!=t&&t[tR]&&\"string\"!=typeof t?t:[t])tW(l,t=>{var o,u;t&&([t,o]=t,u=e[t],(a?null==u:void 0===u)?e[t]=o:n&&(null==o?void 0:o.constructor)===Object&&(null==u?void 0:u.constructor)===Object?rt(u,o,r):i&&(e[t]=o))})}return e},rr=(e,t)=>null==e?e:t7(t,t=>void 0!==e[t]||t in e?[t,e[t]]:tM),rn=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),ri=(e,t,r)=>null==e?e:eg(e)?tL(\"function\"==typeof t?tJ(e,t):(r=t,e),rn,!0).join(null!=r?r:\"\"):rn(e)?\"\":e.toString(),ra=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?ra(tJ(e,t),r,n):(i=[],n=tW(e,(e,t,r)=>rn(e)?tM:(r&&i.push(r),e.toString())),[t,o]=eu(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},rl=tf(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),ro=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],ru=t7(ro,e=>[e,e]),rs=(Object.freeze(eP(ro.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),rd=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},rv={names:ro,specificNames:ro.filter(e=>\"necessary\"!==e),parse(e,{names:t=!1,includeDefault:r=!0,validate:n=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),el(e)&&(e=e.split(\",\")),eu(e)){var a,i={};for(a of e)if(a!==rg){if(!ru[a]){n&&U(`The purpose name '${a}' is not defined.`);continue}\"necessary\"!==a&&(i[a]=!0)}e=i}return t?(t=tJ(e,([e,t])=>ru[e]&&t?e:tM)).length||!r?t:[\"necessary\"]:e},get all(){return{functionality:!0,marketing:!0,performance:!0,personalization:!0,security:!0}},test(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=rs(i,n))&&!t[rs(i,n)])return!1;if(e=rd(e,n),t=rd(t,n),r){for(var a in t)if(ru[a]&&t[a]&&!e[a])return!1;if(\"all\"===r)for(var a in e)if(ru[a]&&e[a]&&!t[a])return!1;return!0}var l=!1;for(a in e)if(ru[a]&&e[a]){if(t[a])return!0;l=!0}return!l}},rf=(tf(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),{anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&rv.test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=rv.parse(e.purposes,{names:!0,includeDefault:!1});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var a;return e?([e,a]=e.split(\":\"),{classification:null!=(e=rl.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=rv.parse(a,{validate:!1}))?e:{}}):t?rf.clone(t):{classification:\"anonymous\",purposes:{}}}}),rp=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),rg=\"@schema\",ry=Symbol(),rm=e=>void 0===e?\"undefined\":tv(JSON.stringify(e),40,!0),rb=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,rw=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,rk=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rS=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,rx=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,rT=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rm(t)+` ${r}.`}),ry),rI=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rI((t?parseInt:parseFloat)(e),t,!1),rA={},ro=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=rA[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:rA[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:rT(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rb.test(e)&&!isNaN(+new Date(e))?e:rT(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rI(e,!1,!1)){if(!rI(e,!0,!1))return rT(n,e,\"is not a valid UNIX timestamp\");e*=1}else if(!rw.test(e)||isNaN(+new Date(e)))return rT(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rI(e,!0,!1)?+e:rT(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rI(e,!0,!1)?+e:rT(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rI(e,!1,!1)?e:rT(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rS.test(e)?e:rT(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rS.exec(e);return r?r[2]?e:rT(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):rT(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rS.exec(e);return r?\"urn\"!==r[1]||r[2]?rT(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:rT(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&rx.test(e)?e.toLowerCase():rT(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:rT(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=rk.exec(e))?void 0:r[1].toLowerCase():null)?r:rT(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rm(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==ry&&e.length>d?rT(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===ry||(null==c||c<=e)&&(null==f||e<=f)?e:rT(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===ry)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+ra(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===ry||u.has(e)?e:rT(t,e,p)}(e=>null==e||e instanceof Set||new Set(e[tR]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),tf(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rN=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),rO=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},r$=((A={})[A.Success=200]=\"Success\",A[A.Created=201]=\"Created\",A[A.NotModified=304]=\"NotModified\",A[A.BadRequest=400]=\"BadRequest\",A[A.Forbidden=403]=\"Forbidden\",A[A.NotFound=404]=\"NotFound\",A[A.Conflict=409]=\"Conflict\",A[A.Error=500]=\"Error\",A),r_=(e,t=!0)=>null!=(null==e?void 0:e.value)||!t&&(!e||404===e.status),rC=(e,t=!0)=>e&&(e.status<400||!t&&404===e.status);function rj(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rU=e=>{var t=rN(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${r$[e.status]}.`:`${t} failed with status ${e.status} - ${r$[e.status]}${r?` (${r})`:\"\"}.`};class rM extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),rj(this,\"succeeded\",void 0),rj(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rC(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rC(e,!1)))?t:[]}}var rF=e=>!!e.callback,rq=e=>!!e.poll,rz=Symbol(),rR=(e,t,r,{poll:n,logCallbackError:i}={})=>{var a=eu(t)?t:[t],l=[],o=(async()=>{var s,d,u,v,c,t=await r(a.filter(e=>e)),o=[];for(u of a)u&&null!=(d=t.get(u))&&(d[rz]=u,rF(u)&&o.push([u,d,e=>!0===u.callback(e)]),rq(u))&&o.push([u,d,e=>{var t;return!r_(e,!1)||(t=!r_(e,!1)||u.poll(e.value,e[rz]===u,s),s=e.value,t)}]);for([u,v,c]of o)try{var f=\"get\"===e?async e=>!0===await c(e)&&(null==n?void 0:n(u,f)):c;await f(v)}catch(t){var p=`${e} callback for ${rN(u)} failed: ${t}.`;i?i(p,u,t):l.push(p)}return t})(),u=async(r,n)=>{var d,v,c,i=await o,u=[],s=[];for(d of a)d?null==(c=i.get(d))?s.push(`No result for ${rN(d)}.`):!r||rC(c,n||\"set\"===e)?u.push(r&&c.status===r$.NotFound?void 0:1<r?null!=(v=c.value)?v:void 0:c):s.push(rU(c)):u.push(void 0);if(s.push(...l),s.length)throw 10<s.length&&s.push(`\n(and ${s.splice(10).length} more...)`),new rM(u,s.join(\"\\n\"));return a===t?u:u[0]};return Object.assign(P(()=>u(1,!1)),{as:()=>u(1,!1),all:()=>u(0,!1),require:()=>u(1,!0),value:(e=!1)=>u(2,e),values:(e=!1)=>u(2,e)})},rP=e=>e&&\"string\"==typeof e.type,rD=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),rB=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rW=(e,t)=>{var r;return t&&(!(l=e.get(a=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=l.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(a,t)},rJ=(e,t=\"\",r=new Map)=>{if(e)return eg(e)?tW(e,e=>rJ(e,t,r)):el(e)?tk(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,a,l,o,u)=>{i={tag:(n?rB(n)+\"::\":\"\")+t+rB(i),value:rB(null!=(n=null!=a?a:l)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),rW(r,i)}):rW(r,e),r},rL=tf(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rV=tf(\"variable scope\",{...rL,...ro}),rK=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rG=e=>null!=e&&!!e.scope&&null!=rL.ranks[e.scope],rH=e=>null==e?e:[e.scope,e.key,e.entityId].join(\"\\0\"),rX=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],entityId:e[2]}},rY=()=>()=>U(\"Not initialized.\"),rQ=window,r0=document,r1=r0.body,r2=(e,t)=>!(null==e||!e.matches(t)),r5=V,r3=(e,t,r=(e,t)=>r5<=t)=>{for(var n=0,i=K;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(a=e,i=t!==G&&null!=a),G),n-1)!==K&&!i;){var a,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==r0&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return a},r6=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||en(e);case\"n\":return parseFloat(e);case\"j\":return z(()=>JSON.parse(e),H);case\"h\":return z(()=>nY(e),H);case\"e\":return z(()=>null==n0?void 0:n0(e),H);default:return eu(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:r6(e,t[0])):void 0}},r4=(e,t,r)=>r6(null==e?void 0:e.getAttribute(t),r),r8=(e,t,r)=>r3(e,(e,n)=>n(r4(e,t,r))),r9=(e,t)=>null==(e=r4(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),r7=e=>null==e?void 0:e.getAttributeNames(),ne=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,nt=e=>null!=e?e.tagName:null,nn=e=>({x:eb(scrollX,e),y:eb(scrollY,e)}),ni=(e,t)=>tO(e,/#.*$/,\"\")===tO(t,/#.*$/,\"\"),na=(e,t,r=G)=>(u=nl(e,t))&&B({xpx:u.x,ypx:u.y,x:eb(u.x/r1.offsetWidth,4),y:eb(u.y/r1.offsetHeight,4),pageFolds:r?u.y/window.innerHeight:void 0}),nl=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:s,y:d}=nu(e),{x:s,y:d}):void 0,nu=(e,t=!0)=>e?(v=e.getBoundingClientRect(),o=t?nn(K):{x:0,y:0},{x:eb(v.left+o.x),y:eb(v.top+o.y),width:eb(v.width),height:eb(v.height)}):void 0,ns=(e,t,r,n={capture:!0,passive:!0})=>(t=tX(t),ts(r,r=>tW(t,t=>e.addEventListener(t,r,n)),r=>tW(t,t=>e.removeEventListener(t,r,n)))),nv=()=>({...o=nn(G),width:window.innerWidth,height:window.innerHeight,totalWidth:r1.offsetWidth,totalHeight:r1.offsetHeight}),nc=new WeakMap,nf=e=>nc.get(e),np=(e,t=K)=>(t?\"--track-\":\"track-\")+e,nh=(e,t,r,n,i,a)=>(null==t?void 0:t[1])&&tW(r7(e),l=>{var o;return null!=(o=(c=t[0])[f=l])?o:c[f]=(a=K,!el(n=tW(t[1],([t,r,n],i)=>tb(l,t)&&(a=void 0,!r||r2(e,r))&&ex(null!=n?n:l)))||(i=e.getAttribute(l))&&!en(i)||rJ(i,tO(n,/\\-/g,\":\"),r),a)}),ng=()=>{},ny=(e,t)=>{if(p===(p=nT.tags))return ng(e,t);var r=e=>e?tA(e)?[[e]]:eg(e)?eC(e,r):[ec(e)?[tE(e.match),e.selector,e.prefix]:[tE(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tV(p,([,e])=>e,1))]];(ng=(e,t)=>nh(e,n,t))(e,t)},nm=(e,t)=>ri(ej(ne(e,np(t,G)),ne(e,np(\"base-\"+t,G))),\" \"),nb={},nw=(e,t,r=nm(e,\"attributes\"))=>{var n;r&&nh(e,null!=(n=nb[r])?n:nb[r]=[{},tw(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tE(r||n),,t])],t),rJ(nm(e,\"tags\"),void 0,t)},nk=(e,t,r=K,n)=>null!=(r=null!=(r=r?r3(e,(e,r)=>r(nk(e,t,K)),eh(r)?r:void 0):ri(ej(r4(e,np(t)),ne(e,np(t,G))),\" \"))?r:n&&(h=nf(e))&&n(h))?r:null,nS=(e,t,r=K,n)=>\"\"===(g=nk(e,t,r,n))||(null==g?g:en(g)),nx=(e,t,r,n)=>e&&(null==n&&(n=new Map),nw(e,n),r3(e,e=>{ny(e,n),rJ(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},nT={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},nI=[],nA=[],nE=(e,t=0)=>e.charCodeAt(t),nO=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>nI[nA[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(nA[(16515072&t)>>18],nA[(258048&t)>>12],nA[(4032&t)>>6],nA[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),n_={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nC=(e=256)=>e*Math.random()|0,nU={exports:{}},{deserialize:nM,serialize:nF}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),a=0;if(t&&t.multiple)for(var l=0;l<e.length;l++)o(e[l]);else o(e);return i.subarray(0,a);function o(e,i){var c,l;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(l=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,a=new Uint8Array(e.length*(t?1:4)),l=0;l!==r;l++){var o=e.charCodeAt(l);if(o<128)a[i++]=o;else{if(o<2048)a[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++l>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(l);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+l+\" out of range\");a[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,a[i++]=o>>12&63|128}else a[i++]=o>>12|224;a[i++]=o>>6&63|128}a[i++]=63&o|128}}return t?a:a.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(l);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((l=(c=e).length)<=255?d([196,l]):d(l<=65535?[197,l>>>8,l]:[198,l>>>24,l>>>16,l>>>8,l]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<a+1){for(var t=2*i.length;t<a+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[a]=e,a++}function d(e){if(i.length<a+e.length){for(var t=2*i.length;t<a+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,a),a+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return l(1);if(205===t)return l(2);if(206===t)return l(4);if(207===t)return l(8);if(208===t)return a(1);if(209===t)return a(2);if(210===t)return a(4);if(211===t)return a(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function a(t){for(var a,r=0,i=!0;0<t--;)i?(r+=127&(a=e[n++]),128&a&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function l(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=l(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=l(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=l(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=l(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var a=e[n++];if(127<a)if(191<a&&a<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");a=(31&a)<<6|63&e[n++]}else if(223<a&&a<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");a=(15&a)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<a&&a<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+a.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");a=(7&a)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(a<=65535)i+=String.fromCharCode(a);else{if(!(a<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+a.toString(16)+\" exceeds UTF-16 reach\");a-=65536,i=(i+=String.fromCharCode(a>>10|55296))+String.fromCharCode(1023&a|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=l(t));t=l(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=a(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};nU.exports=n})(),(A=nU.exports)&&A.__esModule&&Object.prototype.hasOwnProperty.call(A,\"default\")?A.default:A),nq=\"$ref\",nz=(e,t,r)=>ep(e)?L:r?t!==L:null===t||t,nR=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,a,l,o=(e,t,n=e[t],i=nz(t,n,r)?s(n):L)=>(n!==i&&(i!==L||eu(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||eh(e)||ep(e))return L;if(ev(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(l=null==a?void 0:a.get(e)))return e[nq]||(e[nq]=l,u(()=>delete e[nq])),{[nq]:l};if(ec(e))for(var t in(null!=a?a:a=new Map).set(e,a.size+1),e)o(e,t);else!eg(e)||e instanceof Uint8Array||(!eu(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return z(()=>{var r;return t?nF(null!=(r=s(e))?r:null):z(()=>JSON.stringify(e,L,2*!!n),()=>JSON.stringify(s(e),L,2*!!n))},!0,()=>null==i?void 0:i.forEach(e=>e()))},nP=e=>{var t,r,n=e=>ev(e)?e[nq]&&(r=(null!=t?t:t=[])[e[nq]])?r:(e[nq]&&delete(t[e[nq]]=e)[nq],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(el(e)?z(()=>JSON.parse(e),()=>(console.error(\"Invalid JSON received.\",e,Error().stack),L)):null!=e?z(()=>nM(e),()=>(console.error(\"Invalid message received.\",e,Error().stack),L)):e)},nD=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var l,o,u,i=(e,r)=>ea(e)&&!0===r?e:u(e=el(e)?new Uint8Array(tJ(e.length,t=>255&e.charCodeAt(t))):t?z(()=>JSON.stringify(e),()=>JSON.stringify(nR(e,!1,n))):nR(e,!0,n),r),a=e=>null==e?L:z(()=>nP(e),L);return t?[e=>nR(e,!1,n),a,(e,t)=>i(e,t)]:([l,o,u]=(e=>{for(var t,r,n,i,a,o,l=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,a=new Uint8Array(4+t+i),n=0;n<3;a[n++]=g(nC()));for(r=0,a[n++]=g(v^16*nC(16)+i);r<t;a[n++]=g(v^e[r++]));for(;i--;)a[n++]=nC();return a}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,a=new Uint8Array(t);n<t;a[n++]=v^g(e[r++]));return a}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=er(t)?64:t,h(),[l,u]=n_[o],r=0;r<e.length;l=BigInt.asUintN(o,(l^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+l%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):l.toString(36)}]})(e),[(e,t)=>(t?X:nO)(l(nR(e,!0,n))),e=>null!=e?nP(o(e instanceof Uint8Array?e:(r&&ek(e)?a:e=>{for(var t,r=0,n=0,i=e.length,a=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)a[n++]=nI[nE(e,r++)]<<2|(t=nI[nE(e,r++)])>>4,r<i&&(a[n++]=(15&t)<<4|(t=nI[nE(e,r++)])>>2,r<i)&&(a[n++]=(3&t)<<6|nI[nE(e,r++)]);return a})(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=y?y:y=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},tf=(nD(),nD(null,{json:!0,decodeJson:!0}),nD(null,{json:!0,prettify:!0}),tN(\"\"+r0.currentScript.src,\"#\")),ro=tN(\"\"+(tf[1]||\"\"),\";\"),nJ=tf[0],nL=ro[1]||(null==(A=tg(nJ,{delimiters:!1}))?void 0:A.host),nV=e=>!(!nL||(null==(e=tg(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nL))!==G),tf=(...e)=>tO(ri(e),/(^(?=\\?))|(^\\.(?=\\/))/,nJ.split(\"?\")[0]),nG=tf(\"?\",\"var\"),nH=tf(\"?\",\"mnt\"),nX=(tf(\"?\",\"usr\"),Symbol()),[nZ,nY]=nD(),[nQ,n0]=[rY,rY],n1=!0,[ro,n5]=ee(),n4=(...e)=>{var r,a=e.shift();console.error(e[1]instanceof Error?e[1].message:el(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=a.id)?r:a,...e)},[n8,n9]=ee(),[n7,ie]=ee(),it=e=>ii!==(ii=e)&&n9(ii,io(!0,!0)),ir=e=>ia!==(ia=!!e&&\"visible\"===document.visibilityState)&&ie(ia,!e,il(!0,!0)),ii=(n8(ir),!0),ia=!1,il=e7(!1),io=e7(!1),iu=(ns(window,[\"pagehide\",\"freeze\",\"beforeunload\"],()=>it(!1)),ns(window,[\"pageshow\",\"resume\"],()=>it(!0)),ns(document,\"visibilitychange\",()=>(ir(!0),ia&&it(!0))),n9(ii,io(!0,!0)),!1),is=e7(!1),[,iv]=ee(),ic=tt({callback:()=>iu&&iv(iu=!1,is(!1)),frequency:2e4,once:!0,paused:!0}),A=()=>!iu&&(iv(iu=!0,is(!0)),ic.restart()),ih=(ns(window,[\"focus\",\"scroll\"],A),ns(window,\"blur\",()=>ic.trigger()),ns(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],A),A(),()=>is()),ig=0,iy=void 0,im=()=>(null!=iy?iy:rY())+\"_\"+ib(),ib=()=>(e9(!0)-(parseInt(iy.slice(0,-2),36)||0)).toString(36)+\"_\"+(++ig).toString(36),iS=new Map,ix={id:iy,heartbeat:e9()},iT={knownTabs:new Map([[iy,ix]]),variables:new Map},[iI,iA]=ee(),[iE,iN]=ee(),iO=rY,i$=(e,t=e9())=>{e=iS.get(el(e)?e:rH(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},i_=(...e)=>{var t=e9();return ij(tJ(e,e=>(e.cache=[t],[rO(e),{...e,created:t,modified:t,version:\"0\"}])))},iC=e=>null!=(e=tJ(e,e=>{var t,r;return e&&(t=rH(e[0]),(r=iS.get(t))!==e[1])?[t,e[1],r,e[0]]:tM}))?e:[],ij=e=>{var r,n,e=iC(e);null!=e&&e.length&&(r=e9(),tW(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),re(iS,e),(n=tL(e,([,,,e])=>0<rV.compare(e.scope,\"tab\"))).length&&iO({type:\"patch\",payload:t7(n)}),iN(tJ(e,([,e,t,r])=>[r,e,t]),iS,!0))},[,iM]=(ro((e,t)=>{n8(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),iy=null!=(n=null==r?void 0:r[0])?n:e9(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),iS=new Map(tY(tL(iS,([,e])=>\"view\"===(null==e?void 0:e.scope)),tJ(null==r?void 0:r[1],e=>[rH(e),e])))):sessionStorage.setItem(\"_tail:state\",e([iy,tJ(iS,([,e])=>e&&\"view\"!==e.scope?e:tM)]))},!0),iO=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([iy,t,r])),localStorage.removeItem(\"_tail:state\"))},ns(window,\"storage\",e=>{var a,l,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==iy||([e,{type:a,payload:l}]=e,\"query\"===a?r.active||iO({type:\"set\",payload:[tJ(iT.knownTabs),tJ(iT.variables)]},e):\"set\"===a&&r.active?(iT.knownTabs=new Map(l[0]),iT.variables=new Map(l[1]),iS=new Map(l[1]),r.trigger()):\"patch\"===a?(o=iC(tJ(l,([e,t])=>[rX(e),t])),re(iT.variables,l),re(iS,l),iN(tJ(o,([,e,t,r])=>[r,e,t]),iS,!1)):\"tab\"===a&&(t8(iT.knownTabs,e,l),l)&&iA(\"tab\",l,!1))});var r=tt(()=>iA(\"ready\",iT,!0),-25),n=tt({callback(){var e=e9()-1e4;tW(iT.knownTabs,([t,r])=>r[0]<e&&t8(iT.knownTabs,t,void 0)),ix.heartbeat=e9(),iO({type:\"tab\",payload:ix})},frequency:5e3,paused:!0});n8(e=>(e=>{iO({type:\"tab\",payload:e?ix:void 0}),e?(r.restart(),iO({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),ee()),[iF,iq]=ee(),iz=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?n0:nY)(localStorage.getItem(\"_tail:rq\")),a=0,l=()=>localStorage.setItem(\"_tail:rq\",(r?nQ:nZ)([iy,e9()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e9())&&(l(),(null==(d=i())?void 0:d[0])===iy))return 0<t&&(a=setInterval(()=>l(),t/2)),D(r,!0,()=>{clearInterval(a),localStorage.removeItem(\"_tail:rq\")});var v=to(),[d]=ns(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[tl(null!=o?o:t),v],await Promise.race(e.map(e=>eh(e)?e():e)),d()}var e;null==o&&U(\"_tail:rq could not be acquired.\")}})(),iR=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&n1;var i,a,l=!1,o=r=>{var o=eh(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iM(e,i=null!=o&&!0!==o?o:i,r,e=>(l=i===L,i=e)),!l)&&(a=n?nQ(i,!0):JSON.stringify(i))};if(!r)return iz(()=>eR(1,async t=>{var l;return o(t)?400<=(l=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:a})).status?0===t?ex(U(\"Invalid response: \"+await l.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tl(200*(1+t))):(null!=(l=null!=(t=n?new Uint8Array(await l.arrayBuffer()):await l.text())&&t.length?null==(l=n?n0:JSON.parse)?void 0:l(t):L)&&iq(l),ex(l)):ex()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[a]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&U(\"Beacon send failed.\")},tf=[\"scope\",\"key\",\"entityId\",\"source\"],iD=[...tf,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\",\"passive\"],iB=[...tf,\"value\",\"force\",\"ttl\",\"version\"],iW=Symbol(),iJ=new Map,iV=Symbol(),iH=Symbol(),iX=[.75,.33],iZ=[.25,.33],iQ=e=>tJ(((e,t,r)=>tX(e).sort(\"function\"==typeof t?(e,n)=>tQ(t(e),t(n),r):eu(t)?t.length?(e,n)=>{for(var i=0,a=0;a<t.length&&!i;a++)i=tQ(t[a](e),t[a](n),r);return i}:(e,t)=>tQ(e,t,r):(e,r)=>tQ(e,r,t)))(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rN(e)}, ${rG(e)?\"client-side memory only\":(e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${ra(rv.parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`})(null==(e=e.schema)?void 0:e.usage)})`,K]:tM),i5=(e,t=\"A\"===nt(e)&&r4(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),i3=(e,t=nt(e),r=nS(e,\"button\"))=>r!==K&&(F(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&F(r9(e,\"type\"),\"button\",\"submit\")||r===G),i6=(e,t=!1)=>{var r;return{tagName:e.tagName,text:tv((null==(r=r4(e,\"title\"))?void 0:r.trim())||(null==(r=r4(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?nu(e):void 0}},i8=()=>null==S?void 0:S.clientId,i9={scope:\"shared\",key:\"referrer\"},i7=(e,t)=>{k.variables.set({...i9,value:[i8(),e]}),t&&k.variables.get({scope:i9.scope,key:i9.key,poll:(r,n,i)=>!!r||(null==i?void 0:i[1])===e&&t()&&!1})},ae=e7(),at=e7(),ar=1,[ai,aa]=ee(),al=e=>{var t=e7(e,ae),r=e7(e,at),n=e7(e,ih),i=e7(e,()=>ar);return(e,a)=>({totalTime:t(e,a),visibleTime:r(e,a),activeTime:n(e,a),activations:i(e,a)})},ao=al(),[as,ad]=ee(),av=(e,t)=>(t&&tW(af,t=>e(t,()=>!1)),as(e)),ac=new WeakSet,af=document.getElementsByTagName(\"iframe\");function ah(e){if(e){if(null!=e.units&&F(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var ay=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),am=e=>nx(e,t=>t!==e&&!!ay(nc.get(t)),e=>(T=nc.get(e),(T=nc.get(e))&&eC(ej(T.component,T.content,T),\"tags\"))),ab=(e,t)=>t?e:{...e,rect:void 0,content:(I=e.content)&&tJ(I,e=>({...e,rect:void 0}))},aw=(e,t=K,r)=>{var n,i,a,l=[],o=[],u=0;return r3(e,e=>{var d,a,i=nc.get(e);i&&(ay(i)&&(a=null!=(a=tL(tX(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==G||(null==(r=e.track)?void 0:r.promote))}))?a:[],n=(null!=r?r:eK(a,e=>null==(e=e.track)?void 0:e.region))&&nu(e)||void 0,d=am(e),i.content&&e4(l,...tJ(i.content,e=>({...e,rect:n,...d}))),null!=a)&&a.length&&(e4(o,...tJ(a,e=>{var t;return u=eL(u,null!=(t=e.track)&&t.secondary?1:2),ab({...e,content:l.length?l:void 0,rect:n,...d},!!n)})),l=[]),a=i.area||nk(e,\"area\"))&&e4(o,a)}),l.length&&e6(o,ab({id:\"\",rect:n,content:l})),tW(o,e=>{el(e)?e6(null!=i?i:i=[],e):(null==e.area&&(e.area=ri(i,\"/\")),e4(null!=a?a:a=[],e))}),a||i?{components:a,area:ri(i,\"/\")}:void 0},ak=Symbol(),aS=[{id:\"context\",setup(e){tt(()=>tW(af,e=>t4(ac,e)&&ad(e)),500).trigger(),e.variables.get({scope:\"view\",key:\"view\",poll(t){return null==S||!t||null!=S&&S.definition?null!=(n=t)&&t.navigation&&f(!0):(S.definition=t,null!=(t=S.metadata)&&t.posted&&e.events.postPatch(S,{definition:n})),!0}});var n,t,d=null!=(t=null==(t=i$({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=i$({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&i_({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=i$({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=i$({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=K)=>{var a,l,o,i,p;ni(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:a}=tg(location.href+\"\",{requireAuthority:!0}),S={type:\"view\",timestamp:e9(),clientId:im(),tab:iy,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:a},tabNumber:v+1,tabViewNumber:d+1,viewport:nv(),duration:ao(void 0,!0)},0===v&&(S.firstTab=G),0===v&&0===d&&(S.landingPage=G),i_({scope:\"tab\",key:\"viewIndex\",value:++d}),l=ty(location.href),tJ([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return null!=(e=(null!=(n=(o=S).utm)?n:o.utm={})[e]=null==(n=tX(l[\"utm_\"+e]))?void 0:n[0])?e:tM}),!(S.navigationType=x)&&performance&&tW(performance.getEntriesByType(\"navigation\"),e=>{S.redirects=e.redirectCount,S.navigationType=tO(e.type,/\\_/g,\"-\")}),x=void 0,\"navigate\"===(null!=(t=S.navigationType)?t:S.navigationType=\"navigate\")&&(p=null==(i=i$(i9))?void 0:i.value)&&nV(document.referrer)&&(S.view=null==p?void 0:p[0],S.relatedEventId=null==p?void 0:p[1],e.variables.set({...i9,value:void 0})),(p=document.referrer||null)&&!nV(p)&&(S.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=tg(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),S.definition=n,n=void 0,e.events.post(S),e.events.registerEventPatchSource(S,()=>({duration:ao()})),aa(S))};return n7(e=>{e?(at(G),++ar):at(K)}),ns(window,\"popstate\",()=>(x=\"back-forward\",f())),tW([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),x=\"navigate\",f()}}),f(),{processCommand:t=>aI(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),G),decorate(e){!S||rD(e)||(e=>!(null==e||!e.patchTargetId))(e)||(e.view=S.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tW(e,e=>{var t,r;return null==(t=(r=e.target)[iH])?void 0:t.call(r,e)})),r=new Set,n=(tt({callback:()=>tW(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=r0.createRange();return(a,l)=>{var o,u,s,d,v,c,f,p,h,g,y,m,b,w,k,S;l&&(o=tL(null==l?void 0:l.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==G}))&&(e=>{var r,n;return null==e?L:null!=(r=null!=(n=e.length)?n:e.size)?r:e[Y]?(r=0,null!=(n=eq(e,()=>++r))?n:0):Object.keys(e).length})(o)&&(p=f=K,g=h=0,y=(e,t,r,n)=>{var i,a=null!=(a=(i=null!=u?u:u=[])[e])?a:i[e]=[{duration:0,impressions:0},e7(!1,ih),!1,!1,0,0,0,t$()];a[4]=t,a[5]=r,a[6]=n},m=[t$(),t$()],b=al(!1),w=e7(!1,ih),k=-1,S=()=>{var O,t=a.getBoundingClientRect(),r=window.innerWidth,l=window.innerHeight,S=[n(t.top,l),n(t.right,r),n(t.bottom,l),n(t.left,r)],x=S[2]-S[0],S=S[1]-S[3],E=f?iZ:iX,r=(E[0]*l<x||E[0]<(x/t.height||0))&&(E[0]*r<S||E[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=nT.impressionThreshold-250)&&(++h,b(f),s||(s=tJ(o,e=>((null==(e=e.track)?void 0:e.impressions)||nS(a,\"impressions\",G,e=>null==(e=e.track)?void 0:e.impressions))&&B({type:\"impression\",pos:na(a),viewport:nv(),timeOffset:ao(),impressions:h,...aw(a,G)})||tM),e(s)),null!=s)&&s.length&&(O=b(),d=tJ(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:O,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:O.activeTime&&c&&n(O.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;E=a.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),a=0,l=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,a+=r[0].length,6<r[0].length&&++o,++l);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*a|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:eb(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:a,words:l,sentences:u,lix:eb(l/u+100*o/l),readTime:eb(l/238*6e4),boundaries:v}})(null!=E?E:\"\"),u||t.height>=1.25*l){var _=r0.createTreeWalker(a,NodeFilter.SHOW_TEXT),C=0,j=0;for(null==u&&(u=[]);j<v.length&&(U=_.nextNode());){var U,M,F,P,D,z=null!=(M=null==(M=U.textContent)?void 0:M.length)?M:0;for(C+=z;C>=(null==(F=v[j])?void 0:F.offset);)i[j%2?\"setEnd\":\"setStart\"](U,v[j].offset-C+z),j++%2&&({top:F,bottom:P}=i.getBoundingClientRect(),D=t.top,j<3?y(0,F-D,P-D,v[1].readTime):(y(1,u[0][4],F-D,v[2].readTime),y(2,F-D,P-D,v[3].readTime)))}}}var r=t.left<0?-t.left:0,E=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=m[0].push(E,E+x)*m[1].push(r,r+S)/L),u&&tW(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>l?l:t.bottom,e[5],e[4]),a=f&&0<i-r,o=e[0];o.duration=e[1](a),a&&(e[3]!==(e[3]=a)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},a[iH]=({isIntersecting:e})=>{eY(r,S,e),e||(tW(d,e=>e()),S())},t.observe(a))}})(e),n=({boundary:e,...n})=>{eQ(nc,e,e=>{var t;return(e=>null==e?void 0:{...e,component:tX(e.component),content:tX(e.content),tags:tX(e.tags)})(\"add\"in n?{...e,component:ej(null==e?void 0:e.component,n.component),content:ej(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:ej(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,nc.get(e))};return{decorate(e){tW(e.components,t=>{t8(t,\"track\",void 0),tW(e.clickables,e=>t8(e,\"track\",void 0))})},processCommand:e=>aN(e)?(n(e),G):aU(e)?(tW(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var a=[];null!=r4(i,e);){((e,t)=>e instanceof Set||e instanceof WeakSet?e.has(t)||e.add(t):eX(e,t)||eH(e,t,!0))(n,i);var l,o=tN(r4(i,e),\"|\");r4(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=eo(d))?s:\"\",36);if(s<0)a.length+=s;else{if(0===u&&(a.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch{}0<=s&&t[s]&&(d=t[s]),e6(a,d)}}}e6(r,...tJ(a,e=>({add:G,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(l=i.parentNode)&&l.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),G):K}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{ns(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,a,l,o,u,s=K;if(r3(n.target,e=>{i3(e)&&null==l&&(l=e),s=s||\"NAV\"===nt(e);var t,d=nf(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tW(e.querySelectorAll(\"a,button\"),t=>i3(t)&&(3<(null!=u?u:u=[]).length?ex():u.push({...i6(t,!0),component:r3(t,(e,t,r,n=null==(i=nf(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=nS(e,\"clicks\",G,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eK(d,e=>(null==(e=e.track)?void 0:e.clicks)!==K)),null==a&&(a=null!=(t=nS(e,\"region\",G,e=>null==(e=e.track)?void 0:e.region))?t:d&&eK(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=l){var d,v=u&&!l&&i,c=aw(null!=l?l:o,!1,v),f=nx(null!=l?l:o,void 0,e=>tL(tX(null==(e=nc.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(a=null==a?G:a)?{pos:na(l,n),viewport:nv()}:null,...((e,t)=>{var n;return r3(null!=e?e:t,e=>\"IMG\"===nt(e)||e===t?(n={element:i6(e,!1)},K):G),n})(n.target,null!=l?l:o),...c,timeOffset:ao(),...f});if(l)if(i5(l)){var h=l,c=h.hostname!==location.hostname,{host:f,scheme:m,source:b}=tg(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(B({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,x,w=B({clientId:im(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:m},self:G,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||r4(h,\"target\")!==window.name?(i7(w.clientId),w.self=K,e(w)):ni(location.href,h.href)||(w.exit=w.external,i7(w.clientId))):(k=h.href,(b=nV(k))?i7(w.clientId,()=>e(w)):(x=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||nT.captureContextMenu&&(h.href=nH+\"=\"+x+encodeURIComponent(k),ns(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===x&&e(w),r())),ns(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{r3(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>el(e=null==e||e!==G&&\"\"!==e?e:\"add\")&&F(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ev(e)?e:void 0)(null!=(r=null==(r=nf(e))?void 0:r.cart)?r:nk(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?L:eu(e)||el(e)?e[e.length-1]:eq(e,(e,r)=>e,void 0,void 0))(null==(r=nf(e))?void 0:r.content))&&t(d)});c=ah(d);(c||i)&&e(B(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eQ(t,o,r=>{var i=nl(o,n);return r?e6(r,i):(i=B({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),av(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=nn(G);ai(()=>{return e=()=>(t={},r=nn(G)),setTimeout(e,250);var e}),ns(window,\"scroll\",()=>{var a,n=nn(),i={x:(o=nn(K)).x/(r1.offsetWidth-window.innerWidth)||0,y:o.y/(r1.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(a=[],!t.fold&&n.y>=r.y+200&&(t.fold=G,e6(a,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=G,e6(a,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=G,e6(a,\"page-end\")),(n=tJ(a,e=>B({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return aT(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=ah(r))&&e({...r,type:\"cart_updated\"}),G):aj(t)?(e({type:\"order\",...t.order}),G):K}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||r8(e,np(\"form-value\")),e=(t&&(r=r?en(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&tv(e,200)),r?e:void 0},i=t=>{var i,l,s,a=t.form;if(a)return l=r8(a,np(\"ref\"))||\"track_ref\",(s=t6(r,a,()=>{var t,r=new Map,n={type:\"form\",name:r8(a,np(\"form-name\"))||r4(a,\"name\")||a.id||void 0,activeTime:0,totalTime:0,fields:{}},l=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:ao()})),()=>{1!==t[3]&&(o(),2<=t[3]&&(n.completed=3===t[3]||!(a.isConnected&&nu(a).width)),e.events.postPatch(n,{...i,completed:n.completed,totalTime:e9(G)-t[4]}),t[3]=1)}),s=((e=0)=>{var t,r,n=(i,a=e)=>{if(void 0===i)return!!r;clearTimeout(t),er(i)?i&&(a<0?ei:J)(null==r?void 0:r())?n(r,a):r=void 0:(r=i,t=setTimeout(()=>n(!0,a),a<0?-a:a))};return n})();return ns(a.ownerDocument.body,\"submit\",e=>{var r,n;i=aw(a),t[3]=3,e.defaultPrevented?([r]=n8(e=>{e||(n||3===t[3]&&l(),r())}),n=!1,s(()=>{if((()=>{for(var e=a.ownerDocument;e;){if(tZ(e.querySelectorAll(\"iframe\"),e=>e.src.match(RegExp(\"https:\\\\/\\\\/www.google.com\\\\/.*(?<=\\\\/)recaptcha\\\\/.*(?<=\\\\/)bframe\",\"gi\"))&&(e=>{if(!e||!e.isConnected||nu(e,!1).width<=0)return!1;for(;e;){var t=null==(t=e.ownerDocument.defaultView)?void 0:t.getComputedStyle(e);if(\"hidden\"===t.visibility||\"0\"===t.opacity)return!1;e=e.parentElement}return!0})(e)))return!0;e=z(()=>{var r;return null==(r=e.defaultView)||null==(r=r.frameElement)?void 0:r.ownerDocument},()=>{})}return!1})())return t[3]=2,n=!0;n&&(n=!1,t[3]=3),a.isConnected&&0<nu(a).width?t[3]=2:l(),r()},1750)):l()},{capture:!1}),t=[n,r,a,0,e9(G),1]}))[1].get(t)||tW(a.querySelectorAll(\"INPUT,SELECT,TEXTAREA,BUTTON\"),(e,t)=>{var d,v,a;\"BUTTON\"===e.tagName&&\"submit\"!==e.type||(e.name&&\"hidden\"!==e.type?(a=null!=(d=(a=s[0].fields)[v=e.name])?d:a[v]={id:e.id||v,name:v,label:tO(null!=(v=null==(d=e.labels)||null==(a=d[0])?void 0:a.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[ak]:n(e),value:n(e,!0)},s[0].fields[a.name]=a,s[1].set(e,a)):\"hidden\"!==e.type||e.name!==l&&!nS(e,\"ref\")||(e.value||(e.value=tO(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value))}),[t,s]},a=(e,[r,n]=null!=(t=i(e))?t:[],a=null==n?void 0:n[1].get(r))=>a&&[n[0],a,r,n],l=null,o=()=>{var r,i,a,o,d,v,c;l&&([r,i,a,o]=l,d=-(u-(u=at())),v=-(s-(s=e9(G))),c=i[ak],(i[ak]=n(a))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=G,o[3]=2,tW(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(a,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,l=null)},u=0,s=0,d=e=>e&&ns(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(l=r,\"focusin\"===e.type?(s=e9(G),u=at()):o()));d(document),av(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",poll:t,refresh:!t,passive:!t}).value(),i=async t=>{var r;if(t)return!(r=await n())||rf.equals(r,t)?[!1,r]:(await e.events.post(B({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},a=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=rQ.dataLayer,i=t,a=null==n?void 0:n.length;if(a&&(t!==(t=n[a-1])||!t))for(;a--&&((e=n[a])!==i||!i);){var l={},o=!0;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tJ(r,([t,r])=>\"granted\"===e[2][t]&&(l[r]=!0,o=o&&(\"security\"===r||\"necessary\"===r))),{classification:o?\"anonymous\":\"direct\",purposes:l}}}}}}),{});return{processCommand(e){var t,r,l,u,s;return aq(e)?((t=e.consent.get)&&n((e,r,n)=>!e||t(e,n)),(r=e.consent.set)&&(async()=>{var e,t,n;\"consent\"in r?([t,n]=await i(r.consent),null!=(e=r.callback)&&e.call(r,t,n)):i(r)})(),(l=e.consent.externalSource)&&(e=l.key,(null!=(u=a[e])?u:a[e]=tt({frequency:null!=(u=l.frequency)?u:1e3})).restart(l.frequency,async()=>{var e;r0.hasFocus()&&(e=l.poll(s))&&!rf.equals(s,e)&&(await i(e),s=e)}).trigger()),G):K}}}}],A=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),aT=A(\"cart\"),aI=A(\"username\"),aA=A(\"tagAttributes\"),aE=A(\"disable\"),aN=A(\"boundary\"),aO=A(\"extension\"),a$=A(G,\"flush\"),a_=A(\"get\"),aC=A(\"listener\"),aj=A(\"order\"),aU=A(\"scan\"),aM=A(\"set\"),aF=e=>\"function\"==typeof e,aq=A(\"consent\");(e=>{if(!k){el(e)&&([r,e]=nY(e),e=nD(r,{decodeJson:!0})[1](e)),rt(nT,[e],{overwrite:!0}),(e=>{n0===rY&&([nQ,n0]=nD(e,{json:!e,prettify:!1}),n1=!!e,n5(nQ,n0))})(e2(nT,\"encryptionKey\"));var r,l,o,u,s,d,v,c,f,p,h,g,y,i=e2(nT,\"key\"),a=null!=(e=null==(r=rQ[nT.name])?void 0:r._)?e:[];if(eu(a))return l=[],o=[],u=(e,...t)=>{var r=G;o=tL(o,n=>z(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:k,unsubscribe:()=>r=K}),r},(e=>t=>n4(e,t))(n)))},s=[],v=((e,t)=>{var r=tt(async()=>{var e=tJ(iJ,([e,t])=>tZ(t,e=>null==(e=e[iW])?void 0:e.refresh)?{...rX(e),refresh:!0}:tM);e.length&&await a.get(e)},3e3),n=(e,t)=>t&&!!t6(iJ,e,()=>new Set).add(t),a=(n8((e,t)=>r.toggle(e,e&&3e3<=t),!0),iE(e=>tW(e,([e,t])=>{null!=t&&t.passive?delete t.passive:(e=>{var t,r;e&&(t=rH(e),null!=(r=e2(iJ,t)))&&r.size&&tW(r,r=>!0===r(e)&&n(t,r))})(t?{status:r$.Success,...t}:{status:r$.NotFound,...e})})),{get:r=>rR(\"get\",r,async r=>{r[0]&&!el(r[0])||(l=r[0],r=r.slice(1)),null!=t&&t.validateKey(l);var o=new Map,u=[],s=tJ(r,e=>{var t=i$(rH(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))o.set(e,{...e,status:r$.Forbidden,error:`No consent for '${r}'.`});else if(!e.refresh&&t)o.set(e,{status:r$.Success,...t});else{if(!rG(e))return[rr(e,iD),e];var i,r=null==(i=e.init)?void 0:i.call(e);r?(r={...rO(e),version:\"1\",created:d,modified:d,value:r,cache:[d,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},t9(u,[rO(r),r]),o.set(e,{status:r$.Success,...r})):o.set(e,{status:r$.NotFound,...rO(e)})}return tM}),d=e9(),l=s.length&&(null==(l=await iR(e,{variables:{get:tJ(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=l.variables)?void 0:r.get)||[],c=[];return tW(l,(e,t)=>{var n,r;(null==e?void 0:e.status)===r$.NotFound?null!=(r=null==(r=(n=s[t][1]).init)?void 0:r.call(n))&&c.push([n,{...rO(n),value:r}]):o.set(s[t][1],rK(e))}),c.length&&tW(await a.set(tJ(c,([,e])=>e)).all(),(e,t)=>o.set(c[t][0],rK(e.status===r$.Conflict?{...e,status:r$.Success}:e.status===r$.Success&&null==e.value?{...e,status:r$.NotFound}:e))),u.length&&ij(u),o},{poll:(e,t)=>(t[iW]=e,n(rH(e),t)),logCallbackError:(e,t,r)=>n4(\"Variables.get\",e,{operation:t,error:r})}),set:r=>rR(\"set\",r,async r=>{r[0]&&!el(r[0])||(n=r[0],r=r.slice(1)),null!=t&&t.validateKey(n);for(var n,i,l=[],o=new Map,u=e9(),s=[],d=tJ(r,e=>{var i,r,t=i$(rH(e));return rG(e)?((r=null==(i=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...rO(e),created:null!=(r=null==t?void 0:t.created)?r:u,modified:u,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:i,cache:[u,e.ttl]})&&(r.cache=[u,null!=(i=e.ttl)?i:3e3]),o.set(e,r?{status:t?r$.Success:r$.Created,...r}:{status:r$.Success,...rO(e)}),t9(l,[rO(e),r]),tM):e.patch?(s.push(e),tM):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[rr(e,iB),e])}),v=0;!v++||s.length;)tW(await a.get(tJ(s,e=>rO(e))).all(),(e,t)=>{var r=s[t];rC(e,!1)?t9(d,[{...r,patch:void 0,value:s[t].patch(null==e?void 0:e.value),version:e.version},r]):o.set(r,e)}),s=[],tW(d.length?(e=>null!=e?e:U(\"No result.\",e=>TypeError(e.replace(\"...\",\" is required.\"))))(null==(i=(await iR(e,{variables:{set:tJ(d,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:i.set):[],(e,t)=>{var[,t]=d[t];v<=3&&t.patch&&((null==e?void 0:e.status)===r$.Conflict||(null==e?void 0:e.status)===r$.NotFound)?t9(s,t):o.set(t,rK(e))});return l.length&&ij(l),o},{logCallbackError:(e,t,r)=>n4(\"Variables.set\",e,{operation:t,error:r})})});return iF(({variables:e})=>{e&&null!=(e=tY(tJ(e.get,e=>r_(e)?e:tM),tJ(e.set,e=>rC(e)?e:tM)))&&e.length&&ij(tJ(e,e=>[rO(e),rC(e)?e:void 0]))}),a})(nG,d={applyEventExtensions(e){return null==e.clientId&&(e.clientId=im()),null==e.timestamp&&(e.timestamp=e9()),h=G,tW(l,([,t])=>{var r;return(null==(r=t.decorate)?void 0:r.call(t,e))===K&&tF(!0)})?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&U(`'${e}' is not a valid key.`)}),c=((e,t,r=5e3)=>{var n=[],i=new WeakMap,a=new Map,l=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eZ(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):U(\"Source event not queued.\")},o=e=>{i.set(e,e3(e))},u=async(r,n=!0,i)=>{var a;return r[0]&&!el(r[0])||(a=r[0],r=r.slice(1)),iR(e,{events:r=tJ(r,e=>{if(null!=t&&t.validateKey(null!=a?a:e.key),eZ(e,{metadata:{posted:!0}}),e[iV]){if(tW(e[iV],(t,r,n)=>!1===t(e)||n,!1))return;delete e[iV]}return eZ(rp(e3(e),!0),{timestamp:e.timestamp-e9()})}),variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},s=async(e,{flush:r=!1,async:i=!0,variables:a}={})=>{var l=[];if(e=tJ(tX(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e6(l,e),null!=(r=rt(t.applyEventExtensions(e),{metadata:{queued:!0}}))?r:tM}),tW(l,e=>{}),!i)return u(e,!1,a);r?(n.length&&e4(e,...n.splice(0)),e.length&&await u(e,!0,a)):e.length&&e6(n,...e)};return 0<r&&tt(()=>s([],{flush:!0}),r),n7((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=tJ(a,([e,t])=>{var[t,n]=t();return n&&(a.delete(e),i.delete(e)),null!=t?t:tM}),n.length||e.length)&&s(ej(n.splice(0),e),{flush:!0})}),{post:s,postPatch:(e,t,r)=>s(l(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var u=!1,d=()=>{u=!0};return o(e),((e,t)=>{(null!=(e=(b=e)[w=iV])?e:b[w]=new Set).add(t)})(e,o),a.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))d();else{var a=i.get(e),[r,s]=null!=(r=e8(t(a,d),a))?r:[];if(r&&!M(s,a))return i.set(e,e3(s)),[l(e,r),u]}return[void 0,u]}),r&&s(e),d}}})(nG,d),f=null,p=0,g=h=K,y=!1,k=(...e)=>{if(y){if(e.length){1<e.length&&(!e[0]||el(e[0]))&&(t=e[0],e=e.slice(1)),el(e[0])&&(r=e[0],e=ek(r)?JSON.parse(r):nY(r));var t,n=K;if((e=tL(tV(e,e=>el(e)?nY(e):e),e=>{if(!e)return K;if(aA(e))nT.tags=eY({},nT.tags,e.tagAttributes);else{if(aE(e))return nT.disabled=e.disable,K;if(a$(e))return n=G,K;if(aF(e))return e(k),K}return g||aC(e)||aO(e)?G:(s.push(e),K)})).length||n){var r=eG(e,e=>aO(e)?-100:aC(e)?-50:aM(e)?-10:90*!!rP(e));if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var m=f[p];m&&(d.validateKey(null!=t?t:m.key),z(()=>{var e=f[p];if(u(\"command\",e),h=K,rP(e))c.post(e);else if(a_(e))v.get(tX(e.get));else if(aM(e))v.set(tX(e.set));else if(aC(e))e6(o,e.listener);else if(aO(e))(t=z(()=>e.extension.setup(k),t=>n4(e.extension.id,t)))&&(e6(l,[null!=(r=e.priority)?r:100,t,e.extension]),eG(l,([e])=>e));else if(aF(e))e(k);else{var r,n,t,a=K;for([,t]of l)if(a=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:K)break;a||n4(\"invalid-command\",e,\"Loaded extensions:\",tJ(l,e=>e[2].id))}},e=>n4(k,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else a.push(...e)},Object.defineProperty(rQ,nT.name,{value:Object.freeze(Object.assign(k,{id:\"tracker_\"+im(),events:c,variables:v,__isTracker:G})),configurable:!1,writable:!1}),iE((e,t,r)=>{ej(iQ(tJ(e,([,e])=>e||tM)),[[{[nX]:iQ(tJ(t,([,e])=>e||tM))},\"All variables\",G]])}),iI(async(e,t,r,n)=>{var l;\"ready\"===e&&([e,l]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:V}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||((e=>{e(B({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==S?void 0:S.clientId,languages:tJ(navigator.languages,(e,t)=>{var[r,n]=e.split(\"-\");return B({id:e,language:r,region:n,primary:0===t,preference:t+1})}),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...(r=null==rQ?void 0:rQ.screen,r?({width:r,height:i,orientation:a}=r,l=r<i,-90!==(a=null!=(a=null!=(a=null==a?void 0:a.angle)?a:rQ.orientation)?a:0)&&90!==a||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:rQ.devicePixelRatio,width:r,height:i,landscape:l}}):{})}));var i,l,a,r})(k),e.hasUserAgent=!0),g=!0,s.length&&k(s),n(),y=!0,k(...tJ(aS,e=>({extension:e})),...a),k({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0);U(`The global variable for the tracker \"${nT.name}\" is used for something else than an array of queued commands.`)}})(\"{{CONFIG}}\")})();\n",
+    debug: "(()=>{var e,t,r,n,i,a,l,o,u,s,d,v,c,f,p,h,g,m,b,w,k,S,x,T,I;function F(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var j=(e,t=e=>Error(e))=>{throw el(e=e5(e))?t(e):e},U=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(!eu(e)&&!ec(e)||!eu(t)&&!ec(t)||e.length!==t.length)return!1;var i,n=0;for(i in e){if(e[i]!==t[i]&&!U(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length},M=(e,t,...r)=>e===t||0<r.length&&r.some(t=>M(e,t)),z=(e,t=!0,r)=>{try{return e()}catch(e){return eh(t)?es(e=t(e))?j(e):e:er(t)?console.error(t?j(e):e):t}finally{null!=r&&r()}};class R extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),F(this,\"_action\",void 0),F(this,\"_result\",void 0),this._action=e}}var P=e=>new R(async()=>e5(e)),D=async(e,t=!0,r)=>{try{return await e5(e)}catch(e){if(!er(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},B=e=>e,W=e=>!!e,J=e=>e===K,L=void 0,V=Number.MAX_SAFE_INTEGER,H=!1,K=!0,G=()=>{},X=e=>e,Z=e=>null!=e,Y=Symbol.iterator,Q=Symbol.asyncIterator,ee=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:L,et=(e,t)=>eh(t)?e!==L?t(e):L:(null==e?void 0:e[t])!==L?e:L,er=e=>\"boolean\"==typeof e,en=ee(er,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||L))),ei=e=>e!==H,ea=e=>\"number\"==typeof e,el=e=>\"string\"==typeof e,eo=ee(el,e=>null==e?void 0:e.toString()),eu=Array.isArray,es=e=>e instanceof Error,ed=(e,t=!1)=>null==e?L:!t&&eu(e)?e:eg(e)?[...e]:[e],ev=e=>e&&\"object\"==typeof e,ec=e=>(null==e?void 0:e.constructor)===Object,ef=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ep=e=>\"symbol\"==typeof e,eh=e=>\"function\"==typeof e,eg=(e,t=!1)=>!(null==e||!e[Y]||\"string\"==typeof e&&!t),em=e=>e instanceof Map,ey=e=>e instanceof Set,eb=(e,t)=>null==e?L:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,ew=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ek=e=>el(e)&&(ew(e,\"{\",\"}\")||ew(e,\"[\",\"]\")),eS=!1,ex=e=>(eS=!0,e),eT=e=>null==e?L:eh(e)?e:t=>t[e],eI=(e,t,r)=>(null!=t?t:r)!==L?(e=eT(e),null==t&&(t=0),null==r&&(r=V),(n,i)=>t--?L:r--?e?e(n,i):n:r):e,eA=e=>null==e?void 0:e.filter(Z),eE=(e,t,r,n)=>null==e?[]:!t&&eu(e)?eA(e):e[Y]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),eS){eS=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===L?t:eI(t,r,n)):ev(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),eS){eS=!1;break}}}(e,eI(t,r,n)):eE(eh(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eN=(e,t,r,n)=>eE(e,t,r,n),e$=(e,t,r=1,n=!1,i,a)=>function*e(t,r,n,i){if(null!=t)if(t[Y]||n&&ev(t))for(var a of i?eE(t):t)1!==r?yield*e(a,r-1,n,!0):yield a;else yield t}(eE(e,t,i,a),r+1,n,!1),eO=(e,t,r,n)=>{if(t=eT(t),eu(e)){var i=0,a=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!eS;r++){var l=e[r];null!=(t?l=t(l,i++):l)&&a.push(l)}return eS=!1,a}return null!=e?tQ(eN(e,t,r,n)):L},eC=(e,t,r,n)=>null!=e?new Set([...eN(e,t,r,n)]):L,e_=(e,t,r=1,n=!1,i,a)=>tQ(e$(e,t,r,n,i,a)),eF=(...e)=>{var t;return ez(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...tQ(e))),t},ej=(e,t,r,n)=>{var i,a,l=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(a=t(e[r],l++))?a:i,eS)){eS=!1;break}return i},eU=(e,t)=>{var r,n,a,i=0;for(a of e)if(null!=a&&(r=null!=(n=t(a,i++))?n:r,eS)){eS=!1;break}return r},eM=(e,t)=>{var r,n,a,i=0;for(a in e)if(r=null!=(n=t([a,e[a]],i++))?n:r,eS){eS=!1;break}return r},eq=(e,t,r,n)=>{var i;if(null!=e){if(eu(e))return ej(e,t,r,n);if(r===L){if(e[Y])return eU(e,t);if(\"object\"==typeof e)return eM(e,t)}for(var a of eE(e,t,r,n))null!=a&&(i=a);return i}},ez=eq,eR=async(e,t,r,n)=>{var i,a;if(null==e)return L;for(a of eN(e,t,r,n))if(null!=(a=await a)&&(i=a),eS){eS=!1;break}return i},eP=(e,t)=>{if(null==e)return L;var r={};if(t){var n,a,i=0;for(a in e)(n=t([a,e[a]],i++))&&(r[n[0]]=n[1])}else for(var l of e)l&&(r[l[0]]=l[1]);return r},eD=(e,t,r)=>{var n,i,a;return null==e?L:er(t)||r?(a={},ez(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(a[e[0]],e[1]))&&(a[e[0]]=e[1]):e=>ez(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=a)[i=e[0]])?t:n[i]=[]).push(e[1]),a)}:e=>null!=(null==e?void 0:e[1])&&(a[e[0]]=e[1],a))),a):eP(eO(e,t?(e,r)=>et(t(e,r),1):e=>et(e,1)))},eB=(e,t,r,n,i)=>{var l=()=>eh(r)?r():r;return null!=(e=eq(e,(e,n)=>r=null!=(e=t(r,e,n))?e:l(),n,i))?e:l()},eW=(e,t,r,n)=>eO(e,(e,r)=>e&&null!=t&&t(e,r)?e:L,r,n),eJ=(e,t)=>{var r,n;if(null==e)return L;if(!t){if(null!=(r=null!=(n=e.length)?n:e.size))return r;if(!e[Y])return Object.keys(e).length}return r=0,null!=(n=eq(e,t?(e,n)=>t(e,n)?++r:r:()=>++r))?n:0},eL=(e,...t)=>null==e?L:ea(e)?Math.max(e,...t):eB(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ea(i)&&e<i?i:e,L,t[2],t[3]),eH=(e,t,r,n)=>{var i;return null==e?L:ec(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:W))?i:eq(e,t?(e,r)=>!!t(e,r)&&ex(!0):()=>ex(!0),r,n))&&i},eK=(e,t=e=>e)=>{var r;return null!=(r=ed(e))&&r.sort((e,r)=>t(e)-t(r)),e},eG=(e,t,r)=>(e.constructor===Object||eu(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eX=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=eh(r)?r():r)&&eG(e,t,n),n},eZ=(e,...t)=>(ez(t,t=>ez(t,([t,r])=>{null!=r&&(ec(e[t])&&ec(r)?eZ(e[t],r):e[t]=r)})),e),eY=(e,t,r,n)=>{if(e)return null!=r?eG(e,t,r,n):(ez(t,t=>eu(t)?eG(e,t[0],t[1]):ez(t,([t,r])=>eG(e,t,r))),e)},eQ=(e,t,r)=>{var n;return ef(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ef(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ec(e)&&delete e[t],e},e2=(e,t)=>{if(e)return eu(t)?(eu(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e2(e,t)):eu(e)?t<e.length?e.splice(t,1)[0]:void 0:((e,t)=>{var r;if(null!=(null!=e?e:t))return r=eX(e,t),ef(e,\"delete\")?e.delete(t):delete e[t],r})(e,t)},e5=e=>eh(e)?e():e,e3=(e,t=-1)=>eu(e)?t?e.map(e=>e3(e,t-1)):[...e]:ec(e)?t?eD(e,([e,r])=>[e,e3(r,t-1)]):{...e}:ey(e)?new Set(t?eO(e,e=>e3(e,t-1)):e):em(e)?new Map(t?eO(e,e=>[e[0],e3(e[1],t-1)]):e):e,e6=(e,...t)=>null==e?void 0:e.push(...t),e4=(e,...t)=>null==e?void 0:e.unshift(...t),e8=(e,t)=>{var r,i,a;if(e)return ec(t)?(a={},ec(e)&&(ez(e,([e,l])=>{if(!U(l,t[e],-1)){if(ec(r=l)){if(!(l=e8(l,t[e])))return;[l,r]=l}else ea(l)&&ea(void 0)&&(l=(r=l)-void 0);a[e]=l,(null!=i?i:i=e3(t))[e]=r}}),i)?[a,i]:void 0):[e,e]},e9=\"undefined\"!=typeof performance?(e=K)=>e?Math.trunc(e9(H)):performance.timeOrigin+performance.now():Date.now,e7=(e=!0,t=()=>e9())=>{var r,n=+e*t(),i=0;return(a=e,l)=>(r=e?i+=-n+(n=t()):i,l&&(i=0),(e=a)&&(n=t()),r)},tt=(e,t=0)=>{var e=eh(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:a=!1,trigger:l=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=to(!0).resolve(),c=e7(!a),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((y.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await D(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&m(!1),!(y.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{y.active&&p(),y.active&&h()},m=(e,t=!e)=>(c(e,t),clearTimeout(d),y.active=!!(d=e?h():0),y),y={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,m(!0,!0)),toggle:(e,t)=>e!==y.active?e?t?(m(!0),y.trigger(),y):m(!0):m(!1):y,trigger:async e=>await p(e)&&(m(y.active),!0)};return y.toggle(!a,l)};function tr(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tn{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new ti,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tr(this,\"_promise\",void 0),this.reset()}}class ti{then(e,t){return this._promise.then(e,t)}constructor(){var e;tr(this,\"_promise\",void 0),tr(this,\"resolve\",void 0),tr(this,\"reject\",void 0),tr(this,\"value\",void 0),tr(this,\"error\",void 0),tr(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===L||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var tl=(e,t)=>null==e||isFinite(e)?!e||e<=0?e5(t):new Promise(r=>setTimeout(async()=>r(await e5(t)),e)):j(`Invalid delay ${e}.`),to=e=>new(e?tn:ti),ts=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,a),a=()=>n!==(n=!1)&&(r(i),!0),l=()=>n!==(n=!0)&&(t(i),!0);return l(),[a,l]},ee=()=>{var e,t=new Set;return[(r,n)=>{var i=ts(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tv=(e,t,r)=>null==e?L:eu(t)?null==(t=t[0])?L:t+\" \"+tv(e,t,r):null==t?L:1===t?e:null!=r?r:\"is\"===e?\"are\":e+\"s\",tc=!0,tf=(e,t,r)=>r?(tc&&e6(r,\"\u001b[\",t,\"m\"),eu(e)?e6(r,...e):e6(r,e),tc&&e6(r,\"\u001b[m\"),r):tf(e,t,[]).join(\"\"),tp=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),tg=(e,t)=>{var l,r=[],n={},i={},a=0;for(l in t)l===t[l]&&(Object.defineProperty(i,l,{value:l,writable:!1,enumerable:!0,configurable:!1}),n[l]=a++,r.push(l));var o=(t,r=!0)=>null==t?L:null!=n[t]?t:r?j(`The ${e} \"${t}\" is not defined.`):L,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:+(t<e)},...u}}),i},tm=Symbol(),ty=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,l;return e?(null==(l=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(l[1]=\"\"),l[2]=l[1]&&(el(t)?t=[t]:eu(t))&&tV(t,e=>1<(i=l[1].split(e)).length?tR(i):L)||(l[1]?[l[1]]:[]),l):L},tb=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?L:tT(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,a,l,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&L,authority:a,user:l,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):L,path:v,query:!1===t?c:c?tw(c,{...n,delimiters:t}):L,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":L),e}),tw=(e,t)=>tk(e,\"&\",t),tk=(e,t,{delimiters:r=!0,...n}={})=>{e=tH(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,a,l]=null!=(e=ty(e,{...n,delimiters:!1===r?[]:!0===r?L:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<l.length?l:a]:[e,a]:tz}),t=rr(tX(e,!1),([e,t])=>[e,!1!==r?1<t.length?t1(t):t[0]:t.join(\",\")]);return t&&(t[tm]=e),t},tS=(e,t)=>t&&null!=e?t.test(e):L,tx=(e,t,r)=>tT(e,t,r,!0),tT=(e,t,i,a=!1)=>null==(null!=e?e:t)?L:i?(r=L,a?(n=[],tT(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(a=e.match(t))?a:L,tI=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tA=/\\z./g,tE=(e,t)=>(t=ro(eC(eW(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tA,tN={},t$=e=>e instanceof RegExp,tO=(r,n=[\",\",\" \"])=>{var i;return t$(r)?r:eu(r)?tE(eO(r,e=>null==(e=tO(e,n))?void 0:e.source)):er(r)?r?/./g:tA:el(r)?null!=(i=(e=tN)[t=r])?i:e[t]=tT(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tE(eO(tC(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${ro(n,tI)}]`)),e=>e&&`^${ro(tC(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tI(t_(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):L},tC=(e,t,r=!0)=>null==e?L:r?tC(e,t,!1).filter(X):e.split(t),t_=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,tF=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eY(r,{push(n,i){for(var a=[n,i],l=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(a[1],d[0])<0)return l(r.splice(o,0,a));if(e(a[0],d[1])<=0){if(e(a[0],d[0])<0&&(u=d[0]=a[0]),0<e(a[1],d[1])&&(u=d[1]=a[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return l(null!=u);u=a=r.splice(o--,1)[0]}}return l(a&&(r[r.length]=a))},width:0})},tj=e=>{for(var t=e;t;)t=Object.getPrototypeOf(e=t);return e},tU=(e,t)=>{if(!e||tj(e)===t)return e;for(var r of e.document.getElementsByTagName(\"iframe\"))try{if(e=tU(r.contentWindow,t))return e}catch{}},tM=e=>null==e?e:globalThis.window?tU(window,tj(e)):globalThis,tq=!1,tz=Symbol(),tR=e=>(tq=!0,e),tP=Symbol(),tD=Symbol(),tB=Symbol.iterator,tW=(e,t,r)=>{if(null==e||e[tP])throw t;e=tM(e);if(!e)throw t;var l,i=()=>(e,t,r,n,i)=>{var a,o,l=0;for(o of e)if((a=t?t(o,l++,n,i):o)!==tz){if(a===tR)break;if(n=a,r&&r.push(a),tq){tq=!1;break}}return r||n},a=(e.Array.prototype[tP]=(e,t,r,n,i)=>{for(var l,o=0,u=e.length;o<u;o++)if(l=e[o],(l=t?t(l,o,n,i):l)!==tz){if(l===tR)break;if(n=l,r&&r.push(l),tq){tq=!1;break}}return r||n},i());for(l of(e.Object.prototype[tP]=(e,t,r,n,l)=>{if(e[tB])return(e.constructor===Object?a:Object.getPrototypeOf(e)[tP]=i())(e,t,r,n,l);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=t?t(u,s++,n,l):u)!==tz){if(u===tR)break;if(n=u,r&&r.push(u),tq){tq=!1;break}}return r||n},e.Object.prototype[tD]=function(){var t,e;return this[tB]||this[Q]?this.constructor===Object?null!=(e=this[Q]())?e:this[tB]():((e=Object.getPrototypeOf(this))[tD]=null!=(t=e[Q])?t:e[tB],this[tD]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[e.Map.prototype,e.WeakMap.prototype,e.Set.prototype,e.WeakSet.prototype,Object.getPrototypeOf(function*(){})]))l[tP]=i(),l[tD]=l[tB];return e.Number.prototype[tP]=(e,t,r,n,i)=>a(tJ(e),t,r,n,i),e.Number.prototype[tD]=tJ,e.Function.prototype[tP]=(e,t,r,n,i)=>a(tL(e),t,r,n,i),e.Function.prototype[tD]=tL,r()};function*tJ(e=this){for(var t=0;t<e;t++)yield t}function*tL(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tV=(e,t,r,n)=>{try{return e?e[tP](e,t,void 0,r,n):null==e?e:void 0}catch(i){return tW(e,i,()=>tV(e,t,r,n))}},tH=(e,t,r=[],n,i=e)=>{try{return e||0===e||\"\"===e?e[tP](e,t,r,n,i):null==e?e:void 0}catch(a){return tW(e,a,()=>tH(e,t,r,n,i))}},tK=(e,t=!0,r=!1)=>tH(e,!0===t?e=>null!=e?e:tz:t?t.has?e=>null==e||t.has(e)===r?tz:e:(e,n,i)=>!t(e,n,i)===r?e:tz:e=>e||tz),tG=(e,t,r=-1,n=[],i,a=e)=>tH(e,(e,i,a)=>null!=(t?e=t(e,i,a):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tG(e,void 0,r-1,n,e),tz):e,n,i,a),tX=(e,t,r)=>{var n,i,a,l;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tV(e,!1!==r?(a=new Map,(e,r,n)=>{void 0!==(l=t?t(e,r,n):e)[0]&&t9(a,l[0],()=>[]).push(l[1])}):(a={},(e,r,o)=>(l=t?t(e,r,o):e)&&void 0!==l[0]&&(null!=(r=(n=a)[i=l[0]])?r:n[i]=[]).push(l[1]))),a},tQ=e=>null==e||eu(e)?e:e[tB]&&\"string\"!=typeof e?[...e]:[e],t0=(e,t)=>!0===tV(e,(r,n,i)=>(t?t(r,n,i,e):r)?tq=!0:r),t1=(e,...t)=>{var r,n;for(n of e=!t.length&&eg(e)?e:[e,...t])if(null!=n){if(eg(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},t2=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),t3=Symbol(),t6=Symbol(),t4=Symbol(),t8=(e,t,r)=>{if(null==e||e[t6])throw t;var i,e=tM(e);if(!e||e.Object.prototype[t3])throw t;for({prototype:i}of[e.Map,e.WeakMap])i[t3]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},i[t6]=i.get;for({prototype:i}of[e.Set,e.WeakSet])i[t3]=function(e,t,r=!1){return t||r&&void 0===t?!this.has(e)&&!!this.add(e):this.delete(e)},i[t6]=i.has,i[t4]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for({prototype:i}of(e.Array.prototype[t4]=function(e){return this.push(...e),this},[e.Object,e.Array]))i[t3]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},i[t6]=function(e){return this[e]};return r()},t9=(e,t,r)=>{try{if(null==e)return e;var n=e[t6](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[t3](t,r));e[t3](t,n)}return n}catch(n){return t8(e,n,()=>t9(e,t,r))}},t7=(e,t,r)=>{try{return!0===(null==e?void 0:e[t3](t,r,!0))}catch(n){return t8(e,n,()=>t7(e,t,r))}},re=(e,t,r)=>{try{return e[t3](t,r),r}catch(n){return t8(e,n,()=>re(e,t,r))}},rt=(e,...t)=>{try{return null==e?e:e[t4](t)}catch(r){return t8(e,r,()=>rt(e,...t))}},rr=(e,t)=>{var r={};return tV(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==tz&&e!==tR)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==tz&&e!==tR)?r[e[0]]=e[1]:e),r},rn=(e,...t)=>{try{return(null==e?void 0:e.constructor)===Object?tV(t,t=>tV(t,t=>t&&(e[t[0]]=t[1]))):tV(t,t=>tV(t,t=>t&&e[t3](t[0],t[1]))),e}catch(r){return t8(e,r,()=>rn(e,...t))}},ri=(e,t,r={})=>{if(null!=e){var l,{deep:n=!0,overwrite:i=!0,nulls:a=!1}=r;for(l of void 0===t?[]:null!=t&&t[tB]&&\"string\"!=typeof t?t:[t])tV(l,t=>{var o,u;t&&([t,o]=t,u=e[t],(a?null==u:void 0===u)?e[t]=o:n&&(null==o?void 0:o.constructor)===Object&&(null==u?void 0:u.constructor)===Object?ri(u,o,r):i&&(e[t]=o))})}return e},ra=(e,t)=>null==e?e:rr(t,t=>void 0!==e[t]||t in e?[t,e[t]]:tz),rl=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),ro=(e,t,r)=>null==e?e:eg(e)?tK(\"function\"==typeof t?tH(e,t):(r=t,e),rl,!0).join(null!=r?r:\"\"):rl(e)?\"\":e.toString(),ru=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?ru(tH(e,t),r,n):(i=[],n=tV(e,(e,t,r)=>rl(e)?tz:(r&&i.push(r),e.toString())),[t,o]=eu(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},rs=tg(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),rd=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],rv=rr(rd,e=>[e,e]),rc=(Object.freeze(eP(rd.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),rf=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},rp={names:rd,specificNames:rd.filter(e=>\"necessary\"!==e),parse(e,{names:t=!1,includeDefault:r=!0,validate:n=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),el(e)&&(e=e.split(\",\")),eu(e)){var a,i={};for(a of e)if(a!==rb){if(!rv[a]){n&&j(`The purpose name '${a}' is not defined.`);continue}\"necessary\"!==a&&(i[a]=!0)}e=i}return t?(t=tH(e,([e,t])=>rv[e]&&t?e:tz)).length||!r?t:[\"necessary\"]:e},get all(){return{functionality:!0,marketing:!0,performance:!0,personalization:!0,security:!0}},test(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=rc(i,n))&&!t[rc(i,n)])return!1;if(e=rf(e,n),t=rf(t,n),r){for(var a in t)if(rv[a]&&t[a]&&!e[a])return!1;if(\"all\"===r)for(var a in e)if(rv[a]&&e[a]&&!t[a])return!1;return!0}var l=!1;for(a in e)if(rv[a]&&e[a]){if(t[a])return!0;l=!0}return!l}},rg=(tg(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),{anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&rp.test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=rp.parse(e.purposes,{names:!0,includeDefault:!1});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var a;return e?([e,a]=e.split(\":\"),{classification:null!=(e=rs.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=rp.parse(a,{validate:!1}))?e:{}}):t?rg.clone(t):{classification:\"anonymous\",purposes:{}}}}),rm=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),ry=e=>!(null==e||!e.patchTargetId),rb=\"@schema\",rw=Symbol(),rk=e=>void 0===e?\"undefined\":tp(JSON.stringify(e),40,!0),rS=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,rx=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,rT=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rI=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,rA=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,rE=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rk(t)+` ${r}.`}),rw),rN=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rN((t?parseInt:parseFloat)(e),t,!1),r$={},rd=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=r$[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:r$[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:rE(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rS.test(e)&&!isNaN(+new Date(e))?e:rE(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rN(e,!1,!1)){if(!rN(e,!0,!1))return rE(n,e,\"is not a valid UNIX timestamp\");e*=1}else if(!rx.test(e)||isNaN(+new Date(e)))return rE(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rN(e,!0,!1)?+e:rE(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rN(e,!0,!1)?+e:rE(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rN(e,!1,!1)?e:rE(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rI.test(e)?e:rE(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rI.exec(e);return r?r[2]?e:rE(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):rE(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rI.exec(e);return r?\"urn\"!==r[1]||r[2]?rE(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:rE(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&rA.test(e)?e.toLowerCase():rE(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:rE(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=rT.exec(e))?void 0:r[1].toLowerCase():null)?r:rE(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rk(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==rw&&e.length>d?rE(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===rw||(null==c||c<=e)&&(null==f||e<=f)?e:rE(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===rw)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+ru(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===rw||u.has(e)?e:rE(t,e,p)}(e=>null==e||e instanceof Set||new Set(e[tB]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),tg(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rC=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),r_=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},rF=((A={})[A.Success=200]=\"Success\",A[A.Created=201]=\"Created\",A[A.NotModified=304]=\"NotModified\",A[A.BadRequest=400]=\"BadRequest\",A[A.Forbidden=403]=\"Forbidden\",A[A.NotFound=404]=\"NotFound\",A[A.Conflict=409]=\"Conflict\",A[A.Error=500]=\"Error\",A),rj=(e,t=!0)=>null!=(null==e?void 0:e.value)||!t&&(!e||404===e.status),rU=(e,t=!0)=>e&&(e.status<400||!t&&404===e.status);function rM(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rq=e=>{var t=rC(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${rF[e.status]}.`:`${t} failed with status ${e.status} - ${rF[e.status]}${r?` (${r})`:\"\"}.`};class rz extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),rM(this,\"succeeded\",void 0),rM(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rU(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rU(e,!1)))?t:[]}}var rR=e=>!!e.callback,rP=e=>!!e.poll,rD=Symbol(),rB=(e,t,r,{poll:n,logCallbackError:i}={})=>{var a=eu(t)?t:[t],l=[],o=(async()=>{var s,d,u,v,c,t=await r(a.filter(e=>e)),o=[];for(u of a)u&&null!=(d=t.get(u))&&(d[rD]=u,rR(u)&&o.push([u,d,e=>!0===u.callback(e)]),rP(u))&&o.push([u,d,e=>{var t;return!rj(e,!1)||(t=!rj(e,!1)||u.poll(e.value,e[rD]===u,s),s=e.value,t)}]);for([u,v,c]of o)try{var f=\"get\"===e?async e=>!0===await c(e)&&(null==n?void 0:n(u,f)):c;await f(v)}catch(t){var p=`${e} callback for ${rC(u)} failed: ${t}.`;i?i(p,u,t):l.push(p)}return t})(),u=async(r,n)=>{var d,v,c,i=await o,u=[],s=[];for(d of a)d?null==(c=i.get(d))?s.push(`No result for ${rC(d)}.`):!r||rU(c,n||\"set\"===e)?u.push(r&&c.status===rF.NotFound?void 0:1<r?null!=(v=c.value)?v:void 0:c):s.push(rq(c)):u.push(void 0);if(s.push(...l),s.length)throw 10<s.length&&s.push(`\n(and ${s.splice(10).length} more...)`),new rz(u,s.join(\"\\n\"));return a===t?u:u[0]};return Object.assign(P(()=>u(1,!1)),{as:()=>u(1,!1),all:()=>u(0,!1),require:()=>u(1,!0),value:(e=!1)=>u(2,e),values:(e=!1)=>u(2,e)})},rW=e=>e&&\"string\"==typeof e.type,rJ=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),rL=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rV=(e,t)=>{var r;return t&&(!(l=e.get(a=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=l.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(a,t)},rH=(e,t=\"\",r=new Map)=>{if(e)return eg(e)?tV(e,e=>rH(e,t,r)):el(e)?tT(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,a,l,o,u)=>{i={tag:(n?rL(n)+\"::\":\"\")+t+rL(i),value:rL(null!=(n=null!=a?a:l)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),rV(r,i)}):rV(r,e),r},rK=tg(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rG=tg(\"variable scope\",{...rK,...rd}),rX=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rZ=e=>null!=e&&!!e.scope&&null!=rK.ranks[e.scope],rY=e=>null==e?e:[e.scope,e.key,e.entityId].join(\"\\0\"),rQ=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],entityId:e[2]}},r1=()=>()=>j(\"Not initialized.\"),r2=window,r5=document,r3=r5.body,r6=(e,t)=>!(null==e||!e.matches(t)),r4=((e=>tc=e)(!!r2.chrome),V),r8=(e,t,r=(e,t)=>r4<=t)=>{for(var n=0,i=H;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(a=e,i=t!==K&&null!=a),K),n-1)!==H&&!i;){var a,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==r5&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return a},r9=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||en(e);case\"n\":return parseFloat(e);case\"j\":return z(()=>JSON.parse(e),G);case\"h\":return z(()=>n6(e),G);case\"e\":return z(()=>null==n8?void 0:n8(e),G);default:return eu(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:r9(e,t[0])):void 0}},r7=(e,t,r)=>r9(null==e?void 0:e.getAttribute(t),r),ne=(e,t,r)=>r8(e,(e,n)=>n(r7(e,t,r))),nt=(e,t)=>null==(e=r7(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),nr=e=>null==e?void 0:e.getAttributeNames(),nn=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,ni=e=>null!=e?e.tagName:null,nl=e=>({x:eb(scrollX,e),y:eb(scrollY,e)}),no=(e,t)=>t_(e,/#.*$/,\"\")===t_(t,/#.*$/,\"\"),nu=(e,t,r=K)=>(u=ns(e,t))&&B({xpx:u.x,ypx:u.y,x:eb(u.x/r3.offsetWidth,4),y:eb(u.y/r3.offsetHeight,4),pageFolds:r?u.y/window.innerHeight:void 0}),ns=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:s,y:d}=nv(e),{x:s,y:d}):void 0,nv=(e,t=!0)=>e?(v=e.getBoundingClientRect(),o=t?nl(H):{x:0,y:0},{x:eb(v.left+o.x),y:eb(v.top+o.y),width:eb(v.width),height:eb(v.height)}):void 0,nc=(e,t,r,n={capture:!0,passive:!0})=>(t=tQ(t),ts(r,r=>tV(t,t=>e.addEventListener(t,r,n)),r=>tV(t,t=>e.removeEventListener(t,r,n)))),np=()=>({...o=nl(K),width:window.innerWidth,height:window.innerHeight,totalWidth:r3.offsetWidth,totalHeight:r3.offsetHeight}),nh=new WeakMap,ng=e=>nh.get(e),nm=(e,t=H)=>(t?\"--track-\":\"track-\")+e,ny=(e,t,r,n,i,a)=>(null==t?void 0:t[1])&&tV(nr(e),l=>{var o;return null!=(o=(c=t[0])[f=l])?o:c[f]=(a=H,!el(n=tV(t[1],([t,r,n],i)=>tS(l,t)&&(a=void 0,!r||r6(e,r))&&ex(null!=n?n:l)))||(i=e.getAttribute(l))&&!en(i)||rH(i,t_(n,/\\-/g,\":\"),r),a)}),nb=()=>{},nw=(e,t)=>{if(p===(p=nE.tags))return nb(e,t);var r=e=>e?t$(e)?[[e]]:eg(e)?e_(e,r):[ec(e)?[tO(e.match),e.selector,e.prefix]:[tO(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tG(p,([,e])=>e,1))]];(nb=(e,t)=>ny(e,n,t))(e,t)},nk=(e,t)=>ro(eF(nn(e,nm(t,K)),nn(e,nm(\"base-\"+t,K))),\" \"),nS={},nx=(e,t,r=nk(e,\"attributes\"))=>{var n;r&&ny(e,null!=(n=nS[r])?n:nS[r]=[{},tx(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tO(r||n),,t])],t),rH(nk(e,\"tags\"),void 0,t)},nT=(e,t,r=H,n)=>null!=(r=null!=(r=r?r8(e,(e,r)=>r(nT(e,t,H)),eh(r)?r:void 0):ro(eF(r7(e,nm(t)),nn(e,nm(t,K))),\" \"))?r:n&&(h=ng(e))&&n(h))?r:null,nI=(e,t,r=H,n)=>\"\"===(g=nT(e,t,r,n))||(null==g?g:en(g)),nA=(e,t,r,n)=>e&&(null==n&&(n=new Map),nx(e,n),r8(e,e=>{nw(e,n),rH(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},nE={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},nN=[],n$=[],nO=(e,t=0)=>e.charCodeAt(t),n_=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>nN[n$[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(n$[(16515072&t)>>18],n$[(258048&t)>>12],n$[(4032&t)>>6],n$[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),nj={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nU=(e=256)=>e*Math.random()|0,nq={exports:{}},{deserialize:nz,serialize:nR}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),a=0;if(t&&t.multiple)for(var l=0;l<e.length;l++)o(e[l]);else o(e);return i.subarray(0,a);function o(e,i){var c,l;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(l=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,a=new Uint8Array(e.length*(t?1:4)),l=0;l!==r;l++){var o=e.charCodeAt(l);if(o<128)a[i++]=o;else{if(o<2048)a[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++l>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(l);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+l+\" out of range\");a[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,a[i++]=o>>12&63|128}else a[i++]=o>>12|224;a[i++]=o>>6&63|128}a[i++]=63&o|128}}return t?a:a.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(l);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((l=(c=e).length)<=255?d([196,l]):d(l<=65535?[197,l>>>8,l]:[198,l>>>24,l>>>16,l>>>8,l]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<a+1){for(var t=2*i.length;t<a+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[a]=e,a++}function d(e){if(i.length<a+e.length){for(var t=2*i.length;t<a+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,a),a+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return l(1);if(205===t)return l(2);if(206===t)return l(4);if(207===t)return l(8);if(208===t)return a(1);if(209===t)return a(2);if(210===t)return a(4);if(211===t)return a(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function a(t){for(var a,r=0,i=!0;0<t--;)i?(r+=127&(a=e[n++]),128&a&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function l(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=l(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=l(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=l(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=l(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var a=e[n++];if(127<a)if(191<a&&a<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");a=(31&a)<<6|63&e[n++]}else if(223<a&&a<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");a=(15&a)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<a&&a<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+a.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");a=(7&a)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(a<=65535)i+=String.fromCharCode(a);else{if(!(a<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+a.toString(16)+\" exceeds UTF-16 reach\");a-=65536,i=(i+=String.fromCharCode(a>>10|55296))+String.fromCharCode(1023&a|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=l(t));t=l(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=a(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};nq.exports=n})(),(A=nq.exports)&&A.__esModule&&Object.prototype.hasOwnProperty.call(A,\"default\")?A.default:A),nP=\"$ref\",nD=(e,t,r)=>ep(e)?L:r?t!==L:null===t||t,nB=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,a,l,o=(e,t,n=e[t],i=nD(t,n,r)?s(n):L)=>(n!==i&&(i!==L||eu(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||eh(e)||ep(e))return L;if(ev(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(l=null==a?void 0:a.get(e)))return e[nP]||(e[nP]=l,u(()=>delete e[nP])),{[nP]:l};if(ec(e))for(var t in(null!=a?a:a=new Map).set(e,a.size+1),e)o(e,t);else!eg(e)||e instanceof Uint8Array||(!eu(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return z(()=>{var r;return t?nR(null!=(r=s(e))?r:null):z(()=>JSON.stringify(e,L,2*!!n),()=>JSON.stringify(s(e),L,2*!!n))},!0,()=>null==i?void 0:i.forEach(e=>e()))},nW=e=>{var t,r,n=e=>ev(e)?e[nP]&&(r=(null!=t?t:t=[])[e[nP]])?r:(e[nP]&&delete(t[e[nP]]=e)[nP],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(el(e)?z(()=>JSON.parse(e),()=>(console.error(\"Invalid JSON received.\",e,Error().stack),L)):null!=e?z(()=>nz(e),()=>(console.error(\"Invalid message received.\",e,Error().stack),L)):e)},nJ=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var l,o,u,i=(e,r)=>ea(e)&&!0===r?e:u(e=el(e)?new Uint8Array(tH(e.length,t=>255&e.charCodeAt(t))):t?z(()=>JSON.stringify(e),()=>JSON.stringify(nB(e,!1,n))):nB(e,!0,n),r),a=e=>null==e?L:z(()=>nW(e),L);return t?[e=>nB(e,!1,n),a,(e,t)=>i(e,t)]:([l,o,u]=(e=>{for(var t,r,n,i,a,o,l=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,a=new Uint8Array(4+t+i),n=0;n<3;a[n++]=g(nU()));for(r=0,a[n++]=g(v^16*nU(16)+i);r<t;a[n++]=g(v^e[r++]));for(;i--;)a[n++]=nU();return a}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,a=new Uint8Array(t);n<t;a[n++]=v^g(e[r++]));return a}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=er(t)?64:t,h(),[l,u]=nj[o],r=0;r<e.length;l=BigInt.asUintN(o,(l^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+l%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):l.toString(36)}]})(e),[(e,t)=>(t?X:n_)(l(nB(e,!0,n))),e=>null!=e?nW(o(e instanceof Uint8Array?e:(r&&ek(e)?a:e=>{for(var t,r=0,n=0,i=e.length,a=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)a[n++]=nN[nO(e,r++)]<<2|(t=nN[nO(e,r++)])>>4,r<i&&(a[n++]=(15&t)<<4|(t=nN[nO(e,r++)])>>2,r<i)&&(a[n++]=(3&t)<<6|nN[nO(e,r++)]);return a})(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=m?m:m=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},[nL,,]=(nJ(),nJ(null,{json:!0,decodeJson:!0}),nJ(null,{json:!0,prettify:!0})),tg=tC(\"\"+r5.currentScript.src,\"#\"),rd=tC(\"\"+(tg[1]||\"\"),\";\"),nG=tg[0],nX=rd[1]||(null==(A=tb(nG,{delimiters:!1}))?void 0:A.host),nZ=e=>!(!nX||(null==(e=tb(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nX))!==K),tg=(...e)=>t_(ro(e),/(^(?=\\?))|(^\\.(?=\\/))/,nG.split(\"?\")[0]),nQ=tg(\"?\",\"var\"),n0=tg(\"?\",\"mnt\"),n1=(tg(\"?\",\"usr\"),Symbol()),n2=Symbol(),n5=(e,t,r=K,n=H)=>{t&&(r?console.groupCollapsed:console.group)((n?\"\":tf(\"tail.js: \",\"90;3\"))+t);r=null==e?void 0:e[n2];null!=(e=r?e[n1]:e)&&console.log(ev(e)?tf(nL(e),\"94\"):eh(e)?\"\"+e:e),r&&r.forEach(([e,t,r])=>n5(e,t,r,!0)),t&&console.groupEnd()},[n3,n6]=nJ(),[n4,n8]=[r1,r1],n9=!0,[rd,ie]=ee(),ii=(...e)=>{var r,a=e.shift();console.error(e[1]instanceof Error?e[1].message:el(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=a.id)?r:a,...e)},[ia,il]=ee(),[io,iu]=ee(),is=e=>iv!==(iv=e)&&il(iv,ih(!0,!0)),id=e=>ic!==(ic=!!e&&\"visible\"===document.visibilityState)&&iu(ic,!e,ip(!0,!0)),iv=(ia(id),!0),ic=!1,ip=e7(!1),ih=e7(!1),ig=(nc(window,[\"pagehide\",\"freeze\",\"beforeunload\"],()=>is(!1)),nc(window,[\"pageshow\",\"resume\"],()=>is(!0)),nc(document,\"visibilitychange\",()=>(id(!0),ic&&is(!0))),il(iv,ih(!0,!0)),!1),im=e7(!1),[,ib]=ee(),iw=tt({callback:()=>ig&&ib(ig=!1,im(!1)),frequency:2e4,once:!0,paused:!0}),A=()=>!ig&&(ib(ig=!0,im(!0)),iw.restart()),iS=(nc(window,[\"focus\",\"scroll\"],A),nc(window,\"blur\",()=>iw.trigger()),nc(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],A),A(),()=>im()),ix=0,iT=void 0,iI=()=>(null!=iT?iT:r1())+\"_\"+iA(),iA=()=>(e9(!0)-(parseInt(iT.slice(0,-2),36)||0)).toString(36)+\"_\"+(++ix).toString(36),i$=new Map,iO={id:iT,heartbeat:e9()},iC={knownTabs:new Map([[iT,iO]]),variables:new Map},[i_,iF]=ee(),[ij,iU]=ee(),iM=r1,iq=(e,t=e9())=>{e=i$.get(el(e)?e:rY(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},iz=(...e)=>{var t=e9();return iP(tH(e,e=>(e.cache=[t],[r_(e),{...e,created:t,modified:t,version:\"0\"}])))},iR=e=>null!=(e=tH(e,e=>{var t,r;return e&&(t=rY(e[0]),(r=i$.get(t))!==e[1])?[t,e[1],r,e[0]]:tz}))?e:[],iP=e=>{var r,n,e=iR(e);null!=e&&e.length&&(r=e9(),tV(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),rn(i$,e),(n=tK(e,([,,,e])=>0<rG.compare(e.scope,\"tab\"))).length&&iM({type:\"patch\",payload:rr(n)}),iU(tH(e,([,e,t,r])=>[r,e,t]),i$,!0))},[,iB]=(rd((e,t)=>{ia(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),iT=null!=(n=null==r?void 0:r[0])?n:e9(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),i$=new Map(t1(tK(i$,([,e])=>\"view\"===(null==e?void 0:e.scope)),tH(null==r?void 0:r[1],e=>[rY(e),e])))):sessionStorage.setItem(\"_tail:state\",e([iT,tH(i$,([,e])=>e&&\"view\"!==e.scope?e:tz)]))},!0),iM=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([iT,t,r])),localStorage.removeItem(\"_tail:state\"))},nc(window,\"storage\",e=>{var a,l,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==iT||([e,{type:a,payload:l}]=e,\"query\"===a?r.active||iM({type:\"set\",payload:[tH(iC.knownTabs),tH(iC.variables)]},e):\"set\"===a&&r.active?(iC.knownTabs=new Map(l[0]),iC.variables=new Map(l[1]),i$=new Map(l[1]),r.trigger()):\"patch\"===a?(o=iR(tH(l,([e,t])=>[rQ(e),t])),rn(iC.variables,l),rn(i$,l),iU(tH(o,([,e,t,r])=>[r,e,t]),i$,!1)):\"tab\"===a&&(re(iC.knownTabs,e,l),l)&&iF(\"tab\",l,!1))});var r=tt(()=>iF(\"ready\",iC,!0),-25),n=tt({callback(){var e=e9()-1e4;tV(iC.knownTabs,([t,r])=>r[0]<e&&re(iC.knownTabs,t,void 0)),iO.heartbeat=e9(),iM({type:\"tab\",payload:iO})},frequency:5e3,paused:!0});ia(e=>(e=>{iM({type:\"tab\",payload:e?iO:void 0}),e?(r.restart(),iM({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),ee()),[iW,iJ]=ee(),iL=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?n8:n6)(localStorage.getItem(\"_tail:rq\")),a=0,l=()=>localStorage.setItem(\"_tail:rq\",(r?n4:n3)([iT,e9()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e9())&&(l(),(null==(d=i())?void 0:d[0])===iT))return 0<t&&(a=setInterval(()=>l(),t/2)),D(r,!0,()=>{clearInterval(a),localStorage.removeItem(\"_tail:rq\")});var v=to(),[d]=nc(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[tl(null!=o?o:t),v],await Promise.race(e.map(e=>eh(e)?e():e)),d()}var e;null==o&&j(\"_tail:rq could not be acquired.\")}})(),iV=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&n9;var i,a,l=!1,o=r=>{var o=eh(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iB(e,i=null!=o&&!0!==o?o:i,r,e=>(l=i===L,i=e)),!l)&&(a=n?n4(i,!0):JSON.stringify(i))};if(!r)return iL(()=>eR(1,async t=>{var l;return o(t)?400<=(l=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:a})).status?0===t?ex(j(\"Invalid response: \"+await l.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tl(200*(1+t))):(null!=(l=null!=(t=n?new Uint8Array(await l.arrayBuffer()):await l.text())&&t.length?null==(l=n?n8:JSON.parse)?void 0:l(t):L)&&iJ(l),ex(l)):ex()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[a]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&j(\"Beacon send failed.\")},tg=[\"scope\",\"key\",\"entityId\",\"source\"],iK=[...tg,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\",\"passive\"],iG=[...tg,\"value\",\"force\",\"ttl\",\"version\"],iX=Symbol(),iZ=new Map,iQ=Symbol(),i2=Symbol(),i5=[.75,.33],i3=[.25,.33],i4=e=>tH(((e,t,r)=>tQ(e).sort(\"function\"==typeof t?(e,n)=>t2(t(e),t(n),r):eu(t)?t.length?(e,n)=>{for(var i=0,a=0;a<t.length&&!i;a++)i=t2(t[a](e),t[a](n),r);return i}:(e,t)=>t2(e,t,r):(e,r)=>t2(e,r,t)))(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rC(e)}, ${rZ(e)?\"client-side memory only\":(e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${ru(rp.parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`})(null==(e=e.schema)?void 0:e.usage)})`,H]:tz),ae=(e,t=\"A\"===ni(e)&&r7(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),at=(e,t=ni(e),r=nI(e,\"button\"))=>r!==H&&(M(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&M(nt(e,\"type\"),\"button\",\"submit\")||r===K),ar=(e,t=!1)=>{var r;return{tagName:e.tagName,text:tp((null==(r=r7(e,\"title\"))?void 0:r.trim())||(null==(r=r7(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?nv(e):void 0}},ai=()=>null==S?void 0:S.clientId,aa={scope:\"shared\",key:\"referrer\"},al=(e,t)=>{k.variables.set({...aa,value:[ai(),e]}),t&&k.variables.get({scope:aa.scope,key:aa.key,poll:(r,n,i)=>!!r||(null==i?void 0:i[1])===e&&t()&&!1})},ao=e7(),au=e7(),as=1,[av,ac]=ee(),af=e=>{var t=e7(e,ao),r=e7(e,au),n=e7(e,iS),i=e7(e,()=>as);return(e,a)=>({totalTime:t(e,a),visibleTime:r(e,a),activeTime:n(e,a),activations:i(e,a)})},ap=af(),[ag,am]=ee(),ay=(e,t)=>(t&&tV(aw,t=>e(t,()=>!1)),ag(e)),ab=new WeakSet,aw=document.getElementsByTagName(\"iframe\");function aS(e){if(e){if(null!=e.units&&M(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var aT=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),aI=e=>nA(e,t=>t!==e&&!!aT(nh.get(t)),e=>(T=nh.get(e),(T=nh.get(e))&&e_(eF(T.component,T.content,T),\"tags\"))),aA=(e,t)=>t?e:{...e,rect:void 0,content:(I=e.content)&&tH(I,e=>({...e,rect:void 0}))},aE=(e,t=H,r)=>{var n,i,a,l=[],o=[],u=0;return r8(e,e=>{var d,a,i=nh.get(e);i&&(aT(i)&&(a=null!=(a=tK(tQ(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==K||(null==(r=e.track)?void 0:r.promote))}))?a:[],n=(null!=r?r:eH(a,e=>null==(e=e.track)?void 0:e.region))&&nv(e)||void 0,d=aI(e),i.content&&e4(l,...tH(i.content,e=>({...e,rect:n,...d}))),null!=a)&&a.length&&(e4(o,...tH(a,e=>{var t;return u=eL(u,null!=(t=e.track)&&t.secondary?1:2),aA({...e,content:l.length?l:void 0,rect:n,...d},!!n)})),l=[]),a=i.area||nT(e,\"area\"))&&e4(o,a)}),l.length&&e6(o,aA({id:\"\",rect:n,content:l})),tV(o,e=>{el(e)?e6(null!=i?i:i=[],e):(null==e.area&&(e.area=ro(i,\"/\")),e4(null!=a?a:a=[],e))}),a||i?{components:a,area:ro(i,\"/\")}:void 0},aN=Symbol(),a$=[{id:\"context\",setup(e){tt(()=>tV(aw,e=>t7(ab,e)&&am(e)),500).trigger(),e.variables.get({scope:\"view\",key:\"view\",poll(t){return null==S||!t||null!=S&&S.definition?null!=(n=t)&&t.navigation&&f(!0):(S.definition=t,null!=(t=S.metadata)&&t.posted?e.events.postPatch(S,{definition:n}):n5(S,S.type+\" (definition updated)\")),!0}});var n,t,d=null!=(t=null==(t=iq({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=iq({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&iz({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=iq({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=iq({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=H)=>{var a,l,o,i,p;no(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:a}=tb(location.href+\"\",{requireAuthority:!0}),S={type:\"view\",timestamp:e9(),clientId:iI(),tab:iT,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:a},tabNumber:v+1,tabViewNumber:d+1,viewport:np(),duration:ap(void 0,!0)},0===v&&(S.firstTab=K),0===v&&0===d&&(S.landingPage=K),iz({scope:\"tab\",key:\"viewIndex\",value:++d}),l=tw(location.href),tH([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return null!=(e=(null!=(n=(o=S).utm)?n:o.utm={})[e]=null==(n=tQ(l[\"utm_\"+e]))?void 0:n[0])?e:tz}),!(S.navigationType=x)&&performance&&tV(performance.getEntriesByType(\"navigation\"),e=>{S.redirects=e.redirectCount,S.navigationType=t_(e.type,/\\_/g,\"-\")}),x=void 0,\"navigate\"===(null!=(t=S.navigationType)?t:S.navigationType=\"navigate\")&&(p=null==(i=iq(aa))?void 0:i.value)&&nZ(document.referrer)&&(S.view=null==p?void 0:p[0],S.relatedEventId=null==p?void 0:p[1],e.variables.set({...aa,value:void 0})),(p=document.referrer||null)&&!nZ(p)&&(S.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=tb(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),S.definition=n,n=void 0,e.events.post(S),e.events.registerEventPatchSource(S,()=>({duration:ap()})),ac(S))};return io(e=>{e?(au(K),++as):au(H)}),nc(window,\"popstate\",()=>(x=\"back-forward\",f())),tV([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),x=\"navigate\",f()}}),f(),{processCommand:t=>a_(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),K),decorate(e){!S||rJ(e)||ry(e)||(e.view=S.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tV(e,e=>{var t,r;return null==(t=(r=e.target)[i2])?void 0:t.call(r,e)})),r=new Set,n=(tt({callback:()=>tV(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=r5.createRange();return(a,l)=>{var o,u,s,d,v,c,f,p,h,g,m,y,b,w,k,S;l&&(o=tK(null==l?void 0:l.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==K}))&&eJ(o)&&(p=f=H,g=h=0,m=(e,t,r,n)=>{var i,a=null!=(a=(i=null!=u?u:u=[])[e])?a:i[e]=[{duration:0,impressions:0},e7(!1,iS),!1,!1,0,0,0,tF()];a[4]=t,a[5]=r,a[6]=n},y=[tF(),tF()],b=af(!1),w=e7(!1,iS),k=-1,S=()=>{var $,t=a.getBoundingClientRect(),r=window.innerWidth,l=window.innerHeight,S=[n(t.top,l),n(t.right,r),n(t.bottom,l),n(t.left,r)],x=S[2]-S[0],S=S[1]-S[3],E=f?i3:i5,r=(E[0]*l<x||E[0]<(x/t.height||0))&&(E[0]*r<S||E[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=nE.impressionThreshold-250)&&(++h,b(f),s||(s=tH(o,e=>((null==(e=e.track)?void 0:e.impressions)||nI(a,\"impressions\",K,e=>null==(e=e.track)?void 0:e.impressions))&&B({type:\"impression\",pos:nu(a),viewport:np(),timeOffset:ap(),impressions:h,...aE(a,K)})||tz),e(s)),null!=s)&&s.length&&($=b(),d=tH(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:$,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:$.activeTime&&c&&n($.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;E=a.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),a=0,l=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,a+=r[0].length,6<r[0].length&&++o,++l);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*a|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:eb(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:a,words:l,sentences:u,lix:eb(l/u+100*o/l),readTime:eb(l/238*6e4),boundaries:v}})(null!=E?E:\"\"),u||t.height>=1.25*l){var C=r5.createTreeWalker(a,NodeFilter.SHOW_TEXT),_=0,F=0;for(null==u&&(u=[]);F<v.length&&(j=C.nextNode());){var j,U,M,P,D,z=null!=(U=null==(U=j.textContent)?void 0:U.length)?U:0;for(_+=z;_>=(null==(M=v[F])?void 0:M.offset);)i[F%2?\"setEnd\":\"setStart\"](j,v[F].offset-_+z),F++%2&&({top:M,bottom:P}=i.getBoundingClientRect(),D=t.top,F<3?m(0,M-D,P-D,v[1].readTime):(m(1,u[0][4],M-D,v[2].readTime),m(2,M-D,P-D,v[3].readTime)))}}}var r=t.left<0?-t.left:0,E=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=y[0].push(E,E+x)*y[1].push(r,r+S)/L),u&&tV(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>l?l:t.bottom,e[5],e[4]),a=f&&0<i-r,o=e[0];o.duration=e[1](a),a&&(e[3]!==(e[3]=a)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},a[i2]=({isIntersecting:e})=>{eY(r,S,e),e||(tV(d,e=>e()),S())},t.observe(a))}})(e),n=({boundary:e,...n})=>{eQ(nh,e,e=>{var t;return(e=>null==e?void 0:{...e,component:tQ(e.component),content:tQ(e.content),tags:tQ(e.tags)})(\"add\"in n?{...e,component:eF(null==e?void 0:e.component,n.component),content:eF(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:eF(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,nh.get(e))};return{decorate(e){tV(e.components,t=>{re(t,\"track\",void 0),tV(e.clickables,e=>re(e,\"track\",void 0))})},processCommand:e=>aU(e)?(n(e),K):aD(e)?(tV(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var a=[];null!=r7(i,e);){((e,t)=>e instanceof Set||e instanceof WeakSet?e.has(t)||e.add(t):eX(e,t)||eG(e,t,!0))(n,i);var l,o=tC(r7(i,e),\"|\");r7(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=eo(d))?s:\"\",36);if(s<0)a.length+=s;else{if(0===u&&(a.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch{}0<=s&&t[s]&&(d=t[s]),e6(a,d)}}}e6(r,...tH(a,e=>({add:K,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(l=i.parentNode)&&l.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),K):H}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{nc(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,a,l,o,u,s=H;if(r8(n.target,e=>{at(e)&&null==l&&(l=e),s=s||\"NAV\"===ni(e);var t,d=ng(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tV(e.querySelectorAll(\"a,button\"),t=>at(t)&&(3<(null!=u?u:u=[]).length?ex():u.push({...ar(t,!0),component:r8(t,(e,t,r,n=null==(i=ng(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=nI(e,\"clicks\",K,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eH(d,e=>(null==(e=e.track)?void 0:e.clicks)!==H)),null==a&&(a=null!=(t=nI(e,\"region\",K,e=>null==(e=e.track)?void 0:e.region))?t:d&&eH(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=l){var d,v=u&&!l&&i,c=aE(null!=l?l:o,!1,v),f=nA(null!=l?l:o,void 0,e=>tK(tQ(null==(e=nh.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(a=null==a?K:a)?{pos:nu(l,n),viewport:np()}:null,...((e,t)=>{var n;return r8(null!=e?e:t,e=>\"IMG\"===ni(e)||e===t?(n={element:ar(e,!1)},H):K),n})(n.target,null!=l?l:o),...c,timeOffset:ap(),...f});if(l)if(ae(l)){var h=l,c=h.hostname!==location.hostname,{host:f,scheme:y,source:b}=tb(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(B({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,x,w=B({clientId:iI(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:y},self:K,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||r7(h,\"target\")!==window.name?(al(w.clientId),w.self=H,e(w)):no(location.href,h.href)||(w.exit=w.external,al(w.clientId))):(k=h.href,(b=nZ(k))?al(w.clientId,()=>e(w)):(x=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||nE.captureContextMenu&&(h.href=n0+\"=\"+x+encodeURIComponent(k),nc(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===x&&e(w),r())),nc(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{r8(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>el(e=null==e||e!==K&&\"\"!==e?e:\"add\")&&M(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ev(e)?e:void 0)(null!=(r=null==(r=ng(e))?void 0:r.cart)?r:nT(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?L:eu(e)||el(e)?e[e.length-1]:eq(e,(e,r)=>e,void 0,void 0))(null==(r=ng(e))?void 0:r.content))&&t(d)});c=aS(d);(c||i)&&e(B(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eQ(t,o,r=>{var i=ns(o,n);return r?e6(r,i):(i=B({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),ay(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=nl(K);av(()=>{return e=()=>(t={},r=nl(K)),setTimeout(e,250);var e}),nc(window,\"scroll\",()=>{var a,n=nl(),i={x:(o=nl(H)).x/(r3.offsetWidth-window.innerWidth)||0,y:o.y/(r3.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(a=[],!t.fold&&n.y>=r.y+200&&(t.fold=K,e6(a,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=K,e6(a,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=K,e6(a,\"page-end\")),(n=tH(a,e=>B({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return aC(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=aS(r))&&e({...r,type:\"cart_updated\"}),K):aP(t)?(e({type:\"order\",...t.order}),K):H}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||ne(e,nm(\"form-value\")),e=(t&&(r=r?en(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&tp(e,200)),r?e:void 0},i=t=>{var i,l,s,a=t.form;if(a)return l=ne(a,nm(\"ref\"))||\"track_ref\",(s=t9(r,a,()=>{var t,r=new Map,n={type:\"form\",name:ne(a,nm(\"form-name\"))||r7(a,\"name\")||a.id||void 0,activeTime:0,totalTime:0,fields:{}},l=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:ap()})),()=>{1!==t[3]&&(o(),2<=t[3]&&(n.completed=3===t[3]||!(a.isConnected&&nv(a).width)),e.events.postPatch(n,{...i,completed:n.completed,totalTime:e9(K)-t[4]}),t[3]=1)}),s=((e=0)=>{var t,r,n=(i,a=e)=>{if(void 0===i)return!!r;clearTimeout(t),er(i)?i&&(a<0?ei:J)(null==r?void 0:r())?n(r,a):r=void 0:(r=i,t=setTimeout(()=>n(!0,a),a<0?-a:a))};return n})();return nc(a.ownerDocument.body,\"submit\",e=>{var r,n;i=aE(a),t[3]=3,e.defaultPrevented?([r]=ia(e=>{e||(n?n5(\"The browser is navigating to another page after submit leaving a reCAPTCHA challenge. \"+tf(\"Form not submitted\",1)):3===t[3]?(n5(\"The browser is navigating to another page after submit. \"+tf(\"Form submitted\",1)),l()):n5(\"The browser is navigating to another page after submit, but submit was earlier cancelled because of validation errors. \"+tf(\"Form not submitted.\",1)),r())}),n=!1,s(()=>{if((()=>{for(var e=a.ownerDocument;e;){if(t0(e.querySelectorAll(\"iframe\"),e=>e.src.match(RegExp(\"https:\\\\/\\\\/www.google.com\\\\/.*(?<=\\\\/)recaptcha\\\\/.*(?<=\\\\/)bframe\",\"gi\"))&&(e=>{if(!e||!e.isConnected||nv(e,!1).width<=0)return!1;for(;e;){var t=null==(t=e.ownerDocument.defaultView)?void 0:t.getComputedStyle(e);if(\"hidden\"===t.visibility||\"0\"===t.opacity)return!1;e=e.parentElement}return!0})(e)))return!0;e=z(()=>{var r;return null==(r=e.defaultView)||null==(r=r.frameElement)?void 0:r.ownerDocument},()=>{})}return!1})())return t[3]=2,n5(\"reCAPTCHA challenge is active.\"),n=!0;n&&(n=!1,n5(\"reCAPTCHA challenge ended (for better or worse).\"),t[3]=3),a.isConnected&&0<nv(a).width?(t[3]=2,n5(\"Form is still visible after 1750 ms, validation errors assumed. \"+tf(\"Form not submitted\",1))):(n5(\"Form is no longer visible 1750 ms after submit. \"+tf(\"Form submitted\",1)),l()),r()},1750)):(n5(\"Submit event triggered and default not prevented. \"+tf(\"Form submitted\",1)),l())},{capture:!1}),t=[n,r,a,0,e9(K),1]}))[1].get(t)||tV(a.querySelectorAll(\"INPUT,SELECT,TEXTAREA,BUTTON\"),(e,t)=>{var d,v,a;\"BUTTON\"===e.tagName&&\"submit\"!==e.type||(e.name&&\"hidden\"!==e.type?(a=null!=(d=(a=s[0].fields)[v=e.name])?d:a[v]={id:e.id||v,name:v,label:t_(null!=(v=null==(d=e.labels)||null==(a=d[0])?void 0:a.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[aN]:n(e),value:n(e,!0)},s[0].fields[a.name]=a,s[1].set(e,a)):\"hidden\"!==e.type||e.name!==l&&!nI(e,\"ref\")||(e.value||(e.value=t_(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value))}),[t,s]},a=(e,[r,n]=null!=(t=i(e))?t:[],a=null==n?void 0:n[1].get(r))=>a&&[n[0],a,r,n],l=null,o=()=>{var r,i,a,o,d,v,c;l&&([r,i,a,o]=l,d=-(u-(u=au())),v=-(s-(s=e9(K))),c=i[aN],(i[aN]=n(a))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=K,o[3]=2,tV(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(a,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,l=null)},u=0,s=0,d=e=>e&&nc(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(l=r,\"focusin\"===e.type?(s=e9(K),u=au()):o()));d(document),ay(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",poll:t,refresh:!t,passive:!t}).value(),i=async t=>{var r;if(t)return!(r=await n())||rg.equals(r,t)?[!1,r]:(await e.events.post(B({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},a=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=r2.dataLayer,i=t,a=null==n?void 0:n.length;if(a&&(t!==(t=n[a-1])||!t))for(;a--&&((e=n[a])!==i||!i);){var l={},o=!0;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tH(r,([t,r])=>\"granted\"===e[2][t]&&(l[r]=!0,o=o&&(\"security\"===r||\"necessary\"===r))),{classification:o?\"anonymous\":\"direct\",purposes:l}}}}}}),{});return{processCommand(e){var t,r,l,s,d;return aJ(e)?((t=e.consent.get)&&n((e,r,n)=>!e||t(e,n)),(r=e.consent.set)&&(async()=>{var e,t,n;\"consent\"in r?([t,n]=await i(r.consent),null!=(e=r.callback)&&e.call(r,t,n)):i(r)})(),(l=e.consent.externalSource)&&(d=l.key,(null!=(e=a[d])?e:a[d]=tt({frequency:null!=(e=l.frequency)?e:1e3})).restart(l.frequency,async()=>{var e,t,r;r5.hasFocus()&&(e=l.poll(s))&&!rg.equals(s,e)&&([t,r]=await i(e),t&&n5(r,\"Consent was updated from \"+d),s=e)}).trigger()),K):H}}}}],A=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),aC=A(\"cart\"),a_=A(\"username\"),aF=A(\"tagAttributes\"),aj=A(\"disable\"),aU=A(\"boundary\"),aM=A(\"extension\"),aq=A(K,\"flush\"),az=A(\"get\"),aR=A(\"listener\"),aP=A(\"order\"),aD=A(\"scan\"),aB=A(\"set\"),aW=e=>\"function\"==typeof e,aJ=A(\"consent\");(e=>{if(!k){el(e)&&([r,e]=n6(e),e=nJ(r,{decodeJson:!0})[1](e)),ri(nE,[e],{overwrite:!0}),(e=>{n8===r1&&([n4,n8]=nJ(e,{json:!e,prettify:!1}),n9=!!e,ie(n4,n8))})(e2(nE,\"encryptionKey\"));var r,l,o,u,s,d,v,c,f,p,h,g,m,i=e2(nE,\"key\"),a=null!=(e=null==(r=r2[nE.name])?void 0:r._)?e:[];if(eu(a))return l=[],o=[],u=(e,...t)=>{var r=K;o=tK(o,n=>z(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:k,unsubscribe:()=>r=H}),r},(e=>t=>ii(e,t))(n)))},s=[],v=((e,t)=>{var r=tt(async()=>{var e=tH(iZ,([e,t])=>t0(t,e=>null==(e=e[iX])?void 0:e.refresh)?{...rQ(e),refresh:!0}:tz);e.length&&await a.get(e)},3e3),n=(e,t)=>t&&!!t9(iZ,e,()=>new Set).add(t),a=(ia((e,t)=>r.toggle(e,e&&3e3<=t),!0),ij(e=>tV(e,([e,t])=>{null!=t&&t.passive?delete t.passive:(e=>{var t,r;e&&(t=rY(e),null!=(r=e2(iZ,t)))&&r.size&&tV(r,r=>!0===r(e)&&n(t,r))})(t?{status:rF.Success,...t}:{status:rF.NotFound,...e})})),{get:r=>rB(\"get\",r,async r=>{r[0]&&!el(r[0])||(l=r[0],r=r.slice(1)),null!=t&&t.validateKey(l);var o=new Map,u=[],s=tH(r,e=>{var t=iq(rY(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))o.set(e,{...e,status:rF.Forbidden,error:`No consent for '${r}'.`});else if(!e.refresh&&t)o.set(e,{status:rF.Success,...t});else{if(!rZ(e))return[ra(e,iK),e];var i,r=null==(i=e.init)?void 0:i.call(e);r?(r={...r_(e),version:\"1\",created:d,modified:d,value:r,cache:[d,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},rt(u,[r_(r),r]),o.set(e,{status:rF.Success,...r})):o.set(e,{status:rF.NotFound,...r_(e)})}return tz}),d=e9(),l=s.length&&(null==(l=await iV(e,{variables:{get:tH(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=l.variables)?void 0:r.get)||[],c=[];return tV(l,(e,t)=>{var n,r;(null==e?void 0:e.status)===rF.NotFound?null!=(r=null==(r=(n=s[t][1]).init)?void 0:r.call(n))&&c.push([n,{...r_(n),value:r}]):o.set(s[t][1],rX(e))}),c.length&&tV(await a.set(tH(c,([,e])=>e)).all(),(e,t)=>o.set(c[t][0],rX(e.status===rF.Conflict?{...e,status:rF.Success}:e.status===rF.Success&&null==e.value?{...e,status:rF.NotFound}:e))),u.length&&iP(u),o},{poll:(e,t)=>(t[iX]=e,n(rY(e),t)),logCallbackError:(e,t,r)=>ii(\"Variables.get\",e,{operation:t,error:r})}),set:r=>rB(\"set\",r,async r=>{r[0]&&!el(r[0])||(n=r[0],r=r.slice(1)),null!=t&&t.validateKey(n);for(var n,i,l=[],o=new Map,u=e9(),s=[],d=tH(r,e=>{var i,r,t=iq(rY(e));return rZ(e)?((r=null==(i=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...r_(e),created:null!=(r=null==t?void 0:t.created)?r:u,modified:u,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:i,cache:[u,e.ttl]})&&(r.cache=[u,null!=(i=e.ttl)?i:3e3]),o.set(e,r?{status:t?rF.Success:rF.Created,...r}:{status:rF.Success,...r_(e)}),rt(l,[r_(e),r]),tz):e.patch?(s.push(e),tz):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[ra(e,iG),e])}),v=0;!v++||s.length;)tV(await a.get(tH(s,e=>r_(e))).all(),(e,t)=>{var r=s[t];rU(e,!1)?rt(d,[{...r,patch:void 0,value:s[t].patch(null==e?void 0:e.value),version:e.version},r]):o.set(r,e)}),s=[],tV(d.length?(e=>null!=e?e:j(\"No result.\",e=>TypeError(e.replace(\"...\",\" is required.\"))))(null==(i=(await iV(e,{variables:{set:tH(d,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:i.set):[],(e,t)=>{var[,t]=d[t];v<=3&&t.patch&&((null==e?void 0:e.status)===rF.Conflict||(null==e?void 0:e.status)===rF.NotFound)?rt(s,t):o.set(t,rX(e))});return l.length&&iP(l),o},{logCallbackError:(e,t,r)=>ii(\"Variables.set\",e,{operation:t,error:r})})});return iW(({variables:e})=>{e&&null!=(e=t1(tH(e.get,e=>rj(e)?e:tz),tH(e.set,e=>rU(e)?e:tz)))&&e.length&&iP(tH(e,e=>[r_(e),rU(e)?e:void 0]))}),a})(nQ,d={applyEventExtensions(e){return null==e.clientId&&(e.clientId=iI()),null==e.timestamp&&(e.timestamp=e9()),h=K,tV(l,([,t])=>{var r;return(null==(r=t.decorate)?void 0:r.call(t,e))===H&&tR(!0)})?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&j(`'${e}' is not a valid key.`)}),c=((e,t,r=5e3)=>{var n=[],i=new WeakMap,a=new Map,l=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eZ(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):j(\"Source event not queued.\")},o=e=>{i.set(e,e3(e))},u=async(r,n=!0,i)=>{var a;return r[0]&&!el(r[0])||(a=r[0],r=r.slice(1)),r=tH(r,e=>{if(null!=t&&t.validateKey(null!=a?a:e.key),eZ(e,{metadata:{posted:!0}}),e[iQ]){if(tV(e[iQ],(t,r,n)=>!1===t(e)||n,!1))return;delete e[iQ]}return eZ(rm(e3(e),!0),{timestamp:e.timestamp-e9()})}),n5({[n2]:tH(r,e=>[e,e.type,H])},\"Posting \"+ru([tv(\"new event\",[eJ(r,e=>!ry(e))||void 0]),tv(\"event patch\",[eJ(r,e=>ry(e))||void 0])])+(n?\" asynchronously\":\" synchronously\")+\".\"),iV(e,{events:r,variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},s=async(e,{flush:r=!1,async:i=!0,variables:a}={})=>{var l=[];if(e=tH(tQ(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e6(l,e),null!=(r=ri(t.applyEventExtensions(e),{metadata:{queued:!0}}))?r:tz}),tV(l,e=>n5(e,e.type)),!i)return u(e,!1,a);r?(n.length&&e4(e,...n.splice(0)),e.length&&await u(e,!0,a)):e.length&&e6(n,...e)};return 0<r&&tt(()=>s([],{flush:!0}),r),io((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=tH(a,([e,t])=>{var[t,n]=t();return n&&(a.delete(e),i.delete(e)),null!=t?t:tz}),n.length||e.length)&&s(eF(n.splice(0),e),{flush:!0})}),{post:s,postPatch:(e,t,r)=>s(l(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var u=!1,d=()=>{u=!0};return o(e),((e,t)=>{(null!=(e=(b=e)[w=iQ])?e:b[w]=new Set).add(t)})(e,o),a.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))d();else{var a=i.get(e),o=t(a,d),[o,v]=(n5({diff:{snapshot:a,patched:o},stack:Error().stack},\"Patch \"+a.type),null!=(o=e8(o,a))?o:[]);if(o&&!U(v,a))return i.set(e,e3(v)),[l(e,o),u]}return[void 0,u]}),r&&s(e),d}}})(nQ,d),f=null,p=0,g=h=H,m=!1,k=(...e)=>{if(m){if(e.length){1<e.length&&(!e[0]||el(e[0]))&&(t=e[0],e=e.slice(1)),el(e[0])&&(r=e[0],e=ek(r)?JSON.parse(r):n6(r));var t,n=H;if((e=tK(tG(e,e=>el(e)?n6(e):e),e=>{if(!e)return H;if(aF(e))nE.tags=eY({},nE.tags,e.tagAttributes);else{if(aj(e))return nE.disabled=e.disable,H;if(aq(e))return n=K,H;if(aW(e))return e(k),H}return g||aR(e)||aM(e)?K:(s.push(e),H)})).length||n){var r=eK(e,e=>aM(e)?-100:aR(e)?-50:aB(e)?-10:90*!!rW(e));if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var y=f[p];y&&(d.validateKey(null!=t?t:y.key),z(()=>{var e=f[p];if(u(\"command\",e),h=H,rW(e))c.post(e);else if(az(e))v.get(tQ(e.get));else if(aB(e))v.set(tQ(e.set));else if(aR(e))e6(o,e.listener);else if(aM(e))(t=z(()=>e.extension.setup(k),t=>ii(e.extension.id,t)))&&(e6(l,[null!=(r=e.priority)?r:100,t,e.extension]),eK(l,([e])=>e));else if(aW(e))e(k);else{var r,n,t,a=H;for([,t]of l)if(a=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:H)break;a||ii(\"invalid-command\",e,\"Loaded extensions:\",tH(l,e=>e[2].id))}},e=>ii(k,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else a.push(...e)},Object.defineProperty(r2,nE.name,{value:Object.freeze(Object.assign(k,{id:\"tracker_\"+iI(),events:c,variables:v,__isTracker:K})),configurable:!1,writable:!1}),ij((e,t,r)=>{var n=eF(i4(tH(e,([,e])=>e||tz)),[[{[n2]:i4(tH(t,([,e])=>e||tz))},\"All variables\",K]]);n5({[n2]:n},tf(`Variables changed${r?\"\":\" - merging changes from another tab\"} (${e.length} changed, ${eJ(t)} in total).`,\"2;3\"))}),i_(async(e,t,r,n)=>{var l;\"ready\"===e&&([e,l]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:V}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||((e=>{e(B({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==S?void 0:S.clientId,languages:tH(navigator.languages,(e,t)=>{var[r,n]=e.split(\"-\");return B({id:e,language:r,region:n,primary:0===t,preference:t+1})}),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...(r=null==r2?void 0:r2.screen,r?({width:r,height:i,orientation:a}=r,l=r<i,-90!==(a=null!=(a=null!=(a=null==a?void 0:a.angle)?a:r2.orientation)?a:0)&&90!==a||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:r2.devicePixelRatio,width:r,height:i,landscape:l}}):{})}));var i,l,a,r})(k),e.hasUserAgent=!0),g=!0,s.length&&k(s),n(),m=!0,k(...tH(a$,e=>({extension:e})),...a),k({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0);j(`The global variable for the tracker \"${nE.name}\" is used for something else than an array of queued commands.`)}})(\"{{CONFIG}}\")})();\n//# sourceMappingURL=tail.debug.js.map\n"
 };
 
 function _define_property$9(obj, key, value) {
@@ -7720,7 +7656,6 @@ class RequestHandler {
                 var _storage, _storage1, _storage2, _ref, _session, _storage3, _ref1, _device;
                 // Initialize extensions. Defaults + factories.
                 this._extensions = [
-                    Timestamps,
                     new TrackerCoreEvents(),
                     new CommerceExtension(),
                     ...filter2(await Promise.all(this._extensionFactories.map(async (factory)=>{
@@ -7849,7 +7784,6 @@ class RequestHandler {
         const context = {
             passive: !!(options === null || options === void 0 ? void 0 : options.passive)
         };
-        let events = eventBatch;
         await this.initialize();
         let parsed = this._validateEvents(tracker, eventBatch);
         const sourceIndices = new Map();
@@ -7875,31 +7809,68 @@ class RequestHandler {
             }
             return events;
         }
+        const validateServerEvents = async (parsed, timestamp, fromClient)=>{
+            const results = [];
+            for (const result of parsed){
+                if (!isValidationError(result)) {
+                    var _result;
+                    if (result.timestamp) {
+                        if (result.timestamp > 0) {
+                            // Allow events with any timestamp to be posted from trusted contexts.
+                            if (fromClient && !tracker.trustedContext) {
+                                results.push({
+                                    error: "When explicitly specified, timestamps are interpreted relative to current. As such, a positive value would indicate that the event happens in the future which is currently not supported.",
+                                    source: result
+                                });
+                                continue;
+                            }
+                        } else {
+                            result.timestamp = timestamp + result.timestamp;
+                        }
+                    } else {
+                        result.timestamp = timestamp;
+                    }
+                    var _id;
+                    (_id = (_result = result).id) !== null && _id !== void 0 ? _id : _result.id = await tracker.env.nextId();
+                }
+                results.push(result);
+            }
+            return results;
+        };
         const patchExtensions = this._extensions.filter((ext)=>ext.patch);
         const callPatch = async (index, results)=>{
+            if (!tracker.session) return [];
+            let timestamp = now();
+            const validated = await validateServerEvents(this._validateEvents(tracker, results), timestamp, !index);
+            const events = collectValidationErrors(validated);
             const extension = patchExtensions[index];
-            const events = collectValidationErrors(this._validateEvents(tracker, results));
             if (!extension) return events;
             try {
-                return collectValidationErrors(this._validateEvents(tracker, await extension.patch(events, async (events)=>{
+                const extensionEvents = await extension.patch({
+                    events
+                }, async (events)=>{
                     return await callPatch(index + 1, events);
-                }, tracker, context)));
+                }, tracker, context);
+                timestamp = now();
+                return collectValidationErrors(await validateServerEvents(this._validateEvents(tracker, extensionEvents), timestamp, false));
             } catch (e) {
                 this._logExtensionError(extension, "update", e);
                 return events;
             }
         };
-        eventBatch = await callPatch(0, parsed);
+        const patchedEventBatch = await callPatch(0, parsed);
         const extensionErrors = {};
         if (options.routeToClient) {
             // TODO: Find a way to push these. They are for external client-side trackers.
-            tracker._clientEvents.push(...events);
+            tracker._clientEvents.push(...patchedEventBatch);
         } else {
             await Promise.all(this._extensions.map(async (extension)=>{
                 try {
                     var _extension_post;
                     var _ref;
-                    (_ref = await ((_extension_post = extension.post) === null || _extension_post === void 0 ? void 0 : _extension_post.call(extension, eventBatch, tracker, context))) !== null && _ref !== void 0 ? _ref : Promise.resolve();
+                    (_ref = await ((_extension_post = extension.post) === null || _extension_post === void 0 ? void 0 : _extension_post.call(extension, {
+                        events: patchedEventBatch
+                    }, tracker, context))) !== null && _ref !== void 0 ? _ref : Promise.resolve();
                 } catch (e) {
                     extensionErrors[extension.id] = e instanceof Error ? e : new Error(e === null || e === void 0 ? void 0 : e.toString());
                 }
@@ -8567,25 +8538,28 @@ class Tracker {
                 const cookieName = this._requestHandler._cookieNames.deviceByPurpose[purposeName];
                 const cookieValue = (_this_cookies_cookieName = this.cookies[cookieName]) === null || _this_cookies_cookieName === void 0 ? void 0 : _this_cookies_cookieName.value;
                 if (cookieName && cookieValue) {
-                    var _this_cookies_cookieName1;
-                    const decrypted = await this._decryptCookie((_this_cookies_cookieName1 = this.cookies[cookieName]) === null || _this_cookies_cookieName1 === void 0 ? void 0 : _this_cookies_cookieName1.value, ` ${purposeName} device variables`);
-                    if (!decrypted) {
+                    const decrypted = await this._decryptCookie(cookieValue, ` ${purposeName} device variables`);
+                    if (!decrypted || !Array.isArray(decrypted)) {
                         // Deserialization error. Remove the cookie.
                         this.cookies[cookieName] = {};
-                    }
-                    for (let value of decrypted){
-                        var _deviceCache, _ref, _value_;
-                        var _tryConvertLegacyDeviceVariable;
-                        value = (_tryConvertLegacyDeviceVariable = tryConvertLegacyDeviceVariable(value)) !== null && _tryConvertLegacyDeviceVariable !== void 0 ? _tryConvertLegacyDeviceVariable : value;
-                        var _variables, _;
-                        (_ = (_ref = (_variables = (_deviceCache = deviceCache).variables) !== null && _variables !== void 0 ? _variables : _deviceCache.variables = {})[_value_ = value[0]]) !== null && _ !== void 0 ? _ : _ref[_value_] = {
-                            scope: "device",
-                            key: value[0],
-                            version: value[1],
-                            value: value[2],
-                            created: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
-                            modified: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now()
-                        };
+                    } else {
+                        for (let value of decrypted){
+                            var _deviceCache, _ref, _value_;
+                            if (!value || !Array.isArray(value)) {
+                                continue;
+                            }
+                            var _tryConvertLegacyDeviceVariable;
+                            value = (_tryConvertLegacyDeviceVariable = tryConvertLegacyDeviceVariable(value)) !== null && _tryConvertLegacyDeviceVariable !== void 0 ? _tryConvertLegacyDeviceVariable : value;
+                            var _variables, _;
+                            (_ = (_ref = (_variables = (_deviceCache = deviceCache).variables) !== null && _variables !== void 0 ? _variables : _deviceCache.variables = {})[_value_ = value[0]]) !== null && _ !== void 0 ? _ : _ref[_value_] = {
+                                scope: "device",
+                                key: value[0],
+                                version: value[1],
+                                value: value[2],
+                                created: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
+                                modified: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now()
+                            };
+                        }
                     }
                 }
             }
@@ -8997,26 +8971,22 @@ class Tracker {
             const splits = {};
             if ((_this__clientDeviceCache = this._clientDeviceCache) === null || _this__clientDeviceCache === void 0 ? void 0 : _this__clientDeviceCache.touched) {
                 // We have updated device data and need to refresh to get whatever other processes may have written (if any).
-                await consumeQueryResults((cursor)=>this.query({
-                        scope: "device"
-                    }, {
-                        cursor
-                    }), (variables)=>{
-                    forEach2(variables, (variable)=>{
-                        var _variable_schema;
-                        forEach2(DataPurposes.parse((_variable_schema = variable.schema) === null || _variable_schema === void 0 ? void 0 : _variable_schema.usage.purposes, {
-                            names: true
-                        }), (purpose)=>{
-                            var _splits, _purpose;
-                            var _;
-                            return ((_ = (_splits = splits)[_purpose = purpose]) !== null && _ !== void 0 ? _ : _splits[_purpose] = []).push([
-                                variable.key,
-                                variable.version,
-                                variable.value
-                            ]);
-                        });
+                for await (const variable of iterateQueryResults(this, {
+                    scope: "device"
+                })){
+                    var _variable_schema;
+                    forEach2(DataPurposes.parse((_variable_schema = variable.schema) === null || _variable_schema === void 0 ? void 0 : _variable_schema.usage.purposes, {
+                        names: true
+                    }), (purpose)=>{
+                        var _splits, _purpose;
+                        var _;
+                        return ((_ = (_splits = splits)[_purpose = purpose]) !== null && _ !== void 0 ? _ : _splits[_purpose] = []).push([
+                            variable.key,
+                            variable.version,
+                            variable.value
+                        ]);
                     });
-                });
+                }
             }
             const isAnonymous = this.consent.classification === "anonymous";
             if (isAnonymous) {
@@ -10955,6 +10925,14 @@ const DEFAULT_USAGE = {
     visibility: "public",
     ...DataUsage.anonymous
 };
+const invalidVariableKeyToErrorResult = (key)=>{
+    const errorMessage = validateVariableKeySyntax(key);
+    return errorMessage ? {
+        status: VariableResultStatus.BadRequest,
+        ...key,
+        error: errorMessage
+    } : undefined;
+};
 class VariableStorageCoordinator {
     _getTypeResolver({ scope, source }) {
         var _this__storageTypeResolvers_get;
@@ -11001,6 +10979,11 @@ class VariableStorageCoordinator {
             let pendingGetters = [];
             let index = 0;
             for (const getter of getters){
+                const syntaxErrorResult = invalidVariableKeyToErrorResult(getter);
+                if (syntaxErrorResult) {
+                    results.set(getter, syntaxErrorResult);
+                    continue;
+                }
                 try {
                     validateEntityId(getter, context);
                 } catch (error) {
@@ -11160,6 +11143,11 @@ class VariableStorageCoordinator {
             const pendingSetters = [];
             let index = 0;
             for (const setter of setters){
+                const syntaxErrorResult = invalidVariableKeyToErrorResult(setter);
+                if (syntaxErrorResult) {
+                    results.set(setter, syntaxErrorResult);
+                    continue;
+                }
                 let type;
                 try {
                     validateEntityId(setter, context);
