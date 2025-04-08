@@ -319,8 +319,8 @@ export const deferredPromise = <T>(
 export const formatError = (error: any, includeStackTrace?: boolean): string =>
   !error
     ? "(unspecified error)"
-    : includeStackTrace && error.stack
-    ? `${formatError(error, false)}\n${error.stack}`
+    : includeStackTrace && error?.stack
+    ? `${formatError(error, false)}\n${error?.stack}`
     : error.message
     ? `${error.name}: ${error.message}`
     : "" + error;

@@ -1,20 +1,19 @@
 import { createApi } from "@tailjs/next/server";
-// import { RavenDbExtension } from "@tailjs/ravendb";
 import { DefaultLogger } from "@tailjs/node";
 import { CosmosDbExtension } from "@tailjs/cosmosdb";
 
-// let ravenDb = null;
-// import { connection } from "../../packages/@tailjs/ravendb/tests/connection.local";
-// ravenDb = new RavenDbExtension({
-//   ...connection,
-//   x509: {
-//     cert: process.env.RAVENDB_CERT!,
-//     key: process.env.RAVENDB_KEY,
-//   },
-// });
-
-import { cosmosSettings } from "./cosmos.local";
-const cosmosDb = new CosmosDbExtension(cosmosSettings);
+let cosmosDb: CosmosDbExtension | undefined;
+if (process.env.COSMOS_ENDPOINT) {
+  cosmosDb = new CosmosDbExtension({
+    endpoint: process.env.COSMOS_ENDPOINT!,
+    key: process.env.COSMOS_KEY!,
+    database: process.env.COSMOS_DATABASE!,
+  });
+} else {
+  console.error(
+    "Environment variables for Cosmos DB not found. Tracked data is not stored."
+  );
+}
 
 export default createApi({
   debugScript: true,

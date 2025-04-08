@@ -268,6 +268,9 @@ importers:
 
   examples/next:
     dependencies:
+      '@sitecore-search/react':
+        specifier: 2.5.5
+        version: 2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@tailjs/client':
         specifier: workspace:*
         version: link:../../packages/@tailjs/client/dist
@@ -406,12 +409,10 @@ importers:
       '@tailjs/util':
         specifier: workspace:*
         version: link:../util/dist
+    devDependencies:
       '@types/node':
         specifier: ^22.13.9
         version: 22.13.9
-      semaphore-async-await:
-        specifier: ^1.5.1
-        version: 1.5.1
     publishDirectory: dist
 
   packages/@tailjs/engine:
@@ -3156,6 +3157,31 @@ packages:
     resolution: {integrity: sha512-KpjniPTHs0vFEpN6tRdaT4QtQiREVHyyEo3PCaSB4uwCuJ3CBJPT94EoftVCbUfCKPIm8vqQyA6hgsFmjsO5LA==}
     engines: {node: '>=18'}
 
+  '@sitecore-search/common@2.5.5':
+    resolution: {integrity: sha512-oFfe6OQ1ffdnkHCg1cRy/hswNLQs55eoNs2QH+e/hEL3zZ2KX+M8SDwOhib0x1MmzZVT8HbAqhgFjtqyfoQlng==}
+    engines: {node: '>=16'}
+
+  '@sitecore-search/core@2.5.5':
+    resolution: {integrity: sha512-Z3fztwPmiSHNYx1q6e0Wgf9ZgunzhwiwYqj1WSvp7x2yCzQeNifzQBiDFuPG7vKo421X9AWCOkfde6jE0sWYMg==}
+    engines: {node: '>=16'}
+
+  '@sitecore-search/data@2.5.5':
+    resolution: {integrity: sha512-Mwmv4fiV+YbRrXMRofyss2C44qHbkGkxD6GTj1o6as+W62IkDCm1pCLBOrjrchG0kx7NlgGrNBqKpNR0+QYdzw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      ordercloud-javascript-sdk: ^5
+
+  '@sitecore-search/react@2.5.5':
+    resolution: {integrity: sha512-DdnURbqfcUb8LGAumxmNYehU9YglEgVBGeMcnsek+0wmQeWgvyZewpEDLyhyheQGH05I9ottR/K3ZSfezmTHLQ==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0|| ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0|| ^18.0.0
+
+  '@sitecore-search/widgets@2.5.5':
+    resolution: {integrity: sha512-4nrzz2Zd7PExdwslrmWLtb+jPMl98xf16i0yNDfqzzzNl4NDdaS0rdWCEpRABLRa06cya7kr63INPV047mJb4w==}
+    engines: {node: '>=16'}
+
   '@sitecore/byoc@0.2.16':
     resolution: {integrity: sha512-uLZP898SzfqpFsl+87tNZZ2K0xj/yM+btIAQKJkAP49sPd1vOTXRjGD79vcvbcXSuA1JEil4BKNOWNAVLyxI9A==}
 
@@ -3261,6 +3287,21 @@ packages:
 
   '@swc/types@0.1.17':
     resolution: {integrity: sha512-V5gRru+aD8YVyCOMAjMpWR1Ui577DD5KSJsHP8RAxopAH22jFz6GZd/qxqjO6MJHQhcsjvjOFXyDhyLQUnMveQ==}
+
+  '@tanstack/query-core@4.36.1':
+    resolution: {integrity: sha512-DJSilV5+ytBP1FbFcEJovv4rnnm/CokuVvrBEtW/Va9DvuJ3HksbXUJEpI0aV1KtuL4ZoO9AVE6PyNLzF7tLeA==}
+
+  '@tanstack/react-query@4.36.1':
+    resolution: {integrity: sha512-y7ySVHFyyQblPl3J3eQBWpXZkliroki3ARnBKsdJchlgt7yJLRDUcf4B8soufgiYt3pEQIkBWBx1N9/ZPIeUWw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
 
   '@tanstack/react-virtual@3.11.2':
     resolution: {integrity: sha512-OuFzMXPF4+xZgx8UzJha0AieuMihhhaWG0tCqpp6tDzlFwOmNBPYMuLOtMJ1Tr4pXLHmgjcWhG6RlknY2oNTdQ==}
@@ -4059,6 +4100,9 @@ packages:
     resolution: {integrity: sha512-fnULvOpxnC5/Vg3NCiWelDsLiUc9bRwAPs/+LfTLNvetFCtCTN+yQz15C/fs4AwX1R9K5GLtLfn8QW+dWisaAw==}
     engines: {node: '>=0.11'}
 
+  debounce-promise@3.1.2:
+    resolution: {integrity: sha512-rZHcgBkbYavBeD9ej6sP56XfG53d51CD4dnaw989YX/nZ/ZJfgRx/9ePKmTNiUiyQvh4mtrMoS3OAWW+yoYtpg==}
+
   debug@2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
     peerDependencies:
@@ -4202,6 +4246,10 @@ packages:
 
   dot-case@2.1.1:
     resolution: {integrity: sha512-HnM6ZlFqcajLsyudHq7LeeLDr2rFAVYtDv/hV5qchQEidSck8j9OPUsXY9KwJv/lHMtYlX4DjRQqwFYa+0r8Ug==}
+
+  dot-prop@8.0.2:
+    resolution: {integrity: sha512-xaBe6ZT4DHPkg0k4Ytbvn5xoxgpG0jOS1dYxSOwAHPuNLjP3/OzN0gH55SrLqpx8cBfSaVt91lXYkApjb+nYdQ==}
+    engines: {node: '>=16'}
 
   dotenv@16.4.7:
     resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
@@ -4426,6 +4474,10 @@ packages:
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
     engines: {node: '>=8'}
+
+  filter-obj@5.1.0:
+    resolution: {integrity: sha512-qWeTREPoT7I0bifpPUXtxkZJ1XJzxWtfoWWkdVGqa+eCr3SHW/Ocp89o8vLvbUuQnadybJpjOKu4V+RwO6sGng==}
+    engines: {node: '>=14.16'}
 
   finalhandler@1.3.1:
     resolution: {integrity: sha512-6BN9trH7bp3qvnrRyzsBz+g3lZxTNZTbVO2EV1CS0WIcDbawYVdYvGflME/9QP0h0pYlCDBCTjYa9nZzMDpyxQ==}
@@ -4691,6 +4743,9 @@ packages:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
     engines: {node: ^16.14.0 || >=18.0.0}
 
+  htm@3.1.1:
+    resolution: {integrity: sha512-983Vyg8NwUE7JkZ6NmOqpCZ+sh1bKv2iYTlUkzlWmA5JD2acKoxd4KVxbMmxX/85mtfdnDmTFoNKcg5DGAvxNQ==}
+
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
@@ -4932,6 +4987,10 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  isobject@3.0.1:
+    resolution: {integrity: sha512-WhB9zCku7EGTj/HQQRz5aUQEUeoQZH2bWcltRErOpymJ4boYE6wL9Tbr23krRPSZ+C5zqNSrSw+Cc7sZZ4b7vg==}
+    engines: {node: '>=0.10.0'}
+
   istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}
     engines: {node: '>=8'}
@@ -5107,6 +5166,9 @@ packages:
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
+
+  js-sha256@0.9.0:
+    resolution: {integrity: sha512-sga3MHh9sgQN2+pJ9VYZ+1LPwXOxuBJBA5nrR5/ofPfuiJBE2hnjsaN8se8JznOmGLN2p49Pe5U/ttafcs/apA==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -5646,6 +5708,10 @@ packages:
     resolution: {integrity: sha512-cmopxi8VwRIAw/fkijJohSfpef5PdN0pMQJN6VC/ZKvn0LIknWD8KtgY6KlQdEc4tIjcQ3HxSMmnvtzIscdaYQ==}
     engines: {node: '>= 0.4'}
 
+  object.pick@1.3.0:
+    resolution: {integrity: sha512-tqa/UMy/CCoYmj+H5qc07qvSL9dqcs/WZENZ1JbtWBlATP+iVOe778gE6MSijnyCnORzDuX6hU+LA4SZ09YjFQ==}
+    engines: {node: '>=0.10.0'}
+
   object.values@1.2.1:
     resolution: {integrity: sha512-gXah6aZrcUxjWg2zR2MwouP2eHlCBzdV4pygudehaKXSGW4v2AsRQUK+lwwXhii6KFZcunEnmSUoYp5CXibxtA==}
     engines: {node: '>= 0.4'}
@@ -5678,6 +5744,12 @@ packages:
   ora@8.0.1:
     resolution: {integrity: sha512-ANIvzobt1rls2BDny5fWZ3ZVKyD6nscLvfFRpQgfWsythlcsVUC9kL0zq6j2Z5z9wwp1kd7wpsD/T9qNPVLCaQ==}
     engines: {node: '>=18'}
+
+  ordercloud-javascript-sdk@5.3.0:
+    resolution: {integrity: sha512-pw5IB2Oze91JSMjFhWq/3JEZ6uYNQBNQE6XFFLNiY+UOM6Ut1HrD4AlY553oR3dV+70YIl+OD9ybDL2btoEFsg==}
+    engines: {node: '>=0.10'}
+    peerDependencies:
+      axios: ^1.1.3
 
   os-browserify@0.3.0:
     resolution: {integrity: sha512-gjcpUc3clBf9+210TRaDWbf+rZZZEshZ+DlXMRCeAjp0xhTrnQsKHypIy1J3d5hKdUzj69t708EHtU8P6bUn0A==}
@@ -5980,6 +6052,11 @@ packages:
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
+
+  react-intersection-observer@8.34.0:
+    resolution: {integrity: sha512-TYKh52Zc0Uptp5/b4N91XydfSGKubEhgZRtcg1rhTKABXijc4Sdr1uTp5lJ8TN27jwUsdXxjHXtHa0kPj704sw==}
+    peerDependencies:
+      react: ^15.0.0 || ^16.0.0 || ^17.0.0|| ^18.0.0
 
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
@@ -6757,6 +6834,10 @@ packages:
     resolution: {integrity: sha512-yGSza74xk0UG8k+pLh5oeoYirvIiWo5t0/o3zHHAO2tRDiZcxWP7fywNlXhqb6/r6sWvwi+RsyQMWhVLe4BVuA==}
     engines: {node: '>=10'}
 
+  type-fest@3.13.1:
+    resolution: {integrity: sha512-tLq3bSNx+xSpwvAJnzrK0Ep5CLNWjvFTOp71URMaAEWBfRb9nnJiBoUe0tF8bI4ZFO3omgBR6NvnbzVUT3Ly4g==}
+    engines: {node: '>=14.16'}
+
   type-is@1.6.18:
     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
     engines: {node: '>= 0.6'}
@@ -6849,6 +6930,11 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  use-sync-external-store@1.5.0:
+    resolution: {integrity: sha512-Rb46I4cGGVBmjamjphe8L/UnvJD+uPPtTkNvX5mZgqdbavhI4EbgIWJiIHXJ8bc/i9EQGPRh4DwEURJ552Do0A==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   username-sync@1.0.3:
     resolution: {integrity: sha512-m/7/FSqjJNAzF2La448c/aEom0gJy7HY7Y509h6l0ePvEkFictAGptwWaj1msWJ38JbfEDOUoE8kqFee9EHKdA==}
@@ -10404,6 +10490,48 @@ snapshots:
       - encoding
       - supports-color
 
+  '@sitecore-search/common@2.5.5':
+    dependencies:
+      dot-prop: 8.0.2
+      filter-obj: 5.1.0
+      object.pick: 1.3.0
+
+  '@sitecore-search/core@2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))':
+    dependencies:
+      '@sitecore-search/common': 2.5.5
+      '@sitecore-search/data': 2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))
+      debounce-promise: 3.1.2
+    transitivePeerDependencies:
+      - ordercloud-javascript-sdk
+
+  '@sitecore-search/data@2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))':
+    dependencies:
+      '@sitecore-search/common': 2.5.5
+      js-sha256: 0.9.0
+      ordercloud-javascript-sdk: 5.3.0(axios@1.7.9)
+
+  '@sitecore-search/react@2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      '@sitecore-search/common': 2.5.5
+      '@sitecore-search/core': 2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))
+      '@sitecore-search/data': 2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))
+      '@sitecore-search/widgets': 2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))
+      '@tanstack/react-query': 4.36.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      htm: 3.1.1
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
+      react-intersection-observer: 8.34.0(react@19.0.0)
+    transitivePeerDependencies:
+      - ordercloud-javascript-sdk
+      - react-native
+
+  '@sitecore-search/widgets@2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))':
+    dependencies:
+      '@sitecore-search/core': 2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))
+      '@sitecore-search/data': 2.5.5(ordercloud-javascript-sdk@5.3.0(axios@1.7.9))
+    transitivePeerDependencies:
+      - ordercloud-javascript-sdk
+
   '@sitecore/byoc@0.2.16(react@19.0.0)':
     dependencies:
       '@rjsf/utils': 5.24.8(react@19.0.0)
@@ -10504,6 +10632,16 @@ snapshots:
   '@swc/types@0.1.17':
     dependencies:
       '@swc/counter': 0.1.3
+
+  '@tanstack/query-core@4.36.1': {}
+
+  '@tanstack/react-query@4.36.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      '@tanstack/query-core': 4.36.1
+      react: 19.0.0
+      use-sync-external-store: 1.5.0(react@19.0.0)
+    optionalDependencies:
+      react-dom: 19.0.0(react@19.0.0)
 
   '@tanstack/react-virtual@3.11.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
@@ -11447,6 +11585,8 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.26.7
 
+  debounce-promise@3.1.2: {}
+
   debug@2.6.9:
     dependencies:
       ms: 2.0.0
@@ -11588,6 +11728,10 @@ snapshots:
   dot-case@2.1.1:
     dependencies:
       no-case: 2.3.2
+
+  dot-prop@8.0.2:
+    dependencies:
+      type-fest: 3.13.1
 
   dotenv@16.4.7: {}
 
@@ -11886,6 +12030,8 @@ snapshots:
     dependencies:
       to-regex-range: 5.0.1
 
+  filter-obj@5.1.0: {}
+
   finalhandler@1.3.1:
     dependencies:
       debug: 2.6.9
@@ -12163,6 +12309,8 @@ snapshots:
     dependencies:
       lru-cache: 10.4.3
 
+  htm@3.1.1: {}
+
   html-escaper@2.0.2: {}
 
   http-errors@2.0.0:
@@ -12372,6 +12520,8 @@ snapshots:
   isbuffer@0.0.0: {}
 
   isexe@2.0.0: {}
+
+  isobject@3.0.1: {}
 
   istanbul-lib-coverage@3.2.2: {}
 
@@ -12752,6 +12902,8 @@ snapshots:
       '@sideway/pinpoint': 2.0.0
 
   joycon@3.1.1: {}
+
+  js-sha256@0.9.0: {}
 
   js-tokens@4.0.0: {}
 
@@ -13225,6 +13377,10 @@ snapshots:
       define-properties: 1.2.1
       es-object-atoms: 1.1.1
 
+  object.pick@1.3.0:
+    dependencies:
+      isobject: 3.0.1
+
   object.values@1.2.1:
     dependencies:
       call-bind: 1.0.8
@@ -13269,6 +13425,10 @@ snapshots:
       stdin-discarder: 0.2.2
       string-width: 7.2.0
       strip-ansi: 7.1.0
+
+  ordercloud-javascript-sdk@5.3.0(axios@1.7.9):
+    dependencies:
+      axios: 1.7.9
 
   os-browserify@0.3.0: {}
 
@@ -13597,6 +13757,10 @@ snapshots:
     dependencies:
       react: 19.0.0
       scheduler: 0.25.0
+
+  react-intersection-observer@8.34.0(react@19.0.0):
+    dependencies:
+      react: 19.0.0
 
   react-is@16.13.1: {}
 
@@ -14498,6 +14662,8 @@ snapshots:
 
   type-fest@1.4.0: {}
 
+  type-fest@3.13.1: {}
+
   type-is@1.6.18:
     dependencies:
       media-typer: 0.3.0
@@ -14567,6 +14733,10 @@ snapshots:
       use-isomorphic-layout-effect: 1.2.0(@types/react@18.3.0)(react@19.0.0)
     optionalDependencies:
       '@types/react': 18.3.0
+
+  use-sync-external-store@1.5.0(react@19.0.0):
+    dependencies:
+      react: 19.0.0
 
   username-sync@1.0.3: {}
 

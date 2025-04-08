@@ -18,9 +18,10 @@
     "@azure/cosmos": "^4.3.0",
     "@tailjs/engine": "workspace:*",
     "@tailjs/types": "workspace:*",
-    "@tailjs/util": "workspace:*",
-    "@types/node": "^22.13.9",
-    "semaphore-async-await": "^1.5.1"
+    "@tailjs/util": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9"
   },
   "publishConfig": {
     "directory": "dist"

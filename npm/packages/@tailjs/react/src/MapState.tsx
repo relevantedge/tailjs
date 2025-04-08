@@ -5,6 +5,7 @@ import { TraverseFunctions, traverseNodes } from "./internal";
 export interface MapStateProperties<State = any>
   extends TraverseFunctions<State>,
     PropsWithChildren {
+  initialState?: State;
   clientComponentContext?: boolean;
 }
 

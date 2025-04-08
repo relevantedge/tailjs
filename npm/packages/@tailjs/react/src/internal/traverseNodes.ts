@@ -11,7 +11,8 @@ export type Nullish = null | undefined | void;
 
 export let currentContext: TraverseContext | null = null;
 
-const CONTEXT_PROPERTY = Symbol();
+const CONTEXT_PROPERTY = "__t$ctx";
+const IS_WRAPPED = "__t$wrp";
 
 export type RefFunction = (el: Element) => void;
 export type TraversableElement = JSX.Element & {
@@ -30,6 +31,8 @@ export type TraversableElement = JSX.Element & {
 
 const isLazy = (type: any) => type._payload;
 const isForwardRef = (type: any) => type.render;
+
+const USE_REF = !(parseInt(React.version?.split(".")[0]) >= 19);
 
 export type TraverseResult = TraversableElement | ExoticComponent;
 
@@ -58,9 +61,9 @@ export type ComponentRefreshedFunction<State = any> = (
   props: Record<string, any>
 ) => void;
 
-export type TraverseOverrideFunction = (
+export type TraverseOverrideFunction<T> = (
   el: TraversableElement,
-  traverse: (el: TraversableElement) => TraversableElement
+  state: T
 ) => TraverseResult | void | false;
 
 export type MapElementStateFunction<State> = (
@@ -73,7 +76,7 @@ export interface TraverseFunctions<T> {
   patchProperties?: PatchPropertiesFunction<T>;
   componentRefreshed?: ComponentRefreshedFunction<T>;
   /** Hook for custom traversal of certain elements if required. */
-  traverse?: TraverseOverrideFunction;
+  traverse?: TraverseOverrideFunction<T>;
   ignoreType?: ExcludeRule;
   applyElementState?: MapElementStateFunction<T>;
 }
@@ -206,7 +209,7 @@ function createChildContext<T>(
     return undefined;
   }
 
-  const elementState =
+  const mappedElementState =
     patched?.mappedElementState ?? context.pendingElementState;
   if (patched) {
     if (patched.state) {
@@ -214,11 +217,11 @@ function createChildContext<T>(
     }
     childContext.additionalProperties = patched.props;
   }
-  if (elementState) {
+  if (mappedElementState) {
     if (!canHaveElementState(el)) {
-      childContext.pendingElementState = elementState;
+      childContext.pendingElementState = mappedElementState;
     } else {
-      childContext.mappedState = elementState;
+      childContext.mappedState = mappedElementState;
     }
   }
 
@@ -226,7 +229,9 @@ function createChildContext<T>(
 }
 
 const canHaveElementState = (el: TraversableElement) =>
-  typeof el.type === "string" && !el.clientTypeReference && !el.ref;
+  typeof el.type === "string" &&
+  !el.clientTypeReference &&
+  !(USE_REF ? el.ref : el.props.ref);
 
 const mapCache = new WeakMap<any, any>();
 export function traverseNodesInternal<T>(
@@ -250,6 +255,7 @@ export function traverseNodesInternal<T>(
     );
     return mapped;
   }
+
   mapCache.set(node, (mapped = inner(node, context)));
 
   return mapped;
@@ -270,9 +276,7 @@ export function traverseNodesInternal<T>(
 
     if (root.traverse) {
       // Check for parse overrides (e.g. child components in NextJs)
-      const parsed = root.traverse(el, (el) =>
-        traverseProps(el, parentContext)
-      );
+      const parsed = root.traverse(el, parentContext.state);
       if (parsed) {
         return parsed;
       }
@@ -287,19 +291,13 @@ export function traverseNodesInternal<T>(
     if (!childContext) {
       return el;
     }
-    el = childContext.el;
-
-    const wrapped = wrapType(el.type, parentContext);
-
-    if (wrapped) {
+    const wrappedType = wrapType(el.type, parentContext);
+    if (wrappedType) {
       childContext.componentContext = childContext;
       return {
         ...el,
-        props: {
-          ...el.props,
-          [CONTEXT_PROPERTY]: childContext,
-        },
-        type: wrapped,
+        props: { ...el.props, [CONTEXT_PROPERTY]: childContext },
+        type: wrappedType,
       };
     }
 
@@ -318,6 +316,7 @@ const traverseLazy = (
   return getOrSet(componentCache, lazy, () => {
     const replaceValue = () => {
       const value = lazy._payload.value;
+
       if (forElement) {
         lazy._payload.value = traverseNodesInternal(value, context);
       } else if (!context.root.ignoreType?.(value)) {
@@ -325,11 +324,10 @@ const traverseLazy = (
         if (!wrapped) {
           lazy._payload.value = () => traverseNodesInternal(value, context);
         } else {
-          lazy._payload.value = (props: any) => {
-            return traverseNodesInternal(
-              React.createElement(value, props),
-              context
-            );
+          lazy._payload.value = (
+            props: any // CONTEXT_PROPERTY is here for the wrapped.
+          ) => {
+            return React.createElement(wrapped, props);
           };
         }
       }
@@ -347,7 +345,6 @@ const traverseLazy = (
 const ignoreType = (type: any, context: TraverseContext) =>
   !type || context.root.ignoreType?.(type);
 
-const IS_WRAPPED = Symbol();
 function wrapType(type: any, context: TraverseContext) {
   if (ignoreType(type, context)) {
     return;
@@ -364,6 +361,17 @@ function wrapType(type: any, context: TraverseContext) {
   }
 
   function inner() {
+    if (isForwardRef(type)) {
+      // Check on type.render. Do this before classes.
+      // Forward ref.
+      return getOrSet(componentCache, type, () =>
+        React.forwardRef(
+          ({ [CONTEXT_PROPERTY]: context, ...props }: any = {}, ref: any) =>
+            traverseNodesInternal(type.render(props, ref), context)
+        )
+      );
+    }
+
     if (
       (React.Component && type.prototype instanceof React.Component) ||
       type.prototype?.render
@@ -380,25 +388,19 @@ function wrapType(type: any, context: TraverseContext) {
           type
         )
       );
-    } else if (typeof type === "function") {
+    }
+    if (typeof type === "function") {
       return getOrSet(componentCache, type, () =>
         mergeProperties((props: any) => wrapRender(type, props), type)
       );
     }
     if (isLazy(type)) {
       return traverseLazy(type, false, context);
-    } else if (type?.type) {
+    }
+    if (type?.type) {
       // Memo
       return getOrSet(componentCache, type, () =>
         mergeProperties({ type: wrapType(type.type, context) ?? type }, type)
-      );
-    } else if (isForwardRef(type)) {
-      // Forward ref.
-      return getOrSet(componentCache, type, () =>
-        React.forwardRef(
-          ({ [CONTEXT_PROPERTY]: context, ...props }: any = {}, ref: any) =>
-            traverseNodesInternal(type.render(props, ref), context)
-        )
       );
     }
   }
@@ -453,11 +455,12 @@ const traverseProps = (
     }
   });
 
-  let ref = el.ref;
+  let ref = USE_REF ? el.ref : undefined;
   if (
     typeof window !== "undefined" &&
     canHaveElementState(el) &&
-    currentContext?.mappedState
+    currentContext?.mappedState &&
+    typeof el.type === "string"
   ) {
     let current: any;
     patched ??= {};
@@ -469,6 +472,20 @@ const traverseProps = (
       parentContext.root.applyElementState?.(el, currentContext.mappedState);
     };
   }
+  if (patched) {
+    const props = { ...el.props, ...patched };
+    // Seems like `children` and `dangerouslySetInnerHTML` may sometimes be assigned as `null` or `undefined`,
+    // which makes React choke on e.g. images or because both are "set". React looks for keys in props, not  values.
+    // It is unclear why this should give an error when using the spread operator to clone the element, yet, it does.
+    if (!props.children && "children" in props) {
+      delete props.children;
+    }
+    if (!props.dangerouslySetInnerHTML && "dangerouslySetInnerHTML" in props) {
+      delete props.dangerouslySetInnerHTML;
+    }
 
-  return patched ? { ...el, ref, props: { ...el.props, ...patched } } : el;
+    el = { ...el, props };
+    ref && ((USE_REF ? el : el.props).ref = ref);
+  }
+  return el;
 };

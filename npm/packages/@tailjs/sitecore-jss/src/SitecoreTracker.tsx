@@ -284,20 +284,6 @@ export const SitecoreTracker = ({
             component: { ...component, track: { promote: true } },
             area: placeholder,
             tags: mapTags(tags.activation),
-
-            // component &&
-            // (Array.isArray(parentComponents)
-            //   ? parentComponents
-            //   : [parentComponents]
-            // ).some(
-            //   (rule) =>
-            //     rule &&
-            //     (typeof rule === "string"
-            //       ? rendering.componentName === rule
-            //       : typeof rule === "function"
-            //       ? rule(rendering)
-            //       : rendering.componentName.match(rule))
-            //),
           });
 
           mapped.component.instanceNumber = componentTypeCounts[

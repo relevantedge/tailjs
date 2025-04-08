@@ -11,6 +11,7 @@
     "build:watch": "next dev"
   },
   "dependencies": {
+    "@sitecore-search/react": "2.5.5",
     "@tailjs/client": "workspace:*",
     "@tailjs/cosmosdb": "workspace:*",
     "@tailjs/next": "workspace:*",

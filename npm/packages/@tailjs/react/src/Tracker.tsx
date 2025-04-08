@@ -99,7 +99,12 @@ export type TrackerProperties = PropsWithChildren<{
    * Allows custom traversal of certain elements. A good example is the NextJs configuration
    * for the tracker that supports client and server components.
    */
-  traverse?: TraverseOverrideFunction;
+  traverse?: TraverseOverrideFunction<BoundaryData>;
+
+  /**
+   * The boundary data from the parent element if the tracker is not the root element.
+   */
+  initialState?: BoundaryData;
 }>;
 
 const TrackerRendered = () => {
@@ -146,7 +151,8 @@ export const Tracker: TrackerComponent = Object.assign(
       stoppers,
       script,
       ssg: embedBoundaryData = false,
-      traverse: parseOverride,
+      initialState,
+      traverse,
     } = merge2({}, [props, Tracker.defaults], {
       overwrite: false,
     }) as TrackerProperties;
@@ -183,11 +189,12 @@ export const Tracker: TrackerComponent = Object.assign(
       | Map<any, [data: any, index: number]>
       | undefined = embedBoundaryData ? new Map() : undefined;
 
+    // Pooled instead of instantiating a lot of sets, cf. `set.clear()` below.
     const seen = new Set<string>();
     return (
       <>
         <MapState
-          traverse={(el, traverse) => {
+          traverse={(el, state: BoundaryData) => {
             if (el.type == Tracker) {
               // Trackers don't track trackers.
               if (el.props.scriptTag !== false) {
@@ -195,9 +202,10 @@ export const Tracker: TrackerComponent = Object.assign(
               }
               return el;
             }
-            return parseOverride?.(el, traverse);
+            return traverse?.(el, state);
           }}
           ignoreType={stop}
+          initialState={initialState}
           mapElementState={(
             el,
             state: BoundaryDataWithView | null,
@@ -207,7 +215,7 @@ export const Tracker: TrackerComponent = Object.assign(
               .map((mapper) => mapper(el, context))
               .filter((item) => item) as any;
 
-            let allMapped: BoundaryDataWithView | undefined;
+            let newData: BoundaryDataWithView | undefined;
             for (const prop of ["component", "content"]) {
               seen.clear();
               // Add the IDs we already have, lest we add them again.
@@ -219,21 +227,21 @@ export const Tracker: TrackerComponent = Object.assign(
                   (item) =>
                     !seen.has(item.id) &&
                     (seen.add(item.id),
-                    ((allMapped ??= {})[prop] ??= []).push(item))
+                    ((newData ??= {})[prop] ??= []).push(item))
                 );
               }
             }
 
             for (const item of mapped) {
               if (item?.area) {
-                (allMapped ??= {}).area = item.area;
+                (newData ??= {}).area = item.area;
               }
-              if (item?.view && !allMapped?.view) {
+              if (item?.view && !newData?.view) {
                 tail({
                   set: {
                     scope: "view",
                     key: "view",
-                    value: ((allMapped ??= {}).view = item.view),
+                    value: ((newData ??= {}).view = item.view),
                   },
                 });
               }
@@ -241,17 +249,17 @@ export const Tracker: TrackerComponent = Object.assign(
 
             if (typeof el.type === "string") {
               // Ignore DOM elements unless explicitly told not to. We only want to wire the immediate children of JSX components.
-              return allMapped ?? null;
+              return newData ?? null;
             }
 
             if (
               trackReactComponents &&
-              (!allMapped?.component as any) &&
+              (!newData?.component as any) &&
               el.type.name &&
               !excludeType?.(el.type)
             ) {
               // If we do not have an explicit component, let's see if we can use one from React.
-              (allMapped ??= {}).component = [
+              (newData ??= {}).component = [
                 {
                   id: el.type.displayName || el.type.name,
                   inferred: true,
@@ -259,7 +267,7 @@ export const Tracker: TrackerComponent = Object.assign(
                 },
               ];
             }
-            return mergeStates(state, allMapped);
+            return mergeStates(state, newData);
           }}
           patchProperties={(el, parentState, currentState) => {
             if (stop?.(el.type)) {

@@ -1,17 +1,23 @@
-import { Tracker, TrackerScriptSettings } from "@tailjs/react";
+import { BoundaryData } from "@tailjs/client";
+import { Tracker } from "@tailjs/react";
+import Script, { ScriptProps } from "next/script.js";
 import { createElement, FunctionComponent, PropsWithChildren } from "react";
 import type {
   ClientConfiguration,
   TrackerScriptStrategy,
   TrackerScriptStrategyContainer,
 } from ".";
-import Script, { ScriptProps } from "next/script.js";
 
 const isClientRef = (el: any) =>
   (el as any)?.type?.$$typeof?.toString() === "Symbol(react.client.reference)";
 
 export type ConfiguredTrackerComponent = FunctionComponent<
-  PropsWithChildren<{ root?: boolean } & TrackerScriptStrategyContainer>
+  PropsWithChildren<
+    {
+      root?: boolean;
+      initialState?: BoundaryData;
+    } & TrackerScriptStrategyContainer
+  >
 > & {
   /**
    * Use this element as a last resort if it is otherwise impossible to make the tail.js script come before CMPs that blocks it.
@@ -48,7 +54,7 @@ export type ConfiguredTrackerComponent = FunctionComponent<
  * ```
  */
 export const bakeTracker = (
-  { tracker: { map, script } = {} }: ClientConfiguration,
+  { tracker: { map, script, stoppers } = {} }: ClientConfiguration,
   clientTracker?: ConfiguredTrackerComponent
 ): ConfiguredTrackerComponent => {
   script = applyStrategy(script ?? {});
@@ -61,15 +67,16 @@ export const bakeTracker = (
   const clientSide = !clientTracker;
 
   const ConfiguredTracker: ConfiguredTrackerComponent = Object.assign(
-    ({ children, root = true, strategy }) => {
+    ({ children, root = true, initialState, strategy }) => {
       return createElement(Tracker, {
         map,
         ssg: !clientSide,
-        stoppers: [ConfiguredTracker, clientTracker],
+        stoppers: [ConfiguredTracker, clientTracker, ...(stoppers ?? [])],
         script: root ? applyStrategy(script, strategy) : false,
         key: root ? "tracker" : undefined,
         exclude: ["RenderFromTemplateContext"],
-        traverse(el, traverse) {
+        initialState,
+        traverse(el, state) {
           if (isClientRef(el)) {
             if (!clientTracker) {
               throw new Error(
@@ -77,7 +84,8 @@ export const bakeTracker = (
               );
             }
             return createElement(clientTracker, {
-              children: traverse(el),
+              children: el,
+              initialState: state,
               root: false,
             });
           }

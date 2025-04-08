@@ -4,6 +4,9 @@ import React, { createContext, useState } from "react";
 
 const ThemeContext = createContext("light");
 
+export function InputTest() {
+  return <input type="text" />;
+}
 let n = 0;
 export function MotionComponent({
   isVisible,
@@ -19,18 +22,31 @@ export function MotionComponent({
         className="bg-pink-600"
         suppressHydrationWarning
       >{`${text}: ${n++}`}</span>
+      <span
+        dangerouslySetInnerHTML={{
+          __html: "<div style='color:white'><br>Hello gelloo</div>",
+        }}
+      >
+        <h1>Test</h1>
+      </span>
       <button
         className={half ? "bg-purple-500" : "bg-orange-500"}
         onClick={() => setHalf(!half)}
       >
         Half
       </button>
-      <MotionContextComponent isVisible={isVisible} />
+      <MotionContextComponent isVisible={isVisible} nest={true} />
     </motion.div>
   );
 }
 
-export function MotionContextComponent({ isVisible }: { isVisible: boolean }) {
+export function MotionContextComponent({
+  isVisible,
+  nest,
+}: {
+  isVisible: boolean;
+  nest: boolean;
+}) {
   return (
     <ThemeContext.Consumer>
       {(value) => (
@@ -45,6 +61,9 @@ export function MotionContextComponent({ isVisible }: { isVisible: boolean }) {
           }}
           className="bg-green-500 text-white"
         >
+          {nest && (
+            <MotionContextComponent isVisible={isVisible} nest={false} />
+          )}
           {value}
         </motion.div>
       )}
