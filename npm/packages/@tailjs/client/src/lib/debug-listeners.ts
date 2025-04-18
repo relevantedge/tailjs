@@ -1,6 +1,6 @@
 import { __DEBUG__ } from "@constants";
 import { formatDataUsage, formatVariableKey } from "@tailjs/types";
-import { ansi, concat, count, F, map2, skip2, sort2, T } from "@tailjs/util";
+import { ansi, concat2, F, map2, skip2, sort2, T } from "@tailjs/util";
 import { addVariablesChangedListener, childGroups, debug } from ".";
 import { ClientVariable, isLocalScopeKey } from "../interfaces";
 
@@ -28,7 +28,7 @@ const formatVariables = (variables: ClientVariable[]) => {
 export const addDebugListeners = __DEBUG__
   ? () => {
       addVariablesChangedListener((changes, all, local) => {
-        const variables = concat(
+        const variables = concat2(
           formatVariables(
             map2(changes, ([, current]) => (current ? current : skip2))
           ),
@@ -50,7 +50,7 @@ export const addDebugListeners = __DEBUG__
           ansi(
             `Variables changed${
               !local ? " - merging changes from another tab" : ""
-            } (${changes.length} changed, ${count(all)} in total).`,
+            } (${changes.length} changed, ${all.size} in total).`,
             "2;3"
           )
         );

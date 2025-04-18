@@ -1,4 +1,4 @@
-import { BoundaryData } from "@tailjs/client";
+import type { BoundaryData } from "@tailjs/client";
 import { Tracker } from "@tailjs/react";
 import Script, { ScriptProps } from "next/script.js";
 import { createElement, FunctionComponent, PropsWithChildren } from "react";

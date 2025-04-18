@@ -7,8 +7,7 @@ import {
 import {
   F,
   T,
-  concat,
-  flatMap,
+  concat2,
   flatMap2,
   forEach2,
   isFunction,
@@ -22,7 +21,7 @@ import {
   parseBoolean,
   parseRegex,
   replace,
-  stop,
+  stop2,
   testRegex,
   type Nullish,
 } from "@tailjs/util";
@@ -73,7 +72,7 @@ const matchAttributeNames = (
   el: Element | Nullish,
   cached: CacheMatchRules | Nullish,
   tags: TagCollection,
-  prefix?: string | boolean,
+  prefix?: string | boolean | Nullish,
   value?: string,
   eligible?: boolean
 ) =>
@@ -95,7 +94,7 @@ const matchAttributeNames = (
                 // We do this check before the selector check, since this result is not generally cacheable.
                 ((eligible = undefined),
                 !selector || matchSelector(el, selector)) &&
-                stop(prefix ?? name)
+                stop2(prefix ?? name)
             ))
         ) && // The empty string is also "true" since it means presence of the attribute without a value (as in `<div tag-yes />).
           (!(value = el!.getAttribute(name)!) || parseBoolean(value)) &&
@@ -117,7 +116,7 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
         : isRegEx(rule)
         ? [[rule]]
         : isIterable(rule)
-        ? flatMap(rule, parse)
+        ? flatMap2(rule, parse, 1)
         : [
             isPlainObject(rule)
               ? [parseRegex(rule.match)!, rule.selector, rule.prefix]
@@ -138,7 +137,7 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
 
 const cssPropertyWithBase = (el: Element, name: string) =>
   join2(
-    concat(
+    concat2(
       cssProperty(el, trackerPropertyName(name, T)),
       cssProperty(el, trackerPropertyName("base-" + name, T))
     ),
@@ -188,7 +187,7 @@ export const trackerProperty = (
         isFunction(inherit) ? inherit : undefined
       )
     : join2(
-        concat(
+        concat2(
           attr(el, trackerPropertyName(name)),
           cssProperty(el, trackerPropertyName(name, T))
         ),

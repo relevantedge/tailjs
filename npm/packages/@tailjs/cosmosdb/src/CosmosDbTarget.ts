@@ -130,11 +130,13 @@ export class CosmosDbTarget {
         retries: maxRetries,
         retryDelay,
         errorFilter: (error, retry) => {
-          this._env.log(this, {
-            level: "error",
-            message: `Request to Cosmos DB failed on attempt ${retry + 1}.`,
-            error,
-          });
+          if (retry) {
+            this._env.log(this, {
+              level: "error",
+              message: `Request to Cosmos DB failed on attempt ${retry + 1}.`,
+              error,
+            });
+          }
         },
       }
     );

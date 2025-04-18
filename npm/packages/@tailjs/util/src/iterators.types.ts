@@ -6,7 +6,7 @@ import {
   Nullish,
   NullishOrFalse,
   UnwrapPromiseLike,
-} from "..";
+} from ".";
 import { AnyTuple, EntriesOf, KeyValueType as Kv2 } from "./_internal";
 
 export type IterationProjection2<It, Accumulator, Projected, Context = It> = (

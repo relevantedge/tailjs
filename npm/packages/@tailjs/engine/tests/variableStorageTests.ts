@@ -30,7 +30,7 @@ export const setupStorageTests = (
     storage.purge(testScopes.map((scope) => ({ scope })));
 
   const createStorage = async (reset = true) => {
-    const host = new NativeHost({ rootPath: null, logger: "console" });
+    const host = new NativeHost({ rootPath: false, logger: "console" });
     const env = new TrackerEnvironment(
       host,
       new DefaultCryptoProvider(null),

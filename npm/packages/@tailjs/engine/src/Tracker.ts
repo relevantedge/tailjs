@@ -43,15 +43,14 @@ import {
   Nullish,
   PartialRecord,
   ReadonlyRecord,
-  concat,
+  concat2,
   createEvent,
   forEach2,
-  forEachAwait2,
   get2,
   isArray,
   map2,
   now,
-  obj,
+  obj2,
   some2,
   truish2,
 } from "@tailjs/util";
@@ -437,7 +436,7 @@ export class Tracker {
     // The latter overwrites cookies with the same name if they were also sent by the client.
     const cookies = map2(
       new Map<string, string | Nullish>(
-        concat(
+        concat2(
           map2(this.cookies, ([name, cookie]) => [name, cookie.value]),
           map2(
             CookieMonster.parseCookieHeader(finalRequest.headers["cookies"])?.[
@@ -664,7 +663,7 @@ export class Tracker {
       // Capture these variables for lambda.
       const sessionId = this.sessionId;
       const deviceId = this.deviceId;
-      const expiredPurposes = obj(this.consent.purposes, ([key]) =>
+      const expiredPurposes = obj2(this.consent.purposes, ([key]) =>
         !purposes?.[key] ? [key, true] : undefined
       );
       // If the user downgraded the level of consent or removed purposes we need to delete existing data that does not match.

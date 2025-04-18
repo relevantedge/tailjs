@@ -508,6 +508,9 @@ importers:
 
   packages/@tailjs/next:
     dependencies:
+      '@tailjs/client':
+        specifier: workspace:*
+        version: link:../client/dist
       '@tailjs/engine':
         specifier: workspace:*
         version: link:../engine/dist

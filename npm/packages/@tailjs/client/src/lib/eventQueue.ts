@@ -14,23 +14,20 @@ import {
   ToggleArray,
   array2,
   clock,
-  clone,
-  concat,
-  count,
+  clone2,
+  concat2,
+  count2,
   diff,
   forEach2,
   isString,
   itemize2,
   map2,
-  merge,
   merge2,
   now,
   pluralize,
-  push,
   skip2,
   structuralEquals,
   throwError,
-  unshift,
 } from "@tailjs/util";
 import {
   EVENT_POST_FREQUENCY,
@@ -119,13 +116,13 @@ export const createEventQueue = (
   ): EventPatch<T> =>
     !sourceEvent.metadata?.queued
       ? throwError("Source event not queued.")
-      : (merge(patch, {
+      : (merge2(patch, {
           type: sourceEvent.type + PATCH_EVENT_POSTFIX,
           patchTargetId: sourceEvent.clientId,
         }) as any);
 
   const updateSnapshot = (ev: ProtectedEvent) => {
-    snapshots.set(ev, clone(ev));
+    snapshots.set(ev, clone2(ev));
   };
 
   const registerEventPatchSource = <T extends ProtectedEvent>(
@@ -156,7 +153,7 @@ export const createEventQueue = (
         if (delta && !structuralEquals(current, snapshot)) {
           // The new "current" differs from the previous.
 
-          snapshots.set(sourceEvent, clone(current));
+          snapshots.set(sourceEvent, clone2(current));
           // Add patch target ID and the correct event type to the delta data before we return it.
           return [mapPatchTarget(sourceEvent, delta) as any, unbinding];
         }
@@ -188,7 +185,7 @@ export const createEventQueue = (
       // Update metadata in the source event,
       // and send a clone of the event without client metadata, and its timestamp in relative time
       // (the server expects this, and will adjust accordingly to its own time).
-      merge(ev, { metadata: { posted: true } });
+      merge2(ev, { metadata: { posted: true } });
       if (ev[postCallbacks]) {
         const abort = forEach2(
           ev[postCallbacks],
@@ -201,7 +198,7 @@ export const createEventQueue = (
         delete ev[postCallbacks];
       }
 
-      return merge(clearMetadata(clone(ev), true), {
+      return merge2(clearMetadata(clone2(ev), true), {
         timestamp: ev.timestamp! - now(),
       });
     }) as ProtectedEvent[];
@@ -211,10 +208,10 @@ export const createEventQueue = (
       "Posting " +
         itemize2([
           pluralize("new event", [
-            count(events, (ev) => !isEventPatch(ev)) || undefined,
+            count2(events, (ev) => !isEventPatch(ev)) || undefined,
           ]),
           pluralize("event patch", [
-            count(events, (ev) => isEventPatch(ev)) || undefined,
+            count2(events, (ev) => isEventPatch(ev)) || undefined,
           ]),
         ]) +
         (beacon ? " asynchronously" : " synchronously") +
@@ -241,7 +238,7 @@ export const createEventQueue = (
     events = map2(
       array2(events),
       (event) => (
-        !event.metadata?.queued && push(newEvents, event),
+        !event.metadata?.queued && newEvents.push(event),
         merge2(context.applyEventExtensions(event), {
           metadata: { queued: true },
         }) ?? skip2
@@ -254,12 +251,12 @@ export const createEventQueue = (
       return postEvents(events, false, variables);
     }
     if (!flush) {
-      events.length && push(queue, ...events);
+      events.length && queue.push(...events);
       return;
     }
 
     if (queue.length) {
-      unshift(events as any, ...queue.splice(0));
+      events.unshift(...queue.splice(0));
     }
 
     if (!events.length) return;
@@ -282,7 +279,7 @@ export const createEventQueue = (
       });
 
       if (queue.length || updatedEvents.length) {
-        post(concat(queue.splice(0), updatedEvents)!, { flush: true });
+        post(concat2(queue.splice(0), updatedEvents)!, { flush: true });
       }
     }
   });

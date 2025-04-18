@@ -5,7 +5,7 @@ import {
   Nullish,
   SimpleObject,
   UnionToIntersection,
-} from "..";
+} from ".";
 
 /** Encourages TypeScript to treat a return value as a tuple (for some reason also, if the tuple has more than one element). */
 export type AnyTuple =
@@ -58,9 +58,21 @@ export type Selector<T = any> =
 
 export type EntriesOf<T> = { [P in keyof T]-?: [P, T[P]] }[keyof T];
 
-type StringOrNumber<Z> =
-  | Z
-  | (Z extends `${infer N extends number}` ? N : never);
+/** This is sometimes needed in conjunction with KeyTypeOf, since the `infer K` tests confuses TypeScript so it gets K to be any key
+ *  of a record when later used in ValueTypeOf.
+ *
+ * Example:
+ * `const x = {a: true, b: 37}; exchange2(x, "a", undefined);`
+ * If `exchange2` didn't have two overloads (one where Target is constrained to LookupType) and one using keyof T, the return value
+ * would here be `boolean | number`.
+ */
+export type LookupType =
+  | Map<any, any>
+  | ReadonlyMap<any, any>
+  | WeakMap<any, any>
+  | ReadonlySet<any>
+  | Set<any>
+  | WeakSet<any>;
 
 export type KeyTypeOf<T> = unknown extends T
   ? any
@@ -74,8 +86,6 @@ export type KeyTypeOf<T> = unknown extends T
   ? K
   : T extends WeakSet<infer K>
   ? K
-  : T extends readonly any[]
-  ? StringOrNumber<keyof T & `${number}`>
   : keyof T;
 
 export type InputValueTypeOf<T, K = KeyTypeOf<T>> = unknown extends T
@@ -374,6 +384,6 @@ const findPrototypeFrame = (
 export const findDeclaringScope = (target: any) =>
   target == null
     ? target
-    : globalThis.window
+    : typeof window !== "undefined"
     ? findPrototypeFrame(window, getRootPrototype(target))
     : globalThis;

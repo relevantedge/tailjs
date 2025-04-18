@@ -1,12 +1,11 @@
 import {
-  array2,
   ellipsis,
+  exchange2,
   forEach2,
   get2,
   Nullish,
   obj2,
   throwError,
-  tryAdd,
 } from "@tailjs/util";
 import {
   CORE_SCHEMA_NS,
@@ -33,6 +32,7 @@ import {
   SchemaVariable,
 } from "../..";
 
+import { PATCH_EVENT_POSTFIX } from "@constants";
 import {
   createEventPatchDefinition,
   createSchemaTypeMapper,
@@ -45,6 +45,7 @@ import {
   TypeParseContext,
 } from "./parsing";
 import {
+  addTypeValidators,
   createAccessValidator,
   createCensorAction,
   getPrimitiveTypeValidator,
@@ -52,9 +53,7 @@ import {
   overrideUsage,
   ValidatableSchemaEntity,
   VALIDATION_ERROR_SYMBOL,
-  addTypeValidators,
 } from "./validation";
-import { PATCH_EVENT_POSTFIX } from "@constants";
 
 export type SchemaDefinitionSource = {
   schema: SchemaDefinition;
@@ -258,18 +257,18 @@ export class TypeResolver {
             dynamic: !!definition.dynamic,
           };
 
-          tryAdd(
+          const current = exchange2(
             get2(this._variables, scope, () => new Map()),
             key,
-            variable,
-            (current) => {
-              throw new Error(
-                `The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${
-                  current.type.toString
-                }".`
-              );
-            }
+            variable
           );
+
+          current &&
+            throwError(
+              `The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${
+                current.type.toString
+              }".`
+            );
 
           get2(schema.variables, scope, () => new Map()).set(key, variable);
 

@@ -7,7 +7,7 @@ import {
   FOREVER,
   T,
   array2,
-  assign,
+  assign2,
   filter2,
   flatMap2,
   forEach2,
@@ -18,9 +18,8 @@ import {
   merge2,
   nil,
   now,
-  push,
-  remove,
-  sort,
+  remove2,
+  sort2,
   stop2,
   throwError,
   tryCatch,
@@ -84,9 +83,9 @@ export const initializeTracker = (
     overwrite: true,
   });
 
-  setStorageKey(remove(trackerConfig, "encryptionKey"));
+  setStorageKey(remove2(trackerConfig, "encryptionKey"));
 
-  const apiProtectionKey = remove(trackerConfig, "key");
+  const apiProtectionKey = remove2(trackerConfig, "key");
 
   const queuedCommands = window[trackerConfig.name]?._ ?? [];
   if (!isArray(queuedCommands)) {
@@ -189,7 +188,7 @@ export const initializeTracker = (
         if (!command) return F;
 
         if (isTagAttributesCommand(command)) {
-          trackerConfig.tags = assign(
+          trackerConfig.tags = assign2(
             {} as any,
             trackerConfig.tags,
             command.tagAttributes
@@ -235,7 +234,7 @@ export const initializeTracker = (
     // Put events last to allow listeners and interceptors from the same batch to work on them.
     // Sets come before gets to avoid unnecessary waiting
     // Extensions then listeners are first so they can evaluate the rest.
-    const expanded: TrackerCommand[] = sort(commands, getCommandRank);
+    const expanded = sort2(commands as TrackerCommand[], getCommandRank);
 
     // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
     if (
@@ -268,7 +267,7 @@ export const initializeTracker = (
             } else if (isSetCommand(command)) {
               variables.set(array2(command.set));
             } else if (isListenerCommand(command)) {
-              push(listeners, command.listener);
+              listeners.push(command.listener);
             } else if (isExtensionCommand(command)) {
               let extension: TrackerExtension | Nullish;
               if (
@@ -277,12 +276,12 @@ export const initializeTracker = (
                   (e) => logError(command.extension.id, e)
                 )!)
               ) {
-                push(extensions, [
+                extensions.push([
                   command.priority ?? 100,
                   extension,
                   command.extension,
                 ]);
-                sort(extensions, ([priority]) => priority);
+                sort2(extensions, ([priority]) => priority);
               }
             } else if (isTrackerAvailableCommand(command)) {
               command(tracker); // Variables have already been loaded once.

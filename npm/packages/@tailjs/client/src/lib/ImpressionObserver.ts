@@ -12,9 +12,7 @@ import {
   T,
   TextStats,
   Timer,
-  assign,
   clock,
-  count,
   createIntervals,
   createTimer,
   filter2,
@@ -22,6 +20,7 @@ import {
   getTextStats,
   map2,
   restrict,
+  set2,
   skip2,
 } from "@tailjs/util";
 import {
@@ -90,7 +89,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
           (cmp.track?.secondary ?? cmp.inferred) !== T
       ))
     ) {
-      if (!count(components)) return;
+      if (!components.length) return;
 
       let active = F;
       let pendingActive = F;
@@ -359,7 +358,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
       el[intersectionHandler] = ({
         isIntersecting,
       }: IntersectionObserverEntry) => {
-        assign(currentIntersections, poll, isIntersecting);
+        set2(currentIntersections, poll, isIntersecting);
         !isIntersecting &&
           (forEach2(unbindPassiveEventSources, (unbind) => unbind()), poll());
       };

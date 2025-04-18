@@ -1,5 +1,5 @@
 import type { Component, ExternalReference } from "@tailjs/types";
-import { T, add, map2, nil, push, split, toString } from "@tailjs/util";
+import { T, add2, map2, nil, push2, split, toString } from "@tailjs/util";
 import { attr } from ".";
 import type { BoundaryCommand } from "..";
 
@@ -28,7 +28,7 @@ export function scanAttributes(
     const stack: any[] = [];
 
     while (attr(el, attributeName) != nil) {
-      add(seen, el);
+      add2(seen, el);
       const delta = split(attr(el, attributeName)!, "|");
       attr(el, attributeName, nil);
       for (let i = 0; i < delta.length; i++) {
@@ -58,9 +58,9 @@ export function scanAttributes(
         if (number >= 0 && references[number]) {
           item = references[number];
         }
-        push(stack, item);
+        push2(stack, item);
       }
-      push(
+      push2(
         commands,
         ...map2(stack, (data) => ({ add: T, ...data, boundary: el }))
       );

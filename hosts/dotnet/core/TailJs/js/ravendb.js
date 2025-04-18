@@ -1,5 +1,182 @@
 import { VariableServerScope, extractKey, VariableResultStatus } from '@tailjs/types';
 
+// #endregion
+const getRootPrototype = (value)=>{
+    let proto = value;
+    while(proto){
+        proto = Object.getPrototypeOf(value = proto);
+    }
+    return value;
+};
+const findPrototypeFrame = (frameWindow, matchPrototype)=>{
+    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+        return frameWindow;
+    }
+    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
+        try {
+            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
+                return frameWindow;
+            }
+        } catch (e) {
+        // Cross domain issue.
+        }
+    }
+};
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */ const findDeclaringScope = (target)=>target == null ? target : typeof window !== "undefined" ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
+let stopInvoked = false;
+const skip2 = Symbol();
+const stop2 = (value)=>(stopInvoked = true, value);
+// #region region_iterator_implementations
+const forEachSymbol = Symbol();
+const asyncIteratorFactorySymbol = Symbol();
+const symbolIterator$1 = Symbol.iterator;
+// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
+const ensureForEachImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
+    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
+            let projected, i = 0;
+            for (const item of target){
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
+                    if (projected === stop2) {
+                        break;
+                    }
+                    seed = projected;
+                    if (mapped) mapped.push(projected);
+                    if (stopInvoked) {
+                        stopInvoked = false;
+                        break;
+                    }
+                }
+            }
+            return mapped || seed;
+        };
+    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        let projected, item;
+        for(let i = 0, n = target.length; i < n; i++){
+            item = target[i];
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
+                if (projected === stop2) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) {
+                    mapped.push(projected);
+                }
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    const genericForEachIterable = forEachIterable();
+    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        if (target[symbolIterator$1]) {
+            if (target.constructor === Object) {
+                return genericForEachIterable(target, projection, mapped, seed, context);
+            }
+            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
+        }
+        let projected, item, i = 0;
+        for(const key in target){
+            item = [
+                key,
+                target[key]
+            ];
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
+                if (projected === stop2) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) mapped.push(projected);
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
+        if (this[symbolIterator$1] || this[symbolAsyncIterator]) {
+            if (this.constructor === Object) {
+                var _this_symbolAsyncIterator;
+                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator$1]();
+            }
+            const proto = Object.getPrototypeOf(this);
+            var _proto_symbolAsyncIterator;
+            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator$1];
+            return this[asyncIteratorFactorySymbol]();
+        }
+        return iterateEntries(this);
+    };
+    for (const proto of [
+        scope.Map.prototype,
+        scope.WeakMap.prototype,
+        scope.Set.prototype,
+        scope.WeakSet.prototype,
+        // Generator function
+        Object.getPrototypeOf(function*() {})
+    ]){
+        proto[forEachSymbol] = forEachIterable();
+        proto[asyncIteratorFactorySymbol] = proto[symbolIterator$1];
+    }
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    return retry();
+};
+// #endregion
+function* range2(length = this) {
+    for(let i = 0; i < length; i++)yield i;
+}
+function* traverse2(next = this) {
+    let item = undefined;
+    while((item = next(item)) !== undefined)yield item;
+}
+function* iterateEntries(source) {
+    for(const key in source){
+        yield [
+            key,
+            source[key]
+        ];
+    }
+}
+let map2 = (source, projection, target = [], seed, context = source)=>{
+    try {
+        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
+    }
+};
+const batch2 = (source, batchSize)=>{
+    if (source == null) return source;
+    const batches = [];
+    let batch = [];
+    for (const item of source){
+        batch.push(item);
+        if (batch.length === batchSize) {
+            batches.push(batch);
+            batch = [];
+        }
+    }
+    if (batch.length > 0) {
+        batches.push(batch);
+    }
+    return batches;
+};
+const unwrap = (value)=>typeof value === "function" ? value() : value;
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
@@ -54,7 +231,6 @@ const withRetry = async (action, { retries = 3, retryDelay = 200, errorFilter, e
 const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
 const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
-const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
 function _define_property$3(obj, key, value) {
     if (key in obj) {
@@ -169,184 +345,8 @@ const createLock = (timeout)=>{
 const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap(value)), ms)) : throwError(`Invalid delay ${ms}.`);
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : arg));
-// #endregion
-const getRootPrototype = (value)=>{
-    let proto = value;
-    while(proto){
-        proto = Object.getPrototypeOf(value = proto);
-    }
-    return value;
-};
-const findPrototypeFrame = (frameWindow, matchPrototype)=>{
-    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
-        return frameWindow;
-    }
-    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
-        try {
-            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
-                return frameWindow;
-            }
-        } catch (e) {
-        // Cross domain issue.
-        }
-    }
-};
-/**
- * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
- * e.g., `Object` in an iframe is different from `Object` in the top frame.
- */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
-let stopInvoked = false;
-const skip2 = Symbol();
-const stop2 = (value)=>(stopInvoked = true, value);
-// #region region_iterator_implementations
-const forEachSymbol = Symbol();
-const asyncIteratorFactorySymbol = Symbol();
-const symbolIterator = Symbol.iterator;
-// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
-const ensureForEachImplementations = (target, error, retry)=>{
-    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
-        throw error;
-    }
-    let scope = findDeclaringScope(target);
-    if (!scope) {
-        throw error;
-    }
-    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
-            let projected, i = 0;
-            for (const item of target){
-                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                    if (projected === stop2) {
-                        break;
-                    }
-                    seed = projected;
-                    if (mapped) mapped.push(projected);
-                    if (stopInvoked) {
-                        stopInvoked = false;
-                        break;
-                    }
-                }
-            }
-            return mapped || seed;
-        };
-    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        let projected, item;
-        for(let i = 0, n = target.length; i < n; i++){
-            item = target[i];
-            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
-                    break;
-                }
-                seed = projected;
-                if (mapped) {
-                    mapped.push(projected);
-                }
-                if (stopInvoked) {
-                    stopInvoked = false;
-                    break;
-                }
-            }
-        }
-        return mapped || seed;
-    };
-    const genericForEachIterable = forEachIterable();
-    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        if (target[symbolIterator]) {
-            if (target.constructor === Object) {
-                return genericForEachIterable(target, projection, mapped, seed, context);
-            }
-            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
-        }
-        let projected, item, i = 0;
-        for(const key in target){
-            item = [
-                key,
-                target[key]
-            ];
-            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
-                    break;
-                }
-                seed = projected;
-                if (mapped) mapped.push(projected);
-                if (stopInvoked) {
-                    stopInvoked = false;
-                    break;
-                }
-            }
-        }
-        return mapped || seed;
-    };
-    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
-        if (this[symbolIterator] || this[symbolAsyncIterator]) {
-            if (this.constructor === Object) {
-                var _this_symbolAsyncIterator;
-                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator]();
-            }
-            const proto = Object.getPrototypeOf(this);
-            var _proto_symbolAsyncIterator;
-            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator];
-            return this[asyncIteratorFactorySymbol]();
-        }
-        return iterateEntries(this);
-    };
-    for (const proto of [
-        scope.Map.prototype,
-        scope.WeakMap.prototype,
-        scope.Set.prototype,
-        scope.WeakSet.prototype,
-        // Generator function
-        Object.getPrototypeOf(function*() {})
-    ]){
-        proto[forEachSymbol] = forEachIterable();
-        proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
-    }
-    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
-    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
-    return retry();
-};
-// #endregion
-function* range2(length = this) {
-    for(let i = 0; i < length; i++)yield i;
-}
-function* traverse2(next = this) {
-    let item = undefined;
-    while((item = next(item)) !== undefined)yield item;
-}
-function* iterateEntries(source) {
-    for(const key in source){
-        yield [
-            key,
-            source[key]
-        ];
-    }
-}
-let map2 = (source, projection, target = [], seed, context = source)=>{
-    try {
-        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
-    } catch (e) {
-        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
-    }
-};
-const batch2 = (source, batchSize)=>{
-    if (source == null) return source;
-    const batches = [];
-    let batch = [];
-    for (const item of source){
-        batch.push(item);
-        if (batch.length === batchSize) {
-            batches.push(batch);
-            batch = [];
-        }
-    }
-    if (batch.length > 0) {
-        batches.push(batch);
-    }
-    return batches;
-};
 const stringify2 = JSON.stringify;
-const json2 = (value)=>value == null || value === "" ? undefined : typeof value === "object" ? value : JSON.parse(value + "");
+const json2 = (value)=>value == null || value === "" ? undefined$1 : typeof value === "object" ? value : JSON.parse(value + "");
 
 function _define_property$2(obj, key, value) {
     if (key in obj) {
@@ -405,11 +405,13 @@ class RavenDbTarget {
             retries: maxRetries,
             retryDelay,
             errorFilter: (error, retry)=>{
-                this._env.log(this, {
-                    level: "error",
-                    message: `Request to RavenDB failed on attempt ${retry + 1}.`,
-                    error
-                });
+                if (retry) {
+                    this._env.log(this, {
+                        level: "error",
+                        message: `Request to RavenDB failed on attempt ${retry + 1}.`,
+                        error
+                    });
+                }
             },
             errorHandler: (error)=>{
                 return {

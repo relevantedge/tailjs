@@ -12,19 +12,17 @@ import {
   Nullish,
   T,
   array2,
-  concat,
+  concat2,
   filter2,
-  flatMap,
+  flatMap2,
   forEach2,
   isString,
   join2,
   map2,
-  max,
-  push,
+  max2,
   set2,
-  some,
-  unshift,
-  update,
+  some2,
+  update2,
 } from "@tailjs/util";
 import {
   BoundaryCommand,
@@ -63,7 +61,11 @@ export const parseBoundaryTags = (el: Element) => {
       entry = boundaryData.get(el)!;
       return (
         (entry = boundaryData.get(el)) &&
-        flatMap(concat(entry.component, entry.content, entry), "tags")
+        flatMap2(
+          concat2(entry.component, entry.content, entry),
+          (item) => item.tags,
+          1
+        )
       );
     }
   );
@@ -122,13 +124,12 @@ export const getComponentContext = (
         }) ?? [];
 
       rect =
-        ((includeRegion ?? some(components, (item) => item.track?.region)) &&
+        ((includeRegion ?? some2(components, (item) => item.track?.region)) &&
           getRect(el)) ||
         undefined;
       const tags = parseBoundaryTags(el);
       entry.content &&
-        unshift(
-          collectedContent,
+        collectedContent.unshift(
           ...map2(entry.content, (item) => ({
             ...item,
             rect,
@@ -137,17 +138,16 @@ export const getComponentContext = (
         );
 
       components?.length &&
-        (unshift(
-          collected,
+        (collected.unshift(
           ...map2(
             components,
             (item) => (
-              (includeState = max(
+              (includeState = max2([
                 includeState,
                 item.track?.secondary // INV: Secondary components are only included here if we did not have any components from a child element.
                   ? IncludeState.Primary
-                  : IncludeState.Promoted
-              )),
+                  : IncludeState.Promoted,
+              ])),
               stripRects(
                 {
                   ...item,
@@ -166,7 +166,7 @@ export const getComponentContext = (
     }
 
     const area = entry.area || trackerProperty(el, "area");
-    area && unshift(collected, area);
+    area && collected.unshift(area);
   });
 
   let areaPath: string[] | undefined;
@@ -174,15 +174,15 @@ export const getComponentContext = (
 
   if (collectedContent.length) {
     // Content without a containing component is gathered in an ID-less component.
-    push(collected, stripRects({ id: "", rect, content: collectedContent }));
+    collected.push(stripRects({ id: "", rect, content: collectedContent }));
   }
 
   forEach2(collected, (item) => {
     if (isString(item)) {
-      push((areaPath ??= []), item);
+      (areaPath ??= []).push(item);
     } else {
       item.area ??= join2(areaPath, "/");
-      unshift((components ??= []), item);
+      (components ??= []).unshift(item);
     }
   });
 
@@ -212,15 +212,15 @@ export const components: TrackerExtensionFactory = {
       boundary: el,
       ...command
     }: BoundaryCommand) => {
-      update(boundaryData, el, (current) => {
+      update2(boundaryData, el, (current) => {
         return normalizeBoundaryData(
           "add" in command
             ? {
                 ...current,
-                component: concat(current?.component, command.component),
-                content: concat(current?.content, command.content),
+                component: concat2(current?.component, command.component),
+                content: concat2(current?.content, command.content),
                 area: command?.area ?? current?.area,
-                tags: concat(current?.tags, command.tags),
+                tags: concat2(current?.tags, command.tags),
                 cart: command.cart ?? current?.cart,
                 track: command.track ?? current?.track,
               }

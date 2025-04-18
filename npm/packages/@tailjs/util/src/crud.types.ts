@@ -1,4 +1,4 @@
-import { Falsish, Nullish } from "..";
+import { Falsish, Nullish } from ".";
 import {
   AllowAdditionalElements,
   EntryTypeOf,

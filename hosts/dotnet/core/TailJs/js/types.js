@@ -1,276 +1,3 @@
-function _define_property$1$1(obj, key, value) {
-    if (key in obj) {
-        Object.defineProperty(obj, key, {
-            value: value,
-            enumerable: true,
-            configurable: true,
-            writable: true
-        });
-    } else {
-        obj[key] = value;
-    }
-    return obj;
-}
-const throwError = (error, transform = (message)=>new Error(message))=>{
-    throw isString(error = unwrap(error)) ? transform(error) : error;
-};
-const throwTypeError = (message)=>throwError(new TypeError(message));
-class DeferredPromise extends Promise {
-    get initialized() {
-        return this._result != null;
-    }
-    then(onfulfilled, onrejected) {
-        var _this__result;
-        return ((_this__result = this._result) !== null && _this__result !== void 0 ? _this__result : this._result = this._action()).then(onfulfilled, onrejected);
-    }
-    catch(onrejected) {
-        var _this__result;
-        return ((_this__result = this._result) !== null && _this__result !== void 0 ? _this__result : this._result = this._action()).catch(onrejected);
-    }
-    finally(onfinally) {
-        var _this__result;
-        return ((_this__result = this._result) !== null && _this__result !== void 0 ? _this__result : this._result = this._action()).finally(onfinally);
-    }
-    constructor(action){
-        super(()=>{}), _define_property$1$1(this, "_action", void 0), _define_property$1$1(this, "_result", void 0);
-        this._action = action;
-    }
-}
-/**
- * A promise that is initialized lazily on-demand.
- * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
- */ const deferredPromise = (expression)=>new DeferredPromise(async ()=>unwrap(expression));
-/** Minify friendly version of `false`. */ const undefined$1 = void 0;
-/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
-/** Minify friendly version of `null`. */ const nil = null;
-/** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator$1 = Symbol.iterator;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
-const isString = (value)=>typeof value === "string";
-const isArray = Array.isArray;
-const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
-const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
-const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
-let stopInvoked$1 = false;
-const stop = (yieldValue)=>(stopInvoked$1 = true, yieldValue);
-const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
-function* createFilteringIterator(source, projection) {
-    if (source == null) return;
-    if (projection) {
-        projection = wrapProjection(projection);
-        let i = 0;
-        for (let item of source){
-            if ((item = projection(item, i++)) != null) {
-                yield item;
-            }
-            if (stopInvoked$1) {
-                stopInvoked$1 = false;
-                break;
-            }
-        }
-    } else {
-        for (let item of source){
-            if (item != null) yield item;
-        }
-    }
-}
-function* createObjectIterator(source, action) {
-    action = wrapProjection(action);
-    let i = 0;
-    for(const key in source){
-        let value = [
-            key,
-            source[key]
-        ];
-        action && (value = action(value, i++));
-        if (value != null) {
-            yield value;
-        }
-        if (stopInvoked$1) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-}
-function* createRangeIterator(length = 0, offset) {
-    if (length < 0) {
-        offset !== null && offset !== void 0 ? offset : offset = -length - 1;
-        while(length++)yield offset--;
-    } else {
-        offset !== null && offset !== void 0 ? offset : offset = 0;
-        while(length--)yield offset++;
-    }
-}
-function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
-    if (start != null) yield start;
-    while(maxIterations-- && (start = step(start)) != null){
-        yield start;
-    }
-}
-const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
-const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator$1] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
-const forEachArray = (source, action, start, end)=>{
-    let returnValue;
-    let i = 0;
-    start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
-    end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
-    for(; start < end; start++){
-        var _action;
-        if (source[start] != null && (returnValue = (_action = action(source[start], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked$1)) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachIterable = (source, action)=>{
-    let returnValue;
-    let i = 0;
-    for (let value of source){
-        var _action;
-        if (value != null && (returnValue = (_action = action(value, i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked$1)) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachObject = (source, action)=>{
-    let returnValue;
-    let i = 0;
-    for(let key in source){
-        var _action;
-        if (returnValue = (_action = action([
-            key,
-            source[key]
-        ], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked$1) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachInternal = (source, action, start, end)=>{
-    if (source == null) return;
-    if (isArray(source)) return forEachArray(source, action, start, end);
-    if (start === undefined$1) {
-        if (source[symbolIterator$1]) return forEachIterable(source, action);
-        if (typeof source === "object") return forEachObject(source, action);
-    }
-    let returnValue;
-    for (const value of createIterator(source, action, start, end)){
-        value != null && (returnValue = value);
-    }
-    return returnValue;
-};
-/** Fast version of `obj`. */ const fromEntries = (source, map)=>{
-    if (source == null) return undefined$1;
-    const result = {};
-    if (map) {
-        let i = 0;
-        let value;
-        for(const key in source){
-            (value = map([
-                key,
-                source[key]
-            ], i++)) && (result[value[0]] = value[1]);
-        }
-    } else {
-        for (const entry of source){
-            entry && (result[entry[0]] = entry[1]);
-        }
-    }
-    return result;
-};
-const first = (source, predicate, start, end)=>source == null ? undefined$1 : forEachInternal(source, (value, i)=>!predicate || predicate(value, i) ? stop(value) : undefined$1, start, end);
-const set = (target, key, value)=>{
-    if (target.constructor === Object || isArray(target)) {
-        value === undefined ? delete target[key] : target[key] = value;
-        return value;
-    }
-    value === undefined ? target.delete ? target.delete(key) : delete target[key] : target.set ? target.set(key, value) : target.add ? value ? target.add(key) : target.delete(key) : target[key] = value;
-    return value;
-};
-const tryAdd = (target, key, value, conflict)=>{
-    const current = get(target, key);
-    if (current != null) {
-        conflict === null || conflict === void 0 ? void 0 : conflict(current);
-        return false;
-    }
-    set(target, key, unwrap(value));
-    return true;
-};
-const get = (target, key, init)=>{
-    if (!target) return undefined;
-    let value = target.get ? target.get(key) : target.has ? target.has(key) : target[key];
-    if (value === undefined && init != null) {
-        (value = isFunction(init) ? init() : init) != null && set(target, key, value);
-    }
-    return value;
-};
-const unwrap = (value)=>isFunction(value) ? value() : value;
-const ellipsis = (text, maxLength, debug = false)=>text && (text.length > maxLength ? debug ? `${text.slice(0, maxLength)}... [and ${text.length - maxLength} more]` : text.slice(0, maxLength - 1) + "…" : text);
-const createEnumParser = (name, values)=>{
-    const levels = [];
-    const ranks = {};
-    const parser = {};
-    let rank = 0;
-    for(let key in values){
-        if (key === values[key]) {
-            Object.defineProperty(parser, key, {
-                value: key,
-                writable: false,
-                enumerable: true,
-                configurable: false
-            });
-            ranks[key] = rank++;
-            levels.push(key);
-        }
-    }
-    const parse = (value, validate = true)=>value == null ? undefined$1 : ranks[value] != null ? value : validate ? throwError(`The ${name} "${value}" is not defined.`) : undefined$1;
-    const propertySettings = {
-        writable: false,
-        enumerable: false,
-        configurable: false
-    };
-    Object.defineProperties(parser, {
-        parse: {
-            value: parse,
-            ...propertySettings
-        },
-        ranks: {
-            value: ranks,
-            ...propertySettings
-        },
-        levels: {
-            value: levels,
-            ...propertySettings
-        },
-        compare: {
-            value: (lhs, rhs)=>{
-                const rank1 = ranks[parse(lhs)], rank2 = ranks[parse(rhs)];
-                return rank1 < rank2 ? -1 : rank1 > rank2 ? 1 : 0;
-            },
-            ...propertySettings
-        }
-    });
-    return parser;
-};
-let matchProjection;
-let collected;
-/**
- * Matches a regular expression against a string and projects the matched parts, if any.
- */ const match = (s, regex, selector, collect = false)=>{
-    var _s_match;
-    return (s !== null && s !== void 0 ? s : regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : (_s_match = s.match(regex)) !== null && _s_match !== void 0 ? _s_match : undefined$1;
-};
-/**
- * Better minifyable version of `String`'s `replace` method that allows a null'ish parameter.
- */ const replace = (s, match, replaceValue)=>{
-    var _s_replace;
-    return (_s_replace = s === null || s === void 0 ? void 0 : s.replace(match, replaceValue)) !== null && _s_replace !== void 0 ? _s_replace : s;
-};
 // #endregion
 const getRootPrototype = (value)=>{
     let proto = value;
@@ -296,14 +23,14 @@ const findPrototypeFrame = (frameWindow, matchPrototype)=>{
 /**
  * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
  * e.g., `Object` in an iframe is different from `Object` in the top frame.
- */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
+ */ const findDeclaringScope = (target)=>target == null ? target : typeof window !== "undefined" ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
 let stopInvoked = false;
 const skip2 = Symbol();
 const stop2 = (value)=>(stopInvoked = true, value);
 // #region region_iterator_implementations
 const forEachSymbol = Symbol();
 const asyncIteratorFactorySymbol = Symbol();
-const symbolIterator = Symbol.iterator;
+const symbolIterator$1 = Symbol.iterator;
 // Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
 const ensureForEachImplementations = (target, error, retry)=>{
     if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
@@ -352,7 +79,7 @@ const ensureForEachImplementations = (target, error, retry)=>{
     };
     const genericForEachIterable = forEachIterable();
     scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        if (target[symbolIterator]) {
+        if (target[symbolIterator$1]) {
             if (target.constructor === Object) {
                 return genericForEachIterable(target, projection, mapped, seed, context);
             }
@@ -379,14 +106,14 @@ const ensureForEachImplementations = (target, error, retry)=>{
         return mapped || seed;
     };
     scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
-        if (this[symbolIterator] || this[symbolAsyncIterator]) {
+        if (this[symbolIterator$1] || this[symbolAsyncIterator]) {
             if (this.constructor === Object) {
                 var _this_symbolAsyncIterator;
-                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator]();
+                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator$1]();
             }
             const proto = Object.getPrototypeOf(this);
             var _proto_symbolAsyncIterator;
-            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator];
+            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator$1];
             return this[asyncIteratorFactorySymbol]();
         }
         return iterateEntries(this);
@@ -400,7 +127,7 @@ const ensureForEachImplementations = (target, error, retry)=>{
         Object.getPrototypeOf(function*() {})
     ]){
         proto[forEachSymbol] = forEachIterable();
-        proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
+        proto[asyncIteratorFactorySymbol] = proto[symbolIterator$1];
     }
     scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
     scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
@@ -426,7 +153,8 @@ function* iterateEntries(source) {
 }
 const forEach2 = (source, projection, seed, context)=>{
     try {
-        return source ? source[forEachSymbol](source, projection, undefined, seed, context) : source == null ? source : undefined;
+        var _source_forEachSymbol;
+        return source ? (_source_forEachSymbol = source[forEachSymbol](source, projection, undefined, seed, context)) !== null && _source_forEachSymbol !== void 0 ? _source_forEachSymbol : seed : source == null ? source : undefined;
     } catch (e) {
         return ensureForEachImplementations(source, e, ()=>forEach2(source, projection, seed, context));
     }
@@ -438,12 +166,13 @@ let map2 = (source, projection, target = [], seed, context = source)=>{
         return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
     }
 };
-let filter2 = (items, filter = true, invert = false)=>map2(items, filter === true ? (item)=>item !== null && item !== void 0 ? item : skip2 : !filter ? (item)=>item || skip2 : filter.has ? (item)=>item == null || filter.has(item) === invert ? skip2 : item : (item, index, prev)=>!filter(item, index, prev) === invert ? item : skip2);
+let filter2 = (items, filter = true, invert = false)=>map2(items, filter === true ? (item)=>item !== null && item !== void 0 ? item : skip2 : !filter ? (item)=>item || skip2 : filter.has ? (item)=>item == null || filter.has(item) === invert ? skip2 : item : (item, index, prev)=>!filter(item, index, prev, items) === invert ? item : skip2);
+const first2 = (source, predicate = source)=>forEach2(source, (item, index, prev)=>((!predicate || predicate(item, index, prev, source)) && (stopInvoked = true), item));
 const collect2 = (source, generator, includeSelf = true, collected)=>{
     if (source == null) return source;
     const root = collected;
     collected !== null && collected !== void 0 ? collected : collected = new Set();
-    if (source[symbolIterator] && typeof source !== "string") {
+    if (source[symbolIterator$1] && typeof source !== "string") {
         for (const item of source){
             if (collect2(item, generator, includeSelf, collected) === stop2) {
                 break;
@@ -461,10 +190,10 @@ const collect2 = (source, generator, includeSelf = true, collected)=>{
     }
     return collected;
 };
-const distinct2 = (source)=>source == null ? source : source instanceof Set ? source : new Set(source[symbolIterator] && typeof source !== "string" ? source : [
+const distinct2 = (source)=>source == null ? source : source instanceof Set ? source : new Set(source[symbolIterator$1] && typeof source !== "string" ? source : [
         source
     ]);
-const array2 = (source)=>source == null ? source : isArray(source) ? source : source[symbolIterator] && typeof source !== "string" ? [
+const array2 = (source)=>source == null ? source : isArray(source) ? source : source[symbolIterator$1] && typeof source !== "string" ? [
         ...source
     ] : [
         source
@@ -603,6 +332,15 @@ let set2 = (target, key, value)=>{
         return ensureAssignImplementations(target, e, ()=>set2(target, key, value));
     }
 };
+let exchange2 = (target, key, value)=>{
+    try {
+        const previous = target[getSymbol](key);
+        target[setSymbol](key, value);
+        return previous;
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>exchange2(target, key, value));
+    }
+};
 const update2 = (target, key, update)=>{
     let updated = update(get2(target, key));
     return typeof (updated === null || updated === void 0 ? void 0 : updated.then) === "function" ? updated.then((value)=>set2(target, key, value)) : set2(target, key, updated);
@@ -619,6 +357,58 @@ const obj2 = (source, projection)=>{
     forEach2(source, projection ? (item, index, seed)=>(item = projection(item, index, seed)) && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item : (item)=>item && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item);
     return target;
 };
+const unwrap = (value)=>typeof value === "function" ? value() : value;
+function _define_property$1$1(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
+const throwError = (error, transform = (message)=>new Error(message))=>{
+    throw isString(error = unwrap(error)) ? transform(error) : error;
+};
+const throwTypeError = (message)=>throwError(new TypeError(message));
+class DeferredPromise extends Promise {
+    get initialized() {
+        return this._result != null;
+    }
+    then(onfulfilled, onrejected) {
+        var _this__result;
+        return ((_this__result = this._result) !== null && _this__result !== void 0 ? _this__result : this._result = this._action()).then(onfulfilled, onrejected);
+    }
+    catch(onrejected) {
+        var _this__result;
+        return ((_this__result = this._result) !== null && _this__result !== void 0 ? _this__result : this._result = this._action()).catch(onrejected);
+    }
+    finally(onfinally) {
+        var _this__result;
+        return ((_this__result = this._result) !== null && _this__result !== void 0 ? _this__result : this._result = this._action()).finally(onfinally);
+    }
+    constructor(action){
+        super(()=>{}), _define_property$1$1(this, "_action", void 0), _define_property$1$1(this, "_result", void 0);
+        this._action = action;
+    }
+}
+/**
+ * A promise that is initialized lazily on-demand.
+ * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
+ */ const deferredPromise = (expression)=>new DeferredPromise(async ()=>unwrap(expression));
+/** Minify friendly version of `false`. */ const undefined$1 = void 0;
+/** Minify friendly version of `null`. */ const nil = null;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
+const isString = (value)=>typeof value === "string";
+const isArray = Array.isArray;
+const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
+const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value !== "string" || acceptStrings));
+const ellipsis = (text, maxLength, debug = false)=>text && (text.length > maxLength ? debug ? `${text.slice(0, maxLength)}... [and ${text.length - maxLength} more]` : text.slice(0, maxLength - 1) + "…" : text);
 const isEmptyString = (s)=>s == null || typeof s === "boolean" || s.toString() === "";
 const join2 = (source, arg1, arg2)=>source == null ? source : !isIterable(source) ? isEmptyString(source) ? "" : source.toString() : filter2(typeof arg1 === "function" ? map2(source, arg1) : (arg2 = arg1, source), isEmptyString, true).join(arg2 !== null && arg2 !== void 0 ? arg2 : "");
 const indent2 = (text, indent = "  ")=>{
@@ -639,7 +429,7 @@ const stringify2 = JSON.stringify;
 /**
  * Itemizes an array of items by separating them with commas and a conjunction like "and" or "or".
  */ const itemize2 = (values, separators, result, rest)=>{
-    if (!values && values !== 0) return values == null ? values : undefined;
+    if (!values && values !== 0) return values == null ? values : undefined$1;
     if (typeof separators === "function") {
         return itemize2(map2(values, separators), result, rest);
     }
@@ -654,6 +444,66 @@ const stringify2 = JSON.stringify;
     (conjunction ? conjunction + " " : "");
     const enumerated = first.length ? `${first.join(separator + " ")}${conjunction}${last}` : last !== null && last !== void 0 ? last : "";
     return result ? result(enumerated, first.length + +(last != null)) : enumerated;
+};
+const createEnumParser = (name, values)=>{
+    const levels = [];
+    const ranks = {};
+    const parser = {};
+    let rank = 0;
+    for(let key in values){
+        if (key === values[key]) {
+            Object.defineProperty(parser, key, {
+                value: key,
+                writable: false,
+                enumerable: true,
+                configurable: false
+            });
+            ranks[key] = rank++;
+            levels.push(key);
+        }
+    }
+    const parse = (value, validate = true)=>value == null ? undefined$1 : ranks[value] != null ? value : validate ? throwError(`The ${name} "${value}" is not defined.`) : undefined$1;
+    const propertySettings = {
+        writable: false,
+        enumerable: false,
+        configurable: false
+    };
+    Object.defineProperties(parser, {
+        parse: {
+            value: parse,
+            ...propertySettings
+        },
+        ranks: {
+            value: ranks,
+            ...propertySettings
+        },
+        levels: {
+            value: levels,
+            ...propertySettings
+        },
+        compare: {
+            value: (lhs, rhs)=>{
+                const rank1 = ranks[parse(lhs)], rank2 = ranks[parse(rhs)];
+                return rank1 < rank2 ? -1 : rank1 > rank2 ? 1 : 0;
+            },
+            ...propertySettings
+        }
+    });
+    return parser;
+};
+let matchProjection;
+let collected;
+/**
+ * Matches a regular expression against a string and projects the matched parts, if any.
+ */ const match = (s, regex, selector, collect = false)=>{
+    var _s_match;
+    return (s !== null && s !== void 0 ? s : regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : (_s_match = s.match(regex)) !== null && _s_match !== void 0 ? _s_match : undefined$1;
+};
+/**
+ * Better minifyable version of `String`'s `replace` method that allows a null'ish parameter.
+ */ const replace = (s, match, replaceValue)=>{
+    var _s_replace;
+    return (_s_replace = s === null || s === void 0 ? void 0 : s.replace(match, replaceValue)) !== null && _s_replace !== void 0 ? _s_replace : s;
 };
 
 /**
@@ -715,10 +565,10 @@ const VALID_PURPOSE_NAMES = obj2(DATA_PURPOSES, (purpose)=>[
         purpose,
         purpose
     ]);
-const DATA_PURPOSES_ALL = Object.freeze(fromEntries(DATA_PURPOSES.map((purpose)=>[
+const DATA_PURPOSES_ALL = Object.freeze(obj2(DATA_PURPOSES, (purpose)=>[
         purpose,
         true
-    ])));
+    ]));
 const mapOptionalPurpose = (purpose, optionalPurposes)=>purpose === "personalization" && (optionalPurposes === null || optionalPurposes === void 0 ? void 0 : optionalPurposes.personalization) !== true ? "functionality" : purpose === "security" && (optionalPurposes === null || optionalPurposes === void 0 ? void 0 : optionalPurposes.security) !== true ? "necessary" : purpose;
 const mapOptionalPurposes = (purposes, optionalPurposes)=>{
     let mappedPurposes = purposes;
@@ -1737,7 +1587,7 @@ const getMinimumUsage = (current, other)=>current ? other ? {
         readonly: current.readonly && other.readonly,
         visibility: DataVisibility.ranks[current.visibility] <= DataVisibility.ranks[other.visibility] ? current.visibility : other.visibility,
         classification: DataClassification.ranks[current.classification] <= DataClassification.ranks[other.classification] ? current.classification : other.classification,
-        purposes: fromEntries(current.purposes, ([key, value])=>value && !other.purposes[key] ? undefined : [
+        purposes: obj2(current.purposes, ([key, value])=>value && !other.purposes[key] ? undefined : [
                 key,
                 value
             ])
@@ -2454,7 +2304,7 @@ const resolveLocalTypeMapping = (nameOrId, context)=>{
                 namePath.unshift(typeNamePostfix);
             }
             if (referencingProperty.declaringType.embedded) {
-                if (!(referencingProperty = first(referencingProperty.declaringType.referencedBy))) {
+                if (!(referencingProperty = first2(referencingProperty.declaringType.referencedBy))) {
                     throw new Error("INV: An embedded type is referenced by exactly one property (the one that embeds it).");
                 }
             } else {
@@ -2999,9 +2849,8 @@ class TypeResolver {
                         censor: dummyProperty.censor,
                         dynamic: !!definition.dynamic
                     };
-                    tryAdd(get2(this._variables, scope, ()=>new Map()), key, variable, (current)=>{
-                        throw new Error(`The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.toString}".`);
-                    });
+                    const current = exchange2(get2(this._variables, scope, ()=>new Map()), key, variable);
+                    current && throwError(`The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.toString}".`);
                     get2(schema.variables, scope, ()=>new Map()).set(key, variable);
                     if ("properties" in variableType) {
                         var _variableType;

@@ -26,7 +26,7 @@ import {
   Nullish,
   pick2,
   push2,
-  remove,
+  remove2,
   required,
   skip2,
   some2,
@@ -145,7 +145,7 @@ export const createVariableStorage = (
     if (!result) return;
 
     const key = variableKeyToString(result);
-    const callbacks = remove(activeCallbacks, key);
+    const callbacks = remove2(activeCallbacks, key);
     if (!callbacks?.size) return;
 
     forEach2(

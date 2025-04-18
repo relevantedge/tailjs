@@ -16,13 +16,14 @@ import {
   SimpleObject,
   skip2,
   stop2,
-} from "..";
+} from ".";
 import {
   EncourageTuples,
   findDeclaringScope,
   InputValueTypeOf,
   KeyTypeOf,
   KeyValueType,
+  LookupType,
   MapFromEntries,
   MergeObjectSources,
   ObjectFromEntries,
@@ -197,16 +198,36 @@ export let set2: {
   }
 };
 
+/** Removes the value with the specified key, and returns it. */
+export const remove2: {
+  <Target extends LookupType, K extends KeyTypeOf<Target>>(
+    target: Target,
+    key: K
+  ): ValueTypeOf<Target, K> | undefined;
+  <Target, K extends keyof Target>(target: Target, key: K):
+    | Target[K]
+    | undefined;
+} = (target: any, key: any) => exchange2(target, key, undefined);
+
 export let exchange2: {
   <
-    Target,
+    Target extends LookupType,
     K extends KeyTypeOf<Target>,
-    Value extends InputValueTypeOf<Target, K>
+    Value extends InputValueTypeOf<Target, K> | undefined
   >(
     target: Target,
     key: K,
     value: Value
-  ): MaybeNullish<Value, Target>;
+  ): ValueTypeOf<Target, K> | undefined;
+  <
+    Target,
+    K extends keyof Target,
+    Value extends InputValueTypeOf<Target, K> | undefined
+  >(
+    target: Target,
+    key: K,
+    value: Value
+  ): Target[K] | undefined;
 } = (target: any, key: any, value: any) => {
   try {
     const previous = target[getSymbol](key);
@@ -383,7 +404,9 @@ export interface Merge2Settings<
   deep?: Deep;
 
   /**
-   * Don't merge the value from the other object(s) if the target already has a value.
+   * Overwrite the value from the other object(s) if they already has a value.
+   *
+   * @default true
    */
   overwrite?: Overwrite;
   /**

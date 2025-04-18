@@ -1,4 +1,4 @@
-import { first, throwError, throwTypeError } from "@tailjs/util";
+import { first2, throwError, throwTypeError } from "@tailjs/util";
 import { parseBaseTypes, parseTypeProperties, TypeParseContext } from ".";
 import {
   CORE_EVENT_DISCRIMINATOR,
@@ -124,7 +124,7 @@ export const parseType = (
 
       if (referencingProperty.declaringType.embedded) {
         if (
-          !(referencingProperty = first(
+          !(referencingProperty = first2(
             referencingProperty.declaringType.referencedBy
           ) as any)
         ) {

@@ -1,15 +1,14 @@
 import {
-  IDENTITY,
   If,
   MaybeUndefined,
   Nullable,
-  distinct,
-  filter,
+  distinct2,
+  filter2,
   isArray,
   isBoolean,
   isString,
   join2,
-  map,
+  map2,
   nil,
   undefined,
   type ConstToNormal,
@@ -99,7 +98,7 @@ export const escapeRegEx = <T extends string | Nullish>(
 
 const REGEX_NEVER = /\z./g;
 const unionOrNever = (parts: (string | Nullish)[], joined?: string) =>
-  (joined = join2(distinct(filter(parts, (part) => part?.length)), "|"))
+  (joined = join2(distinct2(filter2(parts, (part) => part?.length)), "|"))
     ? new RegExp(joined, "gu")
     : REGEX_NEVER;
 
@@ -118,7 +117,7 @@ export const parseRegex = <T>(
   isRegEx(input)
     ? input
     : isArray(input) // Parse individual specifiers, and join them into one long regex. An empty array is interpreted as "never".
-    ? unionOrNever(map(input, (part) => parseRegex(part, separators)?.source)!)
+    ? unionOrNever(map2(input, (part) => parseRegex(part, separators)?.source)!)
     : isBoolean(input)
     ? input // `true` is "always", `false` is "never"
       ? /./g
@@ -131,7 +130,7 @@ export const parseRegex = <T>(
           regex
             ? new RegExp(regex, "gu")
             : unionOrNever(
-                map(
+                map2(
                   split(
                     text!,
                     new RegExp(
@@ -167,7 +166,7 @@ export const split = <T extends string | Nullish>(
   s == null
     ? undefined
     : trim
-    ? split(s, separator, false)!.filter(IDENTITY)
+    ? filter2(split(s, separator, false))
     : (s.split(separator) as any);
 
 /**

@@ -29,7 +29,7 @@ import {
   ToggleArray,
   TupleOrArray,
   UnwrapPromiseLike,
-} from "..";
+} from ".";
 import {
   EncourageTuples,
   findDeclaringScope,
@@ -268,8 +268,8 @@ export const forEach2: {
   <
     Source extends IterationSource,
     Projected,
-    Accumulator extends Projected,
     Signal extends typeof skip2 | typeof stop2 | never,
+    Accumulator extends Projected | undefined = undefined,
     Context = Source
   >(
     source: Source,
@@ -278,11 +278,12 @@ export const forEach2: {
       | Nullish,
     seed?: Accumulator,
     context?: Context
-  ): MaybeNullishOrFalse<IterationProjected<Projected> | undefined, Source>;
+  ): MaybeNullishOrFalse<IterationProjected<Projected> | Accumulator, Source>;
 } = (source: any, projection?: any, seed?: any, context?: any) => {
   try {
     return source
-      ? source[forEachSymbol](source, projection, undefined, seed, context)
+      ? source[forEachSymbol](source, projection, undefined, seed, context) ??
+          seed
       : source == null
       ? source
       : undefined;
@@ -439,7 +440,7 @@ export let filter2: {
       : filter.has
       ? (item) => (item == null || filter.has(item) === invert ? skip2 : item)
       : (item, index, prev) =>
-          !filter(item, index, prev) === invert ? item : skip2
+          !filter(item, index, prev, items) === invert ? item : skip2
   );
 
 export const take2: {
@@ -484,6 +485,36 @@ export const first2: {
       item
     )
   );
+
+export const last2: {
+  <Source extends IterationSource, R>(
+    source: Source,
+    predicate: IterationTypeGuardCallback2<Source, R>
+  ): R | undefined;
+  <Source extends IterationSource>(
+    source: Source,
+    predicate?: IterationFilterCallback2<Source>
+  ): IteratorItem2<Source> | undefined;
+} = (source: any, predicate = source) =>
+  !predicate && isArray(source)
+    ? source[source.length - 1]
+    : forEach2(source, (item, index, prev) =>
+        !predicate || predicate(item, index, prev, source) ? prev : item
+      );
+
+export const count2 = <Source extends IterationSource>(
+  source: Source,
+  predicate?: IterationFilterCallback2<Source>
+) => {
+  let n = 0;
+  forEach2(
+    source,
+    predicate
+      ? (item, index, prev) => predicate(item, index, prev, source) && ++n
+      : () => ++n
+  );
+  return n;
+};
 
 type Ones<N extends number, A extends number[] = []> = A["length"] extends N
   ? A
@@ -1016,9 +1047,10 @@ const normalizeSelector = (selector: Selector, require = false) =>
     : (item: any) => item;
 
 type ReduceFunction<Default = undefined, By = false> = {
+  <T extends number>(source: readonly [T, ...T[]]): T;
   <Source>(
     source: Source & Iterable<number | undefined>
-  ): Source extends Nullish ? Source : number | Default;
+  ): Source extends Nullish ? Source : IteratorItem2<Source> | Default;
   <
     Source extends IterationSource,
     Projected extends number | undefined,
@@ -1068,24 +1100,28 @@ export const min2: ReduceFunction<undefined, true> = (
   projection?: any,
   by?: boolean
 ) =>
-  reduce2(
-    source,
-    projection,
-    (prev, x) => (prev == null || x < prev ? x : prev),
-    by
-  );
+  !projection && isArray(source)
+    ? Math.min(...source)
+    : reduce2(
+        source,
+        projection,
+        (prev, x) => (prev == null || x < prev ? x : prev),
+        by
+      );
 
 export const max2: ReduceFunction<undefined, true> = (
   source: any,
   projection?: any,
   by?: boolean
 ) =>
-  reduce2(
-    source,
-    projection,
-    (prev, x) => (prev == null || x > prev ? x : prev),
-    by
-  );
+  !projection && isArray(source)
+    ? Math.max(...source)
+    : reduce2(
+        source,
+        projection,
+        (prev, x) => (prev == null || x > prev ? x : prev),
+        by
+      );
 
 export const sum2: ReduceFunction<number> = (source: any, projection?: any) =>
   reduce2(source, projection, (prev = 0, x) => {

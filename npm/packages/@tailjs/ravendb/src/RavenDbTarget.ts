@@ -79,11 +79,13 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
         retries: maxRetries,
         retryDelay,
         errorFilter: (error, retry) => {
-          this._env.log(this, {
-            level: "error",
-            message: `Request to RavenDB failed on attempt ${retry + 1}.`,
-            error,
-          });
+          if (retry) {
+            this._env.log(this, {
+              level: "error",
+              message: `Request to RavenDB failed on attempt ${retry + 1}.`,
+              error,
+            });
+          }
         },
         errorHandler: (error) => {
           return {

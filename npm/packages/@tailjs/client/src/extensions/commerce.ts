@@ -10,7 +10,7 @@ import {
   equalsAny,
   isObject,
   isString,
-  last,
+  last2,
   nil,
   type Nullish,
 } from "@tailjs/util";
@@ -48,7 +48,7 @@ export function tryGetCartEventData(sourceElement: Element) {
         getBoundaryData(el)?.cart ?? trackerProperty(el, "cart")
       )) &&
       !contextCart.item &&
-      (contextCart.item = last(getBoundaryData(el)?.content)) &&
+      (contextCart.item = last2(getBoundaryData(el)?.content)) &&
       r(contextCart)
   );
 

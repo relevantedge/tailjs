@@ -10,7 +10,6 @@ import {
   isArray,
   isString,
   join2,
-  map,
   map2,
   match,
   nil,
@@ -304,12 +303,12 @@ export const toQueryString = <
 ): MaybeUndefined<P, string> =>
   parameters == nil
     ? undefined
-    : (map(parameters, ([key, value]) => {
+    : (map2(parameters, ([key, value]) => {
         return isString(key)
           ? key +
               "=" +
               (isArray(value)
-                ? map(value, uriEncode).join(delimiter)
+                ? map2(value, uriEncode).join(delimiter)
                 : uriEncode(value) ?? "")
           : undefined;
       })?.join("&") as any);

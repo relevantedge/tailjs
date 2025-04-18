@@ -10,6 +10,7 @@
     "dist:dry": "pnpm run dist --dry"
   },
   "dependencies": {
+    "@tailjs/client": "workspace:*",
     "@tailjs/engine": "workspace:*",
     "@tailjs/node": "workspace:*",
     "@tailjs/react": "workspace:*"

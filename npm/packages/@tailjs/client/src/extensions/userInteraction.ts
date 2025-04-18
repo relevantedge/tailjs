@@ -21,12 +21,11 @@ import {
   map2,
   nil,
   parseUri,
-  push,
-  remove,
+  remove2,
   restrict,
-  some,
-  stop,
-  update,
+  some2,
+  stop2,
+  update2,
   type Nullish,
 } from "@tailjs/util";
 import {
@@ -115,7 +114,7 @@ export const userInteraction: TrackerExtensionFactory = {
             key === "rect" ||
             //key === "pos"  Changed so pos is always included.
             key === "viewport"
-              ? remove(el, key)
+              ? remove2(el, key)
               : isObject(el[key]) &&
                 map2(el[key], (item) => stripPositions(item, hitTest))
           ),
@@ -146,7 +145,7 @@ export const userInteraction: TrackerExtensionFactory = {
                 (clickable) =>
                   isClickable(clickable) &&
                   ((clickables ??= []).length > 3
-                    ? stop() // If there are more than three clickables, there is presumably not any missed click intent.
+                    ? stop2 // If there are more than three clickables, there is presumably not any missed click intent.
                     : clickables.push({
                         ...getElementInfo(clickable, true),
                         component: forAncestorsOrSelf(
@@ -170,10 +169,10 @@ export const userInteraction: TrackerExtensionFactory = {
             trackClicks ??=
               trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
               (components &&
-                some(components, (cmp) => cmp.track?.clicks !== F));
+                some2(components, (cmp) => cmp.track?.clicks !== F));
             trackRegion ??=
               trackerFlag(el, "region", T, (data) => data.track?.region) ??
-              (components && some(components, (cmp) => cmp.track?.region));
+              (components && some2(components, (cmp) => cmp.track?.region));
           });
 
           if (!(containerElement ??= clickableElement)) {
@@ -206,7 +205,7 @@ export const userInteraction: TrackerExtensionFactory = {
           };
           if (!clickableElement) {
             clickIntent &&
-              update(activeEventClicks, containerElement, (current) => {
+              update2(activeEventClicks, containerElement, (current) => {
                 const pos = getPos(containerElement!, ev);
                 if (!current) {
                   // Reuse the same event and only add the new click coordinates
@@ -228,7 +227,7 @@ export const userInteraction: TrackerExtensionFactory = {
                     containerElement
                   );
                 } else {
-                  push(current, pos);
+                  current.push(pos);
                 }
 
                 return current;

@@ -1,8 +1,6 @@
 import {
-  fromEntries,
   isArray,
   isString,
-  keys2,
   map2,
   Nullish,
   obj2,
@@ -27,7 +25,7 @@ const VALID_PURPOSE_NAMES = obj2(DATA_PURPOSES, (purpose) => [
 ]);
 
 export const DATA_PURPOSES_ALL: DataPurposes = Object.freeze(
-  fromEntries(DATA_PURPOSES.map((purpose) => [purpose, true]))
+  obj2(DATA_PURPOSES, (purpose) => [purpose, true])
 );
 
 /**

@@ -16,22 +16,17 @@
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/engine.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/engine.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/maxmind.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/maxmind.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/ravendb.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/ravendb.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/types.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/types.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/src/app/components/AnimationTest.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/src/app/components/AnimationTest.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/tailjs.api.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/tailjs.api.config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/components.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/components.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/cosmosdb/src/CosmosDbExtension.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/cosmosdb/src/CosmosDbExtension.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tailjs-runtime-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tailjs-runtime-schema.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tailjs-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tailjs-schema.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/cosmosdb/src/CosmosDbTarget.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/cosmosdb/src/CosmosDbTarget.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/Tracker.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/Tracker.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/internal/traverseNodes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/internal/traverseNodes.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/next/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/next/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/next/src/bakeTracker.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/next/src/bakeTracker.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbTarget.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbTarget.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/types/validation.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/types/validation.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/pnpm-lock.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/tsconfig.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -223,6 +218,9 @@
       <workItem from="1741350600262" duration="607000" />
       <workItem from="1741583315815" duration="11183000" />
       <workItem from="1744020405090" duration="785000" />
+      <workItem from="1744112801520" duration="386000" />
+      <workItem from="1744113373021" duration="1054000" />
+      <workItem from="1744206355638" duration="18000" />
     </task>
     <task id="LOCAL-00001" summary="Adjusted project for new repo. Consumed latest event schema.">
       <option name="closed" value="true" />
