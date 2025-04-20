@@ -1,6 +1,5 @@
 import { VariableServerScope, extractKey, VariableResultStatus } from '@tailjs/types';
 
-// #endregion
 const getRootPrototype = (value)=>{
     let proto = value;
     while(proto){
@@ -27,8 +26,8 @@ const findPrototypeFrame = (frameWindow, matchPrototype)=>{
  * e.g., `Object` in an iframe is different from `Object` in the top frame.
  */ const findDeclaringScope = (target)=>target == null ? target : typeof window !== "undefined" ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
 let stopInvoked = false;
-const skip2 = Symbol();
-const stop2 = (value)=>(stopInvoked = true, value);
+const skip = Symbol();
+const stop = (value)=>(stopInvoked = true, value);
 // #region region_iterator_implementations
 const forEachSymbol = Symbol();
 const asyncIteratorFactorySymbol = Symbol();
@@ -45,8 +44,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
     const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
             let projected, i = 0;
             for (const item of target){
-                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                    if (projected === stop2) {
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                    if (projected === stop) {
                         break;
                     }
                     seed = projected;
@@ -63,8 +62,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
         let projected, item;
         for(let i = 0, n = target.length; i < n; i++){
             item = target[i];
-            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip) {
+                if (projected === stop) {
                     break;
                 }
                 seed = projected;
@@ -93,8 +92,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
                 key,
                 target[key]
             ];
-            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                if (projected === stop) {
                     break;
                 }
                 seed = projected;
@@ -131,17 +130,17 @@ const ensureForEachImplementations = (target, error, retry)=>{
         proto[forEachSymbol] = forEachIterable();
         proto[asyncIteratorFactorySymbol] = proto[symbolIterator$1];
     }
-    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
-    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse;
     return retry();
 };
 // #endregion
-function* range2(length = this) {
+function* range(length = this) {
     for(let i = 0; i < length; i++)yield i;
 }
-function* traverse2(next = this) {
+function* traverse(next = this) {
     let item = undefined;
     while((item = next(item)) !== undefined)yield item;
 }
@@ -153,14 +152,14 @@ function* iterateEntries(source) {
         ];
     }
 }
-let map2 = (source, projection, target = [], seed, context = source)=>{
+let map = (source, projection, target = [], seed, context = source)=>{
     try {
         return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
     } catch (e) {
-        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
+        return ensureForEachImplementations(source, e, ()=>map(source, projection, target, seed, context));
     }
 };
-const batch2 = (source, batchSize)=>{
+const batch = (source, batchSize)=>{
     if (source == null) return source;
     const batches = [];
     let batch = [];
@@ -345,8 +344,8 @@ const createLock = (timeout)=>{
 const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap(value)), ms)) : throwError(`Invalid delay ${ms}.`);
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : arg));
-const stringify2 = JSON.stringify;
-const json2 = (value)=>value == null || value === "" ? undefined$1 : typeof value === "object" ? value : JSON.parse(value + "");
+const stringify = JSON.stringify;
+const parseJson = (value)=>value == null || value === "" ? undefined$1 : typeof value === "object" ? value : JSON.parse(value + "");
 
 function _define_property$2(obj, key, value) {
     if (key in obj) {
@@ -397,7 +396,7 @@ class RavenDbTarget {
         return withRetry(async ()=>{
             const response = await this._env.request(request);
             if (response.status === 500) {
-                const body = json2(response.body);
+                const body = parseJson(response.body);
                 response.error = new Error((body === null || body === void 0 ? void 0 : body.Type) ? `${body.Type}: ${body.Message}` : "(unspecified error)");
             }
             return response;
@@ -419,7 +418,7 @@ class RavenDbTarget {
                     status: 500,
                     headers: {},
                     cookies: {},
-                    body: stringify2({
+                    body: stringify({
                         Message: formatError(error, true)
                     }),
                     error
@@ -575,15 +574,15 @@ class RavenDbVariableStorage extends RavenDbTarget {
     }
     async get(keys) {
         const results = [];
-        for (const batch of batch2(keys, 100)){
-            const response = await this._request("GET", `docs?${batch.map((key)=>`id=${keyToDocumentId(key)}`).join("&")}`);
+        for (const keyBatch of batch(keys, 100)){
+            const response = await this._request("GET", `docs?${keyBatch.map((key)=>`id=${keyToDocumentId(key)}`).join("&")}`);
             const timestamp = now();
-            const body = json2(response.body);
+            const body = parseJson(response.body);
             const batchResults = body === null || body === void 0 ? void 0 : body.Results;
             let i = 0;
-            for (const _ of batch){
+            for (const _ of keyBatch){
                 const result = mapDocumentResult(response.status, batchResults === null || batchResults === void 0 ? void 0 : batchResults[i++], timestamp);
-                results.push(result.status === 200 ? mapVariableResult(200, result) : result.status === 404 ? mapNotFoundResult(batch[i]) : mapErrorResult(batch[i], result));
+                results.push(result.status === 200 ? mapVariableResult(200, result) : result.status === 404 ? mapNotFoundResult(keyBatch[i]) : mapErrorResult(keyBatch[i], result));
             }
         }
         return results;
@@ -633,7 +632,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
                 }, {
                     "If-Match": JSON.stringify(version)
                 });
-                let body = json2(response.body);
+                let body = parseJson(response.body);
                 let result = mapDocumentResult(response.status, body === null || body === void 0 ? void 0 : body.ModifiedDocument, timestamp, body);
                 if (result.status === 404) {
                     return mapNotFoundResult(setter);
@@ -649,7 +648,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
                     var _body_Results;
                     // Get current version of the variable.
                     response = await this._request("GET", href);
-                    body = json2(response.body);
+                    body = parseJson(response.body);
                     result = mapDocumentResult(response.status, body === null || body === void 0 ? void 0 : (_body_Results = body.Results) === null || _body_Results === void 0 ? void 0 : _body_Results[0], timestamp);
                     if (// RavenDB returns status 404 for get requests when exactly one document is requested,
                     // so in this case we can count on it. Otherwise it's always 200.
@@ -669,8 +668,8 @@ class RavenDbVariableStorage extends RavenDbTarget {
                 return mapErrorResult(setter, result);
             });
         const results = [];
-        for (const batch of batch2(requests, 100)){
-            results.push(...await Promise.all(batch.map((request)=>request())));
+        for (const requestBatch of batch(requests, 100)){
+            results.push(...await Promise.all(requestBatch.map((request)=>request())));
         }
         return results;
     }
@@ -728,7 +727,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
             }
             const rql = queryToRql(query, {
                 fixed: i - 1 === offset && skipId ? [
-                    `id() > ${stringify2(skipId)}`
+                    `id() > ${stringify(skipId)}`
                 ] : undefined,
                 append: page ? `order by id() limit ${page}` : undefined
             });
@@ -737,7 +736,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
             if (response.error) {
                 throw response.error;
             }
-            const json = json2(response.body);
+            const json = parseJson(response.body);
             var _json_Results;
             for (const result of (_json_Results = json === null || json === void 0 ? void 0 : json.Results) !== null && _json_Results !== void 0 ? _json_Results : []){
                 const variable = mapDocumentResult(200, result, timestamp).document;
@@ -843,7 +842,7 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
         }
         if ((keys === null || keys === void 0 ? void 0 : keys.exclude) != false) {
             // Document ID prefixes unless we have specific keys (because those map to specific document IDs).
-            const filters = `${entityIds.map((entityId)=>`startsWith(id(),${stringify2(keyToDocumentId({
+            const filters = `${entityIds.map((entityId)=>`startsWith(id(),${stringify(keyToDocumentId({
                     scope: query.scope,
                     entityId,
                     key: ""
@@ -853,7 +852,7 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
         if (keys) {
             // Specific document IDs must match (or not match).
             const comparer = keys.exclude ? "!=" : "==";
-            const keyFilter = entityIds.flatMap((entityId)=>map2(keys.values, (key)=>`id() ${comparer} ${stringify2(keyToDocumentId({
+            const keyFilter = entityIds.flatMap((entityId)=>map(keys.values, (key)=>`id() ${comparer} ${stringify(keyToDocumentId({
                         scope: query.scope,
                         entityId,
                         key
@@ -867,7 +866,7 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
         }
     } else if (keys) {
         const comparer = keys.exclude ? "!=" : "==";
-        const keyFilter = map2(keys.values, (key)=>`key ${comparer} ${stringify2(key)}`).join(" or ");
+        const keyFilter = map(keys.values, (key)=>`key ${comparer} ${stringify(key)}`).join(" or ");
         if (keyFilter) {
             where.push(`exact(${keyFilter})`);
         } else if (!keys.exclude) {

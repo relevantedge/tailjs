@@ -83,7 +83,6 @@ const fromCharCodes = (chars)=>String.fromCharCode(...chars);
     return String.fromCodePoint(...chars);
 };
 
-// #endregion
 const getRootPrototype = (value)=>{
     let proto = value;
     while(proto){
@@ -110,8 +109,8 @@ const findPrototypeFrame = (frameWindow, matchPrototype)=>{
  * e.g., `Object` in an iframe is different from `Object` in the top frame.
  */ const findDeclaringScope = (target)=>target == null ? target : typeof window !== "undefined" ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
 let stopInvoked = false;
-const skip2 = Symbol();
-const stop2 = (value)=>(stopInvoked = true, value);
+const skip = Symbol();
+const stop = (value)=>(stopInvoked = true, value);
 // #region region_iterator_implementations
 const forEachSymbol = Symbol();
 const asyncIteratorFactorySymbol = Symbol();
@@ -128,8 +127,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
     const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
             let projected, i = 0;
             for (const item of target){
-                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                    if (projected === stop2) {
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                    if (projected === stop) {
                         break;
                     }
                     seed = projected;
@@ -146,8 +145,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
         let projected, item;
         for(let i = 0, n = target.length; i < n; i++){
             item = target[i];
-            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip) {
+                if (projected === stop) {
                     break;
                 }
                 seed = projected;
@@ -176,8 +175,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
                 key,
                 target[key]
             ];
-            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                if (projected === stop) {
                     break;
                 }
                 seed = projected;
@@ -214,17 +213,17 @@ const ensureForEachImplementations = (target, error, retry)=>{
         proto[forEachSymbol] = forEachIterable();
         proto[asyncIteratorFactorySymbol] = proto[symbolIterator$1];
     }
-    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
-    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse;
     return retry();
 };
 // #endregion
-function* range2(length = this) {
+function* range(length = this) {
     for(let i = 0; i < length; i++)yield i;
 }
-function* traverse2(next = this) {
+function* traverse(next = this) {
     let item = undefined;
     while((item = next(item)) !== undefined)yield item;
 }
@@ -236,11 +235,11 @@ function* iterateEntries(source) {
         ];
     }
 }
-let map2 = (source, projection, target = [], seed, context = source)=>{
+let map = (source, projection, target = [], seed, context = source)=>{
     try {
         return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
     } catch (e) {
-        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
+        return ensureForEachImplementations(source, e, ()=>map(source, projection, target, seed, context));
     }
 };
 const unwrap = (value)=>typeof value === "function" ? value() : value;
@@ -1011,7 +1010,7 @@ let _defaultTransports;
     const factory = (key, { json = false, decodeJson = false, ...serializeOptions })=>{
         const fastStringHash = (value, bitsOrNumeric)=>{
             if (isNumber(value) && bitsOrNumeric === true) return value;
-            value = isString(value) ? new Uint8Array(map2(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
+            value = isString(value) ? new Uint8Array(map(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
             return hash(value, bitsOrNumeric);
         };
         const jsonDecode = (encoded)=>encoded == null ? undefined$1 : tryCatch(()=>deserialize(encoded), undefined$1);
