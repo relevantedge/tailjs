@@ -43,16 +43,16 @@ import {
   Nullish,
   PartialRecord,
   ReadonlyRecord,
-  concat2,
+  concat,
   createEvent,
-  forEach2,
-  get2,
+  forEach,
+  get,
   isArray,
-  map2,
+  map,
   now,
-  obj2,
-  some2,
-  truish2,
+  obj,
+  some,
+  truish,
 } from "@tailjs/util";
 import { tryConvertLegacyConsent, tryConvertLegacyDeviceVariable } from "./lib";
 import {
@@ -434,11 +434,11 @@ export class Tracker {
 
     // Merge the requests cookies, and whatever cookies might have been added to the forwarded request.
     // The latter overwrites cookies with the same name if they were also sent by the client.
-    const cookies = map2(
+    const cookies = map(
       new Map<string, string | Nullish>(
-        concat2(
-          map2(this.cookies, ([name, cookie]) => [name, cookie.value]),
-          map2(
+        concat(
+          map(this.cookies, ([name, cookie]) => [name, cookie.value]),
+          map(
             CookieMonster.parseCookieHeader(finalRequest.headers["cookies"])?.[
               requestCookies
             ],
@@ -488,7 +488,7 @@ export class Tracker {
       this._clientDeviceCache!.loaded = true;
 
       await this.set(
-        map2(variables, ([, value]) => value),
+        map(variables, ([, value]) => value),
         { trusted: true }
       ).all(); // Ignore conflicts. That just means there are concurrent requests.
     }
@@ -538,7 +538,7 @@ export class Tracker {
   }
 
   public getRequestItems(source: any): Map<any, any> {
-    return get2(this._requestItems, source, () => new Map());
+    return get(this._requestItems, source, () => new Map());
   }
 
   public registerSessionChangedCallback(callback: SessionChangedCallback) {
@@ -658,12 +658,12 @@ export class Tracker {
         classification ?? this.consent.classification,
         this.consent.classification
       ) < 0 ||
-      some2(this.consent.purposes, ([key]) => !purposes?.[key])
+      some(this.consent.purposes, ([key]) => !purposes?.[key])
     ) {
       // Capture these variables for lambda.
       const sessionId = this.sessionId;
       const deviceId = this.deviceId;
-      const expiredPurposes = obj2(this.consent.purposes, ([key]) =>
+      const expiredPurposes = obj(this.consent.purposes, ([key]) =>
         !purposes?.[key] ? [key, true] : undefined
       );
       // If the user downgraded the level of consent or removed purposes we need to delete existing data that does not match.
@@ -1061,7 +1061,7 @@ export class Tracker {
         for await (const variable of iterateQueryResults(this, {
           scope: "device",
         })) {
-          forEach2(
+          forEach(
             DataPurposes.parse(variable.schema?.usage.purposes, {
               names: true,
             }),
@@ -1112,7 +1112,7 @@ export class Tracker {
             this.env.storage.renew([
               {
                 scope: "session",
-                entityIds: truish2([
+                entityIds: truish([
                   this.sessionId,
                   isAnonymous && this._anonymousSessionReferenceId,
                 ]),
@@ -1195,7 +1195,7 @@ export class Tracker {
         }
 
         return new Map(
-          map2(storageResults, (result, index) => [getters[index], result])
+          map(storageResults, (result, index) => [getters[index], result])
         );
       }
     ) as any;
@@ -1250,7 +1250,7 @@ export class Tracker {
       }
 
       return new Map(
-        map2(storageResults, (result, index) => [setters[index], result])
+        map(storageResults, (result, index) => [setters[index], result])
       );
     }) as any;
   }

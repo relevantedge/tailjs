@@ -3,19 +3,19 @@ import { CLIENT_STATE_CHANNEL_ID } from "@constants";
 import { UuidV4, VariableGetRequest, extractKey } from "@tailjs/types";
 import {
   PartialRecord,
-  assign2,
+  assign,
   clock,
-  concat2,
+  concat,
   createEvent,
-  filter2,
-  forEach2,
+  filter,
+  forEach,
   isString,
-  map2,
+  map,
   now,
-  obj2,
+  obj,
   replace,
-  set2,
-  skip2,
+  set,
+  skip,
 } from "@tailjs/util";
 import {
   HEARTBEAT_FREQUENCY,
@@ -153,7 +153,7 @@ export const setLocalVariables = (
 ) => {
   const timestamp = now();
   return updateVariableState(
-    map2(variables, (variable) => {
+    map(variables, (variable) => {
       (variable as StateVariable).cache = [timestamp];
       return [
         extractKey(variable),
@@ -171,13 +171,13 @@ const getVariableChanges = (
   previous: StateVariable | undefined,
   sourceKey: ClientVariableKey
 ][] =>
-  map2(variables, (current) => {
-    if (!current) return skip2;
+  map(variables, (current) => {
+    if (!current) return skip;
     const key = variableKeyToString(current[0]);
     const previous = tabVariables.get(key);
     return previous !== current[1]
       ? [key, current[1], previous, current[0]]
-      : skip2;
+      : skip;
   }) ?? [];
 
 export const updateVariableState = (
@@ -188,24 +188,24 @@ export const updateVariableState = (
   if (!changes?.length) return;
 
   const timestamp = now();
-  forEach2(changes, ([, current, previous]) => {
+  forEach(changes, ([, current, previous]) => {
     if (current && !current.cache) {
       current.cache = previous?.cache ?? [timestamp, VARIABLE_CACHE_DURATION];
     }
   });
-  assign2(tabVariables, changes);
+  assign(tabVariables, changes);
 
-  const sharedChanges = filter2(
+  const sharedChanges = filter(
     changes,
     ([, , , key]) => anyVariableScope.compare(key.scope, "tab") > 0
   );
 
   if (sharedChanges.length) {
-    post({ type: "patch", payload: obj2(sharedChanges) });
+    post({ type: "patch", payload: obj(sharedChanges) });
   }
 
   dispatchVariablesChanged(
-    map2(changes, ([, current, previous, key]) => [key, current, previous]),
+    map(changes, ([, current, previous, key]) => [key, current, previous]),
     tabVariables,
     true
   );
@@ -228,9 +228,9 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
             .padStart(2, "0");
 
       tabVariables = new Map(
-        concat2(
-          filter2(tabVariables, ([, variable]) => variable?.scope === "view"),
-          map2(localState?.[1], (variable) => [
+        concat(
+          filter(tabVariables, ([, variable]) => variable?.scope === "view"),
+          map(localState?.[1], (variable) => [
             variableKeyToString(variable),
             variable,
           ])
@@ -241,8 +241,8 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
         CLIENT_STATE_CHANNEL_ID,
         httpEncrypt([
           TAB_ID,
-          map2(tabVariables, ([, variable]) =>
-            variable && variable.scope !== "view" ? variable : skip2
+          map(tabVariables, ([, variable]) =>
+            variable && variable.scope !== "view" ? variable : skip
           ),
         ])
       );
@@ -273,7 +273,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
           post(
             {
               type: "set",
-              payload: [map2(state.knownTabs), map2(state.variables)],
+              payload: [map(state.knownTabs), map(state.variables)],
             },
             sender
           );
@@ -285,14 +285,14 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
       } else if (type === "patch") {
         // Collect now before updating the state, but dispatch after the state has changed.
         const changedEventData = getVariableChanges(
-          map2(payload, ([key, value]) => [stringToVariableKey(key), value])
+          map(payload, ([key, value]) => [stringToVariableKey(key), value])
         );
 
-        assign2(state.variables, payload);
-        assign2(tabVariables, payload);
+        assign(state.variables, payload);
+        assign(tabVariables, payload);
 
         dispatchVariablesChanged(
-          map2(changedEventData, ([, current, previous, key]) => [
+          map(changedEventData, ([, current, previous, key]) => [
             key,
             current,
             previous,
@@ -301,7 +301,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
           false
         );
       } else if (type === "tab") {
-        set2(state.knownTabs, sender, payload);
+        set(state.knownTabs, sender, payload);
         payload && dispatchState("tab", payload, false);
       }
     }
@@ -313,11 +313,11 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
   const heartbeat = clock({
     callback: () => {
       const timeout = now() - HEARTBEAT_FREQUENCY * 2;
-      forEach2(
+      forEach(
         state.knownTabs,
         // Remove tabs that no longer responds (presumably closed but may also have been frozen).
         ([tabId, tabState]) =>
-          tabState[0] < timeout && set2(state.knownTabs, tabId, undefined)
+          tabState[0] < timeout && set(state.knownTabs, tabId, undefined)
       );
       tabState.heartbeat = now();
       post({ type: "tab", payload: tabState });

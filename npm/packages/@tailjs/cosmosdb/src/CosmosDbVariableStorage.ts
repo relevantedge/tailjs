@@ -20,12 +20,12 @@ import {
   VariableValueSetter,
 } from "@tailjs/types";
 import {
-  batch2,
-  group2,
+  batch,
+  group,
   isArray,
-  map2,
+  map,
   now,
-  skip2,
+  skip,
   throwError,
 } from "@tailjs/util";
 import { CosmosDbSettings } from "./CosmosDbSettings";
@@ -131,7 +131,7 @@ export class CosmosDbVariableStorage
   ): Promise<VariableGetResult[]> {
     const resultMap = new Map<string, Variable>();
 
-    for (const [scope, scopeGetters] of group2(getters, (key) => [
+    for (const [scope, scopeGetters] of group(getters, (key) => [
       key.scope,
       key,
     ])) {
@@ -176,11 +176,11 @@ export class CosmosDbVariableStorage
     }
 
     const results = new Map<string, CosmosVariable>();
-    for (let batch of batch2(keys, this._batchSize)) {
+    for (let keyBatch of batch(keys, this._batchSize)) {
       const responses = await this._bulkWithRetry(
         "read",
         container,
-        batch.map((key) => ({
+        keyBatch.map((key) => ({
           operationType: "Read",
           id: mapCosmosId(key),
           partitionKey: key.entityId,
@@ -205,15 +205,18 @@ export class CosmosDbVariableStorage
     const results = new Map<string, VariableSetResult>();
     const timestamp = now();
 
-    for (const [scope, scopeSetters] of group2(values, (key) => [
+    for (const [scope, scopeSetters] of group(values, (key) => [
       key.scope,
       key,
     ])) {
       // Process in batches
-      for (let batch of batch2(scopeSetters, this._batchSize)) {
+      for (let setterBatch of batch(scopeSetters, this._batchSize)) {
         await this._execute(async (db) => {
           const container = await this._getScopeContainer(db, scope);
-          const currentVariables = await this._getVariables(container, batch);
+          const currentVariables = await this._getVariables(
+            container,
+            setterBatch
+          );
 
           type OperationEntry = [
             VariableValueSetter,
@@ -222,7 +225,7 @@ export class CosmosDbVariableStorage
               result: BulkOperationResponse[number]
             ) => VariableSetResult | undefined
           ];
-          const operations: OperationEntry[] = map2(batch, (setter) => {
+          const operations: OperationEntry[] = map(setterBatch, (setter) => {
             const key = extractKey(setter);
             const itemId = mapCosmosId(setter); // Create a unique ID
             const partitionKey = setter.entityId;
@@ -239,7 +242,7 @@ export class CosmosDbVariableStorage
                     status: VariableResultStatus.NotFound,
                     ...key,
                   });
-                  return skip2;
+                  return skip;
                 }
 
                 // Check version if not forced
@@ -251,7 +254,7 @@ export class CosmosDbVariableStorage
                     status: VariableResultStatus.Conflict,
                     ...extractVariable(existingItem),
                   });
-                  return skip2;
+                  return skip;
                 }
               }
 
@@ -304,7 +307,7 @@ export class CosmosDbVariableStorage
                   status: VariableResultStatus.Conflict,
                   ...extractVariable(existingItem),
                 });
-                return skip2;
+                return skip;
               }
 
               // Add created timestamp from existing item
@@ -316,7 +319,7 @@ export class CosmosDbVariableStorage
                   status: VariableResultStatus.NotFound,
                   ...key,
                 });
-                return skip2;
+                return skip;
               }
 
               if (existingItem.version !== setter.version) {
@@ -324,7 +327,7 @@ export class CosmosDbVariableStorage
                   status: VariableResultStatus.Conflict,
                   ...extractVariable(existingItem),
                 });
-                return skip2;
+                return skip;
               }
             }
             return [
@@ -459,7 +462,7 @@ export class CosmosDbVariableStorage
     const match = cursor?.match(/^([^:]+)(?::(.*))?$/);
     let cursorQueryIndex = +(match?.[1] || -1);
     let i = -1;
-    for (const [scope, scopeQueries] of group2(queries, (query) => [
+    for (const [scope, scopeQueries] of group(queries, (query) => [
       query.scope,
       query,
     ])) {
@@ -483,8 +486,8 @@ export class CosmosDbVariableStorage
             if (projection && projection.length > 0) {
               const selectFields = [
                 "c.id",
-                ...map2(projection, (field) =>
-                  field === "id" ? skip2 : `c.${field}`
+                ...map(projection, (field) =>
+                  field === "id" ? skip : `c.${field}`
                 ),
               ];
               querySpec.query = querySpec.query.replace(
@@ -532,9 +535,9 @@ export class CosmosDbVariableStorage
       await this._execute(async (db) => {
         n += results.length;
         const container = await this._getScopeContainer(db, scope);
-        const upserts: OperationInput[] = map2(results, (projection) => {
+        const upserts: OperationInput[] = map(results, (projection) => {
           if (!projection.ttl) {
-            return skip2;
+            return skip;
           }
           return {
             operationType: "Patch",

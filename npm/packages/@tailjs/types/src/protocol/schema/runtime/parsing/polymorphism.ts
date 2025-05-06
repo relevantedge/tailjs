@@ -1,21 +1,21 @@
 import {
-  all2,
-  collect2,
-  distinct2,
-  filter2,
-  first2,
-  forEach2,
-  get2,
-  itemize2,
-  join2,
-  map2,
-  push2,
-  skip2,
-  some2,
-  sort2,
+  all,
+  collect,
+  distinct,
+  filter,
+  first,
+  forEach,
+  get,
+  itemize,
+  join,
+  map,
+  push,
+  skip,
+  some,
+  sort,
   throwError,
-  stringify2,
-  topoSort2,
+  stringify,
+  topoSort,
 } from "@tailjs/util";
 import {
   SchemaObjectType,
@@ -36,10 +36,10 @@ export const isAssignableTo = (type: Type, baseType: Type) =>
   type === baseType || type.extendsAll.has(baseType);
 
 export const baseTypesOf = (types: Type | Iterable<Type>, orSelf = false) =>
-  collect2(types, (type) => type.extends, orSelf);
+  collect(types, (type) => type.extends, orSelf);
 
 export const subtypesOf = (types: Type | Iterable<Type>, orSelf = false) =>
-  collect2(types, (type) => type.extendedBy, orSelf);
+  collect(types, (type) => type.extendedBy, orSelf);
 
 /**
  * If all types in a set of types is assignable to the same type, and the type has no other concrete subtypes,
@@ -53,8 +53,8 @@ export const findCommonBaseType = (types: Type[]): Type | undefined => {
       type = other;
     } else if (!isAssignableTo(other, type)) {
       const shared = type.extendsAll.intersection(other.extendsAll);
-      type = first2(shared, (baseType) =>
-        all2(
+      type = first(shared, (baseType) =>
+        all(
           baseType.extendedByAll,
           (subtype) => subtype === type || subtype === other || subtype.abstract
         )
@@ -99,8 +99,8 @@ export const createSchemaTypeMapper = (
 } => {
   const discriminators = new Map<string, Map<DiscriminatorValue, Type[]>>();
 
-  const types = topoSort2(
-    filter2(subtypesOf(rootTypes, true), (type) => !type.abstract),
+  const types = topoSort(
+    filter(subtypesOf(rootTypes, true), (type) => !type.abstract),
     (type) => type.extends
   );
 
@@ -121,36 +121,36 @@ export const createSchemaTypeMapper = (
     mapped.add(types[0]);
     selector = () => types[0];
   } else {
-    forEach2(types, (type) =>
-      forEach2(type.properties, ([name, prop]) =>
-        forEach2(
+    forEach(types, (type) =>
+      forEach(type.properties, ([name, prop]) =>
+        forEach(
           prop.required &&
             ((prop.type as SchemaPrimitiveType)?.enumValues ?? [anyValue]),
           (value) =>
-            get2(
-              get2(discriminators, name, () => new Map()),
+            get(
+              get(discriminators, name, () => new Map()),
               value,
               () => []
             ).push(type)
         )
       )
     );
-    forEach2(discriminators, ([, value]) => {
+    forEach(discriminators, ([, value]) => {
       // If there are more than 1 one value, it means there is at least one enum value.
       value.size > 1 && value.delete(anyValue);
-      return forEach2(value, ([, types]) => push2(mapped, ...types));
+      return forEach(value, ([, types]) => push(mapped, ...types));
     });
 
     const isOptional = (type: Type, name: string) =>
       type.properties[name] && !type.properties[name].required;
 
-    const maybeOptional = distinct2(
-      map2(discriminators, ([name]) =>
-        some2(mapped, (type) => isOptional(type, name)) ? name : skip2
+    const maybeOptional = distinct(
+      map(discriminators, ([name]) =>
+        some(mapped, (type) => isOptional(type, name)) ? name : skip
       )
     );
-    const properties = sort2(
-      sort2(discriminators, ([, value]) => value.size, true),
+    const properties = sort(
+      sort(discriminators, ([, value]) => value.size, true),
       ([name]) => maybeOptional.has(name)
     );
 
@@ -165,22 +165,22 @@ export const createSchemaTypeMapper = (
         return () => pending[0];
       }
       if (index >= properties.length) {
-        const valuePath = join2(pathValues, (value, i) =>
+        const valuePath = join(pathValues, (value, i) =>
           value == null
-            ? skip2
+            ? skip
             : `${properties[i][0]}=${
-                typeof value === "symbol" ? "*" : stringify2(value)
+                typeof value === "symbol" ? "*" : stringify(value)
               }`
         );
         return throwError(
-          `The types ${itemize2(
-            map2(pending, (type) => type.name),
+          `The types ${itemize(
+            map(pending, (type) => type.name),
             "and"
           )} can not be disambiguated by${
             valuePath ? " additional" : ""
           } values of required properties${
             valuePath ? ` when ${valuePath}` : ""
-          } (root type(s): ${itemize2(
+          } (root type(s): ${itemize(
             rootTypes
           )}) - did you forget to mark a base type abstract?.`
         );
@@ -195,12 +195,12 @@ export const createSchemaTypeMapper = (
 
       const remaining = new Set(pending);
       const mapped = new Set<Type>();
-      forEach2(discriminatorValues, ([value, typesForValue]) => {
-        const remainingForValue = filter2(typesForValue, remaining);
+      forEach(discriminatorValues, ([value, typesForValue]) => {
+        const remainingForValue = filter(typesForValue, remaining);
 
         if (
           !remainingForValue.length ||
-          some2(pending, (pendingType) =>
+          some(pending, (pendingType) =>
             isOptional(pendingType, discriminatorName)
           )
         ) {
@@ -212,12 +212,12 @@ export const createSchemaTypeMapper = (
           value,
           mapSelector(index + 1, remainingForValue, [...pathValues, value])
         );
-        forEach2(remainingForValue, (type) => mapped.add(type));
+        forEach(remainingForValue, (type) => mapped.add(type));
       });
 
       const mapUnmatched =
         mapped.size < remaining.size
-          ? mapSelector(index + 1, filter2(pending, mapped, true), [
+          ? mapSelector(index + 1, filter(pending, mapped, true), [
               ...pathValues,
               undefined,
             ])
@@ -235,7 +235,7 @@ export const createSchemaTypeMapper = (
     };
     selector = mapSelector(0, types);
   }
-  const errorMessage = itemize2(
+  const errorMessage = itemize(
     types,
     "or",
     (list, n) =>
@@ -244,7 +244,7 @@ export const createSchemaTypeMapper = (
       } ${list} or any of ${n > 1 ? "their" : "its"} subtypes.`
   );
 
-  const unmapped = filter2(types, mapped, true);
+  const unmapped = filter(types, mapped, true);
 
   return {
     match: selector,

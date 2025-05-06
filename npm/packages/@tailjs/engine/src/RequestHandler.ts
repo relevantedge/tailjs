@@ -69,28 +69,28 @@ import {
   createLock,
   deferred,
   DeferredAsync,
-  filter2,
+  filter,
   formatError,
-  hasKeys2,
-  indent2,
+  hasKeys,
+  indent,
   isJsonObject,
   isJsonString,
   isPlainObject,
   isString,
-  join2,
-  map2,
+  join,
+  map,
   match,
   MaybePromise,
-  merge2,
+  merge,
   now,
   Nullish,
-  obj2,
+  obj,
   parseQueryString,
   parseUri,
   PickRequired,
   ReplaceProperties,
   SimpleObject,
-  skip2,
+  skip,
   throwError,
   unwrap,
 } from "@tailjs/util";
@@ -169,7 +169,7 @@ export class RequestHandler {
       client,
       clientIdGenerator,
       defaultConsent,
-    } = (config = merge2({}, [config, DEFAULT], { overwrite: false }));
+    } = (config = merge({}, [config, DEFAULT], { overwrite: false }));
 
     this._config = Object.freeze(config);
     this._host = host;
@@ -178,7 +178,7 @@ export class RequestHandler {
     this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
 
     this._defaultConsent = defaultConsent;
-    this._extensionFactories = filter2(extensions);
+    this._extensionFactories = filter(extensions);
 
     this._cookies = new CookieMonster(cookies);
     this._clientIdGenerator =
@@ -188,7 +188,7 @@ export class RequestHandler {
       consent: cookies.namePrefix + ".consent",
       session: cookies.namePrefix + ".session",
       device: cookies.namePrefix + ".device",
-      deviceByPurpose: obj2(DataPurposes.names, (purpose) => [
+      deviceByPurpose: obj(DataPurposes.names, (purpose) => [
         purpose,
         cookies.namePrefix + (purpose === "necessary" ? "" : "," + purpose),
       ]),
@@ -275,7 +275,7 @@ export class RequestHandler {
         this._extensions = [
           new TrackerCoreEvents(),
           new CommerceExtension(),
-          ...filter2(
+          ...filter(
             await Promise.all(
               this._extensionFactories.map(async (factory) => {
                 let extension: TrackerExtension | null = null;
@@ -387,7 +387,7 @@ export class RequestHandler {
           details: {
             config: {
               ...this._config,
-              extensions: map2(this._extensions, (extension) => extension.id),
+              extensions: map(this._extensions, (extension) => extension.id),
             },
           },
         });
@@ -411,7 +411,7 @@ export class RequestHandler {
     tracker: Tracker,
     events: ParseResult[]
   ): ParseResult[] {
-    return map2(events, (ev) => {
+    return map(events, (ev) => {
       if (isValidationError(ev)) return ev;
       try {
         const eventType = this._schema.getEventType(ev);
@@ -427,13 +427,13 @@ export class RequestHandler {
           eventType.censor(ev, {
             trusted: trustedContext,
             consent: consent,
-          }) ?? skip2
+          }) ?? skip
         );
       } catch (e) {
         return {
           error:
             e instanceof ValidationError
-              ? `Invalid data for '${ev.type}' event:\n${indent2(e.message)}`
+              ? `Invalid data for '${ev.type}' event:\n${indent(e.message)}`
               : formatError(e),
           source: ev,
         };
@@ -575,7 +575,7 @@ export class RequestHandler {
       );
     }
 
-    if (validationErrors.length || hasKeys2(extensionErrors)) {
+    if (validationErrors.length || hasKeys(extensionErrors)) {
       throw new PostError(validationErrors, extensionErrors);
     }
 
@@ -672,7 +672,7 @@ export class RequestHandler {
     const headers = Object.fromEntries(
       Object.entries((sourceHeaders ??= {}))
         .filter(([, v]) => !!v)
-        .map(([k, v]) => [k.toLowerCase(), join2(v, ",")] as [string, string])
+        .map(([k, v]) => [k.toLowerCase(), join(v, ",")] as [string, string])
     );
 
     let trackerInitializationOptions: TrackerInitializationOptions | undefined;
@@ -680,7 +680,7 @@ export class RequestHandler {
     let trackerSettings = deferred(async () => {
       clientIp ??=
         headers["x-forwarded-for"]?.[0] ??
-        obj2(parseQueryString(headers["forwarded"]))?.["for"] ??
+        obj(parseQueryString(headers["forwarded"]))?.["for"] ??
         undefined;
 
       const clientEncryptionKey = await this._getClientEncryptionKey(request);
@@ -800,7 +800,7 @@ export class RequestHandler {
 
         switch (method.toUpperCase()) {
           case "GET": {
-            if ((queryValue = join2(query?.[CLIENT_SCRIPT_QUERY])) != null) {
+            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
               return result({
                 status: 200,
                 body: await this._getClientScripts(resolveTracker, false),
@@ -813,7 +813,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join2(query?.[CONTEXT_NAV_QUERY])) != null) {
+            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
               // The user navigated via the context menu in their browser.
               // If the user has an active session we respond with a small script, that will push the request ID
               // that caused the navigation to the other browser tabs.
@@ -823,7 +823,7 @@ export class RequestHandler {
               trackerInitializationOptions = { passive: true };
 
               const [, requestId, targetUri] =
-                match(join2(queryValue), /^([0-9]*)(.+)$/) ?? [];
+                match(join(queryValue), /^([0-9]*)(.+)$/) ?? [];
               if (!targetUri) return result({ status: 400 });
 
               if (
@@ -857,7 +857,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join2(query?.[SCHEMA_QUERY])) != null) {
+            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
               let serialized: string;
               if (queryValue === "native") {
                 serialized = JSON.stringify(this._schema.definitions, null, 2);
@@ -926,7 +926,7 @@ export class RequestHandler {
           }
 
           case "POST": {
-            if ((queryValue = join2(query?.[EVENT_HUB_QUERY])) != null) {
+            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
               body = await unwrap(body);
 
               if (body == null || (!isJsonObject(body) && body.length === 0)) {
@@ -1097,7 +1097,7 @@ export class RequestHandler {
       trackerScript.push(PLACEHOLDER_SCRIPT(trackerRef, true));
     }
 
-    const inlineScripts: string[] = [join2(trackerScript)];
+    const inlineScripts: string[] = [join(trackerScript)];
     const externalScripts: (ClientScript & { src: string })[] = [];
 
     for (const extension of this._extensions) {
@@ -1128,7 +1128,7 @@ export class RequestHandler {
         const pendingEvents = resolvedTracker.clientEvents;
         pendingEvents.length &&
           inlineScripts.push(
-            `${trackerRef}(${keyPrefix}${join2(
+            `${trackerRef}(${keyPrefix}${join(
               pendingEvents,
               (event) =>
                 typeof event === "string"
@@ -1158,8 +1158,8 @@ export class RequestHandler {
       });
     }
 
-    const js = join2(
-      [{ inline: join2(inlineScripts) }, ...externalScripts],
+    const js = join(
+      [{ inline: join(inlineScripts) }, ...externalScripts],
       (script) => {
         if ("inline" in script) {
           return html
@@ -1169,7 +1169,7 @@ export class RequestHandler {
             : script.inline;
         } else {
           return html
-            ? `<script${map2(
+            ? `<script${map(
                 this._config.client?.scriptBlockerAttributes,
                 ([key, value]) => ` ${key}="${value.replaceAll('"', "&quot;")}"`
               )?.join("")} src='${script.src}${

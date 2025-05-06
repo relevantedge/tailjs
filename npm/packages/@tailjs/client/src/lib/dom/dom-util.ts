@@ -14,10 +14,10 @@ import {
   Nullable,
   T,
   Unbinder,
-  array2,
+  array,
   createEventBinders,
   createTimeout,
-  forEach2,
+  forEach,
   isArray,
   nil,
   parseBoolean,
@@ -349,15 +349,13 @@ export const listen = <K extends keyof AllMaps>(
   ) => any,
   options: AddEventListenerOptions = { capture: true, passive: true }
 ): Binders => {
-  name = array2(name) as any;
+  name = array(name) as any;
   return createEventBinders(
     listener,
     (listener) =>
-      forEach2(name, (name) =>
-        target.addEventListener(name, listener, options)
-      ),
+      forEach(name, (name) => target.addEventListener(name, listener, options)),
     (listener) =>
-      forEach2(name, (name) =>
+      forEach(name, (name) =>
         target.removeEventListener(name, listener, options)
       )
   );

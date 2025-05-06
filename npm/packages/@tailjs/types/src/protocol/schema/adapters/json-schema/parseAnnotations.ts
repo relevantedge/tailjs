@@ -1,5 +1,5 @@
 import { JsonSchemaAnnotations, TypeScriptAnnotations } from "@constants";
-import { filter2, map2, skip2 } from "@tailjs/util";
+import { filter, map, skip } from "@tailjs/util";
 import { contextError, ParseContext } from ".";
 import {
   DataPurposes,
@@ -37,7 +37,7 @@ export const parseAnnotations = <T extends SchemaDefinitionEntity>(
       version && ((target as VersionedSchemaEntity).version = version);
     }
 
-    map2(PRIVACY_ANNOTATIONS, (key) => node[key] || skip2, keywords);
+    map(PRIVACY_ANNOTATIONS, (key) => node[key] || skip, keywords);
 
     let description: string = node["description"];
     if (description) {
@@ -107,7 +107,7 @@ export const serializeAnnotations = (entity: SchemaEntity | SchemaVariable) => {
     usage.visibility ||
     (entity as SchemaVariable).dynamic
   ) {
-    (annotations ??= {})[JsonSchemaAnnotations.Access] = filter2(
+    (annotations ??= {})[JsonSchemaAnnotations.Access] = filter(
       [
         usage.readonly && "readonly",
         usage.visibility,

@@ -1,11 +1,11 @@
-import {
+import type {
   ComponentRendering,
   LayoutServiceData,
   PlaceholdersData,
 } from "@sitecore-jss/sitecore-jss-nextjs";
-import { ComponentRenderingWithExperiences } from "@sitecore-jss/sitecore-jss/types/personalize/layout-personalizer";
-import { Personalization, PersonalizationVariant } from "@tailjs/types";
-import { getRouteItem } from "../lib/map";
+import type { ComponentRenderingWithExperiences } from "@sitecore-jss/sitecore-jss/types/personalize/layout-personalizer";
+import type { Personalization, PersonalizationVariant } from "@tailjs/types";
+import { getRouteItem } from ".";
 
 const p13n = "_tp13n";
 
@@ -41,38 +41,6 @@ function mapExperience(
     get("dataSource"),
     get("componentName"),
   ];
-}
-
-function traverse(
-  data: PersonalizationData[],
-  placeholders: PlaceholdersData | null | undefined
-) {
-  if (!placeholders) return;
-  for (const rendering of Object.entries(placeholders).flatMap(
-    ([, renderings]) => renderings as ComponentRenderingWithExperiences[]
-  )) {
-    const experiences = rendering[
-      "experiences"
-    ] as Partial<ComponentRenderingWithExperiences>["experiences"];
-    if (
-      experiences &&
-      Object.keys(experiences).some((key) => key !== DEFAULT_VARIANT)
-    ) {
-      data.push(
-        Object.entries({
-          ...experiences,
-          [DEFAULT_VARIANT]: rendering,
-        }).map(([id, experience], i) =>
-          mapExperience(
-            id,
-            ((experience[p13n] = [data.length, i]), experience),
-            rendering
-          )
-        )
-      );
-    }
-    traverse(data, rendering["placeholders"]);
-  }
 }
 
 export function getPagePersonalization(
@@ -139,19 +107,38 @@ export function getComponentPersonalization(
   return [personalization];
 }
 
-class PersonalizePlugin {
-  order = 2.5;
+export function traversePersonalization(layoutData: LayoutServiceData) {
+  traverse((layoutData[p13n] = []), layoutData?.sitecore?.route?.placeholders);
 
-  async exec(props: { layoutData: LayoutServiceData }) {
-    // Modify layoutData to use specific variant instead of default
-    // This will also set the variantId on the Sitecore context so that it is accessible here
-    traverse(
-      (props.layoutData[p13n] = []),
-      props.layoutData?.sitecore?.route?.placeholders
-    );
-
-    return props;
+  function traverse(
+    data: PersonalizationData[],
+    placeholders: PlaceholdersData | null | undefined
+  ) {
+    if (!placeholders) return;
+    for (const rendering of Object.entries(placeholders).flatMap(
+      ([, renderings]) => renderings as ComponentRenderingWithExperiences[]
+    )) {
+      const experiences = rendering[
+        "experiences"
+      ] as Partial<ComponentRenderingWithExperiences>["experiences"];
+      if (
+        experiences &&
+        Object.keys(experiences).some((key) => key !== DEFAULT_VARIANT)
+      ) {
+        data.push(
+          Object.entries({
+            ...experiences,
+            [DEFAULT_VARIANT]: rendering,
+          }).map(([id, experience], i) =>
+            mapExperience(
+              id,
+              ((experience[p13n] = [data.length, i]), experience),
+              rendering
+            )
+          )
+        );
+      }
+      traverse(data, rendering["placeholders"]);
+    }
   }
 }
-
-export const tailPlugin = new PersonalizePlugin();

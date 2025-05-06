@@ -1,4 +1,4 @@
-import { map2, Nullish, distinct2, skip2, StrictUnion } from "@tailjs/util";
+import { map, Nullish, distinct, skip, StrictUnion } from "@tailjs/util";
 import { DataClassification, DataPurposes, Variable } from "../..";
 
 export type KeyFilter<T = string> = StrictUnion<
@@ -23,13 +23,13 @@ export const filterKeys = <T, Values, K = T>(
 
   if (!cached) {
     cached = filter[filterSetSymbol] = filter.not
-      ? { set: distinct2(filter.not), not: true }
-      : { set: distinct2(filter), not: false };
+      ? { set: distinct(filter.not), not: true }
+      : { set: distinct(filter), not: false };
   }
   const { set, not } = cached;
 
-  return map2(values, (value) =>
-    set.has(key ? key(value) : (value as any)) !== not ? value : skip2
+  return map(values, (value) =>
+    set.has(key ? key(value) : (value as any)) !== not ? value : skip
   ) as T[];
 };
 

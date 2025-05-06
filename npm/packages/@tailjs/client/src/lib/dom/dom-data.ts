@@ -7,21 +7,21 @@ import {
 import {
   F,
   T,
-  concat2,
-  flatMap2,
-  forEach2,
+  concat,
+  flatMap,
+  forEach,
   isFunction,
   isIterable,
   isPlainObject,
   isRegEx,
   isString,
-  join2,
+  join,
   matches,
   nil,
   parseBoolean,
   parseRegex,
   replace,
-  stop2,
+  stop,
   testRegex,
   type Nullish,
 } from "@tailjs/util";
@@ -77,7 +77,7 @@ const matchAttributeNames = (
   eligible?: boolean
 ) =>
   cached?.[1] &&
-  forEach2(
+  forEach(
     attributeNames(el),
     (name) =>
       (cached[0][name] ??=
@@ -85,7 +85,7 @@ const matchAttributeNames = (
         isString(
           (prefix =
             // No cache. Let's loop through them then.
-            forEach2(
+            forEach(
               cached[1],
               ([match, selector, prefix], _) =>
                 testRegex(name, match) &&
@@ -94,7 +94,7 @@ const matchAttributeNames = (
                 // We do this check before the selector check, since this result is not generally cacheable.
                 ((eligible = undefined),
                 !selector || matchSelector(el, selector)) &&
-                stop2(prefix ?? name)
+                stop(prefix ?? name)
             ))
         ) && // The empty string is also "true" since it means presence of the attribute without a value (as in `<div tag-yes />).
           (!(value = el!.getAttribute(name)!) || parseBoolean(value)) &&
@@ -116,7 +116,7 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
         : isRegEx(rule)
         ? [[rule]]
         : isIterable(rule)
-        ? flatMap2(rule, parse, 1)
+        ? flatMap(rule, parse, 1)
         : [
             isPlainObject(rule)
               ? [parseRegex(rule.match)!, rule.selector, rule.prefix]
@@ -127,7 +127,7 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
       // Start by checking whether we have any of the good ol', documented, "tail.js official" tag attributes.
       [
         [/^(?:track\-)?tags?(?:$|\-)(.*)/],
-        ...parse(flatMap2(cachedMappings, ([, value]) => value, 1)),
+        ...parse(flatMap(cachedMappings, ([, value]) => value, 1)),
       ],
     ];
 
@@ -136,8 +136,8 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
 };
 
 const cssPropertyWithBase = (el: Element, name: string) =>
-  join2(
-    concat2(
+  join(
+    concat(
       cssProperty(el, trackerPropertyName(name, T)),
       cssProperty(el, trackerPropertyName("base-" + name, T))
     ),
@@ -186,8 +186,8 @@ export const trackerProperty = (
         (el, r) => r(trackerProperty(el, name, F)),
         isFunction(inherit) ? inherit : undefined
       )
-    : join2(
-        concat2(
+    : join(
+        concat(
           attr(el, trackerPropertyName(name)),
           cssProperty(el, trackerPropertyName(name, T))
         ),

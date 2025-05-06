@@ -18,7 +18,7 @@ if (process.env.COSMOS_ENDPOINT) {
 export default createApi({
   debugScript: true,
   json: true,
-  extensions: [cosmosDb],
+  extensions: [],
 
   logger: new DefaultLogger({
     basePath: false,

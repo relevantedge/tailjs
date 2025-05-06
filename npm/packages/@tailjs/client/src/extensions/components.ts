@@ -11,18 +11,18 @@ import {
   MaybeUndefined,
   Nullish,
   T,
-  array2,
-  concat2,
-  filter2,
-  flatMap2,
-  forEach2,
+  array,
+  concat,
+  filter,
+  flatMap,
+  forEach,
   isString,
-  join2,
-  map2,
-  max2,
-  set2,
-  some2,
-  update2,
+  join,
+  map,
+  max,
+  set,
+  some,
+  update,
 } from "@tailjs/util";
 import {
   BoundaryCommand,
@@ -46,7 +46,7 @@ export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 export const componentDomConfiguration = Symbol("DOM configuration");
 
 export const parseActivationTags = (el: Element) =>
-  parseTags(el, undefined, (el) => filter2(array2(boundaryData.get(el)?.tags)));
+  parseTags(el, undefined, (el) => filter(array(boundaryData.get(el)?.tags)));
 
 const hasComponentOrContent = (boundary?: BoundaryData<true> | null) =>
   boundary?.component || boundary?.content;
@@ -61,8 +61,8 @@ export const parseBoundaryTags = (el: Element) => {
       entry = boundaryData.get(el)!;
       return (
         (entry = boundaryData.get(el)) &&
-        flatMap2(
-          concat2(entry.component, entry.content, entry),
+        flatMap(
+          concat(entry.component, entry.content, entry),
           (item) => item.tags,
           1
         )
@@ -83,7 +83,7 @@ const stripRects = (
         rect: undefined,
         content:
           (content = component.content) &&
-          map2(content, (content) => ({ ...content, rect: undefined })),
+          map(content, (content) => ({ ...content, rect: undefined })),
       };
 
 const enum IncludeState {
@@ -113,7 +113,7 @@ export const getComponentContext = (
 
     if (hasComponentOrContent(entry)) {
       const components =
-        filter2(array2(entry.component), (entry) => {
+        filter(array(entry.component), (entry) => {
           return (
             includeState === IncludeState.Secondary ||
             (!directOnly &&
@@ -124,13 +124,13 @@ export const getComponentContext = (
         }) ?? [];
 
       rect =
-        ((includeRegion ?? some2(components, (item) => item.track?.region)) &&
+        ((includeRegion ?? some(components, (item) => item.track?.region)) &&
           getRect(el)) ||
         undefined;
       const tags = parseBoundaryTags(el);
       entry.content &&
         collectedContent.unshift(
-          ...map2(entry.content, (item) => ({
+          ...map(entry.content, (item) => ({
             ...item,
             rect,
             ...tags,
@@ -139,10 +139,10 @@ export const getComponentContext = (
 
       components?.length &&
         (collected.unshift(
-          ...map2(
+          ...map(
             components,
             (item) => (
-              (includeState = max2([
+              (includeState = max([
                 includeState,
                 item.track?.secondary // INV: Secondary components are only included here if we did not have any components from a child element.
                   ? IncludeState.Primary
@@ -177,17 +177,17 @@ export const getComponentContext = (
     collected.push(stripRects({ id: "", rect, content: collectedContent }));
   }
 
-  forEach2(collected, (item) => {
+  forEach(collected, (item) => {
     if (isString(item)) {
       (areaPath ??= []).push(item);
     } else {
-      item.area ??= join2(areaPath, "/");
+      item.area ??= join(areaPath, "/");
       (components ??= []).unshift(item);
     }
   });
 
   return components || areaPath
-    ? { components: components, area: join2(areaPath, "/") }
+    ? { components: components, area: join(areaPath, "/") }
     : undefined;
 };
 
@@ -203,24 +203,24 @@ export const components: TrackerExtensionFactory = {
         ? (undefined as any)
         : ({
             ...data,
-            component: array2(data.component),
-            content: array2(data.content),
-            tags: array2(data.tags),
+            component: array(data.component),
+            content: array(data.content),
+            tags: array(data.tags),
           } as BoundaryData<true>);
 
     const registerComponent = ({
       boundary: el,
       ...command
     }: BoundaryCommand) => {
-      update2(boundaryData, el, (current) => {
+      update(boundaryData, el, (current) => {
         return normalizeBoundaryData(
           "add" in command
             ? {
                 ...current,
-                component: concat2(current?.component, command.component),
-                content: concat2(current?.content, command.content),
+                component: concat(current?.component, command.component),
+                content: concat(current?.content, command.content),
                 area: command?.area ?? current?.area,
-                tags: concat2(current?.tags, command.tags),
+                tags: concat(current?.tags, command.tags),
                 cart: command.cart ?? current?.cart,
                 track: command.track ?? current?.track,
               }
@@ -236,22 +236,19 @@ export const components: TrackerExtensionFactory = {
     return {
       decorate(eventData) {
         // Strip tracking configuration.
-        forEach2(
-          (eventData as UserInteractionEvent).components,
-          (component) => {
-            set2(component as any, "track", undefined);
-            forEach2(
-              (eventData as ComponentClickIntentEvent).clickables,
-              (clickable) => set2(clickable as any, "track", undefined)
-            );
-          }
-        );
+        forEach((eventData as UserInteractionEvent).components, (component) => {
+          set(component as any, "track", undefined);
+          forEach(
+            (eventData as ComponentClickIntentEvent).clickables,
+            (clickable) => set(clickable as any, "track", undefined)
+          );
+        });
       },
       processCommand(cmd) {
         return isDataBoundaryCommand(cmd)
           ? (registerComponent(cmd), T)
           : isScanComponentsCommand(cmd)
-          ? (forEach2(
+          ? (forEach(
               scanAttributes(cmd.scan.attribute, cmd.scan.components),
               registerComponent
             ),

@@ -1,5 +1,7 @@
-import type { TrackerProperties, TrackerScriptSettings } from "@tailjs/react";
+import type { JsxConfiguration } from "@tailjs/react";
 import type { ScriptProps } from "next/script.js";
+
+import Head from "next/head";
 
 export type TrackerScriptStrategy = ScriptProps["strategy"] | "html";
 export type TrackerScriptStrategyContainer = {
@@ -9,14 +11,18 @@ export type TrackerScriptStrategyContainer = {
    */
   strategy?: TrackerScriptStrategy;
 };
-export type ClientConfiguration = {
-  tracker: Pick<
-    TrackerProperties,
-    "map" | "include" | "exclude" | "stoppers"
-  > & {
-    script?: TrackerScriptSettings<TrackerScriptStrategyContainer>;
-  };
-};
+export const createClientConfiguration = (
+  config: JsxConfiguration
+): JsxConfiguration => {
+  if (!config.tracker) {
+    config.tracker = {};
+  }
 
-export const createClientConfiguration = (config: ClientConfiguration) =>
-  config;
+  let script = config.tracker.script;
+  if (script == null || typeof script === "object") {
+    script ??= {};
+    script.src ??= "/api/tailjs";
+    config.tracker.script = script;
+  }
+  return config;
+};

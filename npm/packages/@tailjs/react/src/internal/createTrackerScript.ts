@@ -1,5 +1,5 @@
 import { BUILD_REVISION_QUERY } from "@constants";
-import { createElement, ReactNode } from "react";
+import InnerReact, { ReactNode } from "react";
 
 export type TrackerScriptSettings<AdditionalProps extends {} = {}> =
   | undefined
@@ -15,7 +15,10 @@ export type TrackerScriptSettings<AdditionalProps extends {} = {}> =
       }): ReactNode;
     } & AdditionalProps);
 
-export const createTrackerScript = (settings: TrackerScriptSettings) => {
+export const createTrackerScript = (
+  settings: TrackerScriptSettings,
+  elementFactory = InnerReact.createElement
+) => {
   if (!settings) {
     return null;
   }
@@ -28,7 +31,7 @@ export const createTrackerScript = (settings: TrackerScriptSettings) => {
     BUILD_REVISION_QUERY;
   const scriptElement =
     settings.create?.({ endpoint, async, htmlAttrs: cmp }) ??
-    createElement("script", {
+    elementFactory("script", {
       src: endpoint,
       async,
       ...cmp,

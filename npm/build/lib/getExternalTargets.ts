@@ -5,6 +5,7 @@ import * as path from "path";
 export type ExternalScriptTarget = {
   id: string;
   path: string;
+  npm?: boolean;
   libs: Record<string, boolean>;
 };
 
@@ -17,7 +18,8 @@ export const getExternalTargets = async (): Promise<ExternalScriptTarget[]> => {
   const config = JSON.parse(await fs.promises.readFile(configPath, "utf8"));
   return Object.entries(config).map(([key, value]: any) => ({
     id: key,
+    npm: value.npm,
     path: path.resolve(ws, value.path),
-    libs: Object.fromEntries(value.libs.map((lib) => [lib, true])),
+    libs: Object.fromEntries((value.libs ?? []).map((lib) => [lib, true])),
   }));
 };

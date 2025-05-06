@@ -1,3 +1,5 @@
+import type { ProvisionalTracker } from "../packages/@tailjs/client/src/external.pkg";
+
 export const QUERY_DEVICE = "qd";
 export const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
 export const TRACKER_CONFIG_PLACEHOLDER = "{{CONFIG}}";
@@ -26,17 +28,18 @@ export const CLIENT_CALLBACK_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "push";
 export const PLACEHOLDER_SCRIPT: <Quote extends boolean = false>(
   trackerName?: string,
   quote?: Quote
-) => Quote extends true ? string : (...commands: any[]) => void = ((
+) => Quote extends true ? string : ProvisionalTracker = ((
   trackerName = "tail",
   quote: boolean
 ) => {
   if (quote) {
     const reference = `window[${JSON.stringify(trackerName)}]`;
-    return `(${reference}??=c=>${reference}._?.push(c) ?? ${reference}(c))._=[];`;
+    return `(${reference}??=(...c)=>${reference}._?.push([c]) ?? ${reference}(...c))._=[];`;
   }
 
-  (globalThis[trackerName] ??= (c: any) =>
-    globalThis[trackerName]._?.push(c) ?? globalThis[trackerName](c))._ = [];
+  return ((globalThis[trackerName] ??= (...c: any) =>
+    globalThis[trackerName]._?.push(c) ?? globalThis[trackerName](...c))._ =
+    []);
 }) as any;
 
 export const __DEBUG__ = true;

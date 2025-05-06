@@ -15,7 +15,7 @@
     "build:watch": "pnpm  -r --if-present --parallel run --stream build:watch",
     "build:engine": "pnpm  -r --if-present --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" --filter=\"@tailjs/maxmind\" --filter=\"@tailjs/ravendb\" run --stream build",
     "build:engine:watch": "pnpm -r --if-present --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/maxmind\" --filter=\"@tailjs/ravendb\" run --stream build:watch",
-    "build:jss:watch": "pnpm -r run --if-present --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
+    "build:jss:watch": "pnpm -r --if-present --parallel --stream --filter=\"@tailjs/sitecore-jss...\" --filter=\"@tailjs/next...\" --filter=\"@tailjs/node...\" build:watch",
     "test": "jest",
     "test:watch": "jest --watch",
     "serve": "concurrently \"pnpm -r --filter   @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node serve:watch\"",

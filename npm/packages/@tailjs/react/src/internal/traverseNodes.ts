@@ -1,5 +1,5 @@
-import { forEach2 } from "@tailjs/util";
-import React, {
+import { forEach } from "@tailjs/util";
+import InnerReact, {
   ExoticComponent,
   Fragment,
   isValidElement,
@@ -23,7 +23,7 @@ export type TraversableElement = JSX.Element & {
    * The type may be a client module that has not yet been loaded in a server component in which case NextJS will throw
    * a nasty error like "[...] You cannot dot into a client module from a server component".
    *
-   * If you have a mix of client and server components, a better options is to use your own component that wraps
+   * If you have a mix of client and server components, a better option is to use your own component that wraps
    * the Tracker element with its configuration and use the {@link ConfiguredTrackerSettings.clientTracker} property.
    */
   clientTypeReference?: boolean;
@@ -32,7 +32,7 @@ export type TraversableElement = JSX.Element & {
 const isLazy = (type: any) => type._payload;
 const isForwardRef = (type: any) => type.render;
 
-const USE_REF = !(parseInt(React.version?.split(".")[0]) >= 19);
+const USE_REF = !(parseInt(InnerReact.version?.split(".")[0]) >= 19);
 
 export type TraverseResult = TraversableElement | ExoticComponent;
 
@@ -83,6 +83,7 @@ export interface TraverseFunctions<T> {
 
 export interface TraverseOptions<T> extends TraverseFunctions<T> {
   initialState?: T;
+  elementFactory?: typeof InnerReact.createElement;
 }
 
 export type ElementStateMapping<T = any> = {
@@ -94,6 +95,7 @@ export type ElementStateMapping<T = any> = {
 export interface RootTraverseContext<T = any> extends TraverseFunctions<T> {
   state: T | null;
   el: TraversableElement;
+  elementFactory: typeof InnerReact.createElement;
 }
 
 export interface TraverseContext<T = any> {
@@ -127,6 +129,7 @@ const createRootContext = <T>(
     ...options,
     state: options.initialState ?? null,
     el: node! as TraversableElement,
+    elementFactory: options.elementFactory ?? InnerReact.createElement,
   };
   return {
     root,
@@ -309,6 +312,7 @@ const traverseLazy = (
   forElement: boolean,
   context: TraverseContext
 ) => {
+  const elementFactory = context.root.elementFactory;
   // A lazy can both be used as a replacement for a type and an element.
   // The latter case seems to be the only situation where react allows something that is not
   // {type, props, ...} like.
@@ -323,7 +327,7 @@ const traverseLazy = (
         return wrapped
           ? ({ [CONTEXT_PROPERTY]: context, ...props }) => {
               // At this point wrapType has been called normally (last argument implicit `false`), so there will be no context if the type should be ignored
-              const el = React.createElement(value, props);
+              const el = elementFactory(value, props);
               return context ? traverseNodesInternal(el, context) : el;
             }
           : () => traverseNodesInternal(value, context);
@@ -338,7 +342,6 @@ const traverseLazy = (
 
     if (payload._result) {
       // React lazy https://github.com/facebook/react/blob/main/packages/react/src/ReactLazy.js
-      console.log("React lazy");
       if (payload._status === 1) {
         payload._result = { default: replaceValue(payload._result.default) };
       } else if (payload._result.then) {
@@ -390,7 +393,8 @@ function wrapType(type: any, context: TraverseContext, fromLazy = false) {
 
   function inner() {
     if (
-      (React.Component && type.prototype instanceof React.Component) ||
+      (InnerReact.Component &&
+        type.prototype instanceof InnerReact.Component) ||
       type.prototype?.render
     ) {
       return getOrSet(componentCache, type, () =>
@@ -423,7 +427,7 @@ function wrapType(type: any, context: TraverseContext, fromLazy = false) {
     if (isForwardRef(type)) {
       // Forward ref.
       return getOrSet(componentCache, type, () =>
-        React.forwardRef(
+        InnerReact.forwardRef(
           ({ [CONTEXT_PROPERTY]: context, ...props }: any = {}, ref: any) =>
             traverseNodesInternal(type.render(props, ref), context)
         )
@@ -465,6 +469,8 @@ const traversePropValue = (value: any, context: TraverseContext) =>
     ? (...args: any) => traversePropValue(value(...args), context)
     : value;
 
+const selfClosingTags = new Set(["img", "br", "hr", "input", "meta", "link"]);
+
 const traverseProps = (
   el: TraversableElement,
   parentContext: TraverseContext,
@@ -474,7 +480,7 @@ const traverseProps = (
   if (typeof el.type === "string") {
     parentContext = currentContext!;
   }
-  forEach2(el.props, ([key, value]) => {
+  forEach(el.props, ([key, value]) => {
     const traversed = traversePropValue(value, parentContext);
     if (traversed !== value) {
       (patched ??= {})[key] = traversed;
@@ -498,21 +504,18 @@ const traverseProps = (
       parentContext.root.applyElementState?.(el, currentContext.mappedState);
     };
   }
+  if (selfClosingTags.has(el.type)) {
+    console.log("HEloo");
+    return el;
+  }
 
+  patched ??= { suppressHydrationWarning: true };
   if (patched) {
     const props = { ...el.props, ...patched };
-    // Seems like `children` and `dangerouslySetInnerHTML` may sometimes be assigned as `null` or `undefined`,
-    // which makes React choke on e.g. images or because both are "set". React looks for keys in props, not  values.
-    // It is unclear why this should give an error when using the spread operator to clone the element, yet, it does.
-    if (!props.children && "children" in props) {
-      delete props.children;
-    }
-    if (!props.dangerouslySetInnerHTML && "dangerouslySetInnerHTML" in props) {
-      delete props.dangerouslySetInnerHTML;
-    }
 
     el = { ...el, props };
     ref && ((USE_REF ? el : el.props).ref = ref);
   }
+
   return el;
 };

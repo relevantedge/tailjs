@@ -8,7 +8,7 @@ import {
   UserConsent,
   VariablePollCallback,
 } from "@tailjs/types";
-import { Clock, F, Nullish, T, clock, map2, restrict } from "@tailjs/util";
+import { Clock, F, Nullish, T, clock, map, restrict } from "@tailjs/util";
 import {
   ConsentCommand,
   TrackerExtensionFactory,
@@ -118,7 +118,7 @@ export const consent: TrackerExtensionFactory = {
                 // Read from the end of the buffer to see if there is any ["consent", "update", ...] entry
                 // since last time we checked.
                 if (item?.[0] === "consent" && item[1] === "update") {
-                  map2(
+                  map(
                     GCMv2Mappings,
                     ([key, code]) =>
                       item[2][key] === "granted" &&

@@ -14,7 +14,7 @@ import {
   VariableValueErrorResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { forEach2, forEachAwait2, formatError, keys2 } from "@tailjs/util";
+import { forEach, forEachAwait, formatError, keys } from "@tailjs/util";
 import {
   isTransientErrorObject,
   isWritableStorage,
@@ -135,7 +135,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
           settings: { ttl: scopeMappings.ttl ?? defaultScopeTtl },
         };
       }
-      forEach2(scopeMappings.prefixes, ([prefix, config]) => {
+      forEach(scopeMappings.prefixes, ([prefix, config]) => {
         if (!config) return;
         (this._mappings[scope] ??= {})[prefix] = {
           storage: config.storage,
@@ -322,11 +322,11 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     for (const query of queries) {
       for (const scope of filterKeys(
         query.scope ? [query.scope] : (query as VariableQuery)?.scopes,
-        keys2(this._mappings)
+        keys(this._mappings)
       )) {
         for (const source of filterKeys(
           (query as VariableQuery)?.sources,
-          keys2(this._mappings[scope] ?? [null])
+          keys(this._mappings[scope] ?? [null])
         )) {
           splits.push({
             source,
@@ -427,8 +427,8 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
   }
 
   public async initialize(environment: TrackerEnvironment): Promise<void> {
-    await forEachAwait2(this._mappings, ([, mappings]) =>
-      forEachAwait2(mappings, ([, { storage }]) => {
+    await forEachAwait(this._mappings, ([, mappings]) =>
+      forEachAwait(mappings, ([, { storage }]) => {
         storage?.initialize?.(environment);
       })
     );

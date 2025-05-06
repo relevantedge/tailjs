@@ -10,5 +10,21 @@
       "json-schema",
       "transport"
     ]
+  },
+  "lt": {
+    "npm": true,
+    "path": "D:/projects/rlvedge/customers/liontrust/github/src/liontrust/_tailjs",
+    "libs": [
+      "client",
+      "cosmosdb",
+      "engine",
+      "next",
+      "node",
+      "react",
+      "sitecore-jss",
+      "transport",
+      "types",
+      "util"
+    ]
   }
 }

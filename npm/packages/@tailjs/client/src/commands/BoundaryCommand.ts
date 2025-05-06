@@ -45,6 +45,18 @@ export interface BoundaryData<RequireArrays = false> {
   track?: TrackingSettings;
 }
 
+const hasValueOrLength = (value: any) =>
+  value && (!Array.isArray(value) || value.length);
+
+export const isBoundaryData = (value: any): value is BoundaryData =>
+  value &&
+  (hasValueOrLength((value as BoundaryData).component) ||
+    hasValueOrLength((value as BoundaryData).content) ||
+    (value as BoundaryData).area ||
+    hasValueOrLength((value as BoundaryData).tags) ||
+    (value as BoundaryData).cart ||
+    (value as BoundaryData).track);
+
 /**
  * Registers an element as the boundary for a component or similar tracking data. All events triggered from the element or its descendants will have this information attached.
  * In case of nested boundaries the closest one is used.

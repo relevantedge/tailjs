@@ -15,13 +15,13 @@ import {
   clock,
   createIntervals,
   createTimer,
-  filter2,
-  forEach2,
+  filter,
+  forEach,
   getTextStats,
-  map2,
+  map,
   restrict,
-  set2,
-  skip2,
+  set,
+  skip,
 } from "@tailjs/util";
 import {
   document,
@@ -59,14 +59,14 @@ const TEXT_REGION_BOTTOM = 0.75;
 
 export const createImpressionObserver = (tracker: Tracker) => {
   const observer = new IntersectionObserver(
-    (els) => forEach2(els, (args) => args.target[intersectionHandler]?.(args))
+    (els) => forEach(els, (args) => args.target[intersectionHandler]?.(args))
     // Low thresholds used to be able to handle components larger than view ports.
   );
 
   const currentIntersections = new Set<() => void>();
 
   const monitor = clock({
-    callback: () => forEach2(currentIntersections, (handler) => handler()),
+    callback: () => forEach(currentIntersections, (handler) => handler()),
     frequency: INTERSECTION_POLL_INTERVAL,
     raf: true,
   });
@@ -81,7 +81,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
 
     let components: ConfiguredComponent[] | Nullish;
     if (
-      (components = filter2(
+      (components = filter(
         boundaryData?.component,
         (cmp) =>
           // Impression settings from the DOM/CSS are ignored for secondary and inferred components (performance thing)
@@ -199,7 +199,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
           ++impressions;
           viewDuration(active);
           if (!impressionEvents) {
-            impressionEvents = map2(
+            impressionEvents = map(
               components!,
               (cmp) =>
                 ((cmp!.track?.impressions ||
@@ -217,14 +217,14 @@ export const createImpressionObserver = (tracker: Tracker) => {
                     impressions,
                     ...getComponentContext(el, T),
                   })) ||
-                skip2
+                skip
             );
             tracker(impressionEvents);
           }
 
           if (impressionEvents?.length) {
             const duration = viewDuration();
-            unbindPassiveEventSources = map2(impressionEvents, (event) =>
+            unbindPassiveEventSources = map(impressionEvents, (event) =>
               tracker.events.registerEventPatchSource(event, () => ({
                 relatedEventId: event.clientId!,
                 duration,
@@ -325,7 +325,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
         }
 
         if (regions) {
-          forEach2(regions, (region) => {
+          forEach(regions, (region) => {
             const intersectionTop = constrain(
               rect.top < 0 ? -rect.top : 0,
               region[5],
@@ -358,9 +358,9 @@ export const createImpressionObserver = (tracker: Tracker) => {
       el[intersectionHandler] = ({
         isIntersecting,
       }: IntersectionObserverEntry) => {
-        set2(currentIntersections, poll, isIntersecting);
+        set(currentIntersections, poll, isIntersecting);
         !isIntersecting &&
-          (forEach2(unbindPassiveEventSources, (unbind) => unbind()), poll());
+          (forEach(unbindPassiveEventSources, (unbind) => unbind()), poll());
       };
       observer.observe(el);
     }

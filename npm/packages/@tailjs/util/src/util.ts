@@ -1,4 +1,4 @@
-import { clone2, forEach2, isNumber, isPlainObject, structuralEquals } from ".";
+import { clone, forEach, isNumber, isPlainObject, structuralEquals } from ".";
 
 export type Wrapped<T> = T | (() => T);
 
@@ -34,7 +34,7 @@ export const diff = <T>(
   let patched: any;
 
   if (isPlainObject(updated)) {
-    forEach2(updated, ([key, value]) => {
+    forEach(updated, ([key, value]) => {
       if (structuralEquals(value, previous[key], -1)) {
         // No changes.
         return;
@@ -51,7 +51,7 @@ export const diff = <T>(
       }
 
       delta[key] = value;
-      (patched ??= clone2(previous))[key] = patchedValue;
+      (patched ??= clone(previous))[key] = patchedValue;
     });
     return patched ? [delta, patched] : undefined;
   }

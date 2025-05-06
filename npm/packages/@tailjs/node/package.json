@@ -24,7 +24,6 @@
   "dependencies": {
     "@tailjs/client": "workspace:*",
     "@tailjs/engine": "workspace:*",
-    "@tailjs/json-schema": "workspace:*",
     "@tailjs/transport": "workspace:*",
     "@tailjs/types": "workspace:*",
     "@tailjs/util": "workspace:*",

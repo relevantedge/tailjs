@@ -19,14 +19,27 @@
   },
   "peerDependencies": {
     "react": ">=18.3.1",
-    "react-dom": ">=18.3.1"
+    "react-dom": ">=18.3.1",
+    "webpack": "^5.15.0"
+  },
+  "peerDependenciesMeta": {
+    "webpack": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "directory": "dist"
   },
   "devDependencies": {
-    "@types/react": "18.3.0",
-    "@types/react-dom": "18.3.1",
+    "@types/node": "^22.15.3",
+    "@types/react": ">=18.3.1",
+    "@types/react-dom": ">=18.3.1",
     "preact": ">=10.22.1",
     "preact-render-to-string": ">=6.5.6"
   },
@@ -40,6 +53,29 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.cjs"
       }
-    }
+    },
+    "./webpack": {
+      "import": {
+        "types": "./dist/webpack/index.d.ts",
+        "default": "./dist/webpack/index.mjs"
+      },
+      "require": {
+        "types": "./dist/webpack/index.d.ts",
+        "default": "./dist/webpack/index.cjs"
+      }
+    },
+    "./jsx": "./dist/jsx/index.js",
+    "./jsx/jsx-runtime": "./dist/jsx/jsx-runtime.js",
+    "./jsx/jsx-dev-runtime": "./dist/jsx/jsx-dev-runtime.js",
+    "./jsx/react-dom/server": "./dist/jsx/react-dom/server.js",
+    "./jsx/react-dom/server.browser": "./dist/jsx/react-dom/server.browser.js",
+    "./jsx/react-dom/server.edge": "./dist/jsx/react-dom/server.edge.js",
+    "./jsx/react-dom/server.node": "./dist/jsx/react-dom/server.node.js",
+    "./jsx/react-dom/server.bun": "./dist/jsx/react-dom/server.bun.js",
+    "./jsx/react-server-dom-webpack/server": "./dist/jsx/react-server-dom-webpack/server.js",
+    "./jsx/react-server-dom-webpack/server.browser": "./dist/jsx/react-server-dom-webpack/server.browser.js",
+    "./jsx/react-server-dom-webpack/server.edge": "./dist/jsx/react-server-dom-webpack/server.edge.js",
+    "./jsx/react-server-dom-webpack/server.node": "./dist/jsx/react-server-dom-webpack/server.node.js",
+    "./jsx/react-server-dom-webpack/server.bun": "./dist/jsx/react-server-dom-webpack/server.bun.js"
   }
 }

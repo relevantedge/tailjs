@@ -306,6 +306,7 @@ export const symbolAsyncIterator = Symbol.asyncIterator;
 export const createTypeConverter =
   /*#__PURE__*/
 
+
     <T>(
       typeTester: TypeTester<T>,
       parser?: (value: any) => T | undefined
@@ -366,23 +367,6 @@ export const isFalse = (value: any): value is false => value === F;
 export const isNotFalse = <T>(value: T): value is Exclude<T, false> =>
   value !== F;
 
-export const truish: {
-  <T>(items: Iterable<T | Falsish>, keepUndefined?: false): T[];
-  <T>(items: Iterable<T>, keepUndefined: true): (T extends Falsish
-    ? undefined
-    : T)[];
-  <T extends { [Symbol.iterator]?: never } | string>(
-    value: T | Falsish
-  ): T extends Falsish ? undefined : Exclude<T, Falsish>;
-} = (value: any, keepUndefined?: boolean) =>
-  isArray(value)
-    ? keepUndefined
-      ? value.map((item) => (!!item ? item : undefined))
-      : value.filter((item: any) => !!item)
-    : !!value
-    ? (value as any)
-    : undefined;
-
 export const isInteger: (value: any) => value is number =
   Number.isSafeInteger as any;
 
@@ -419,38 +403,6 @@ export const isArray: <T>(
 
 export const isError = /*#__PURE__*/ (value: any): value is Error =>
   value instanceof Error;
-
-/**
- * Returns the value as an array following these rules:
- * - If the value is undefined (this does not include `null`), so is the return value.
- * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
- * - If the value is iterable, an array containing its values is returned
- * - Otherwise, an array with the value as its single item is returned.
- */
-export const array: {
-  // <T>(value: AsyncIterable<T>, clone?: boolean): MaybeUndefined<
-  //   [T][0],
-  //   Promise<T[]>
-  // >;
-  <T>(value: T, clone?: boolean): T extends any
-    ? unknown[] extends T
-      ? any[]
-      : T extends Nullish
-      ? undefined
-      : T extends Iterable<infer Item>
-      ? T extends Item[]
-        ? T
-        : Item[]
-      : T[]
-    : never;
-} = /*#__PURE__*/ (value: any, clone = false as any): any =>
-  value == null
-    ? undefined
-    : !clone && isArray(value)
-    ? value
-    : isIterable(value)
-    ? [...value]
-    : ([value] as any);
 
 export const isObject = /*#__PURE__*/ (
   value: any
@@ -589,5 +541,4 @@ export type Mutable<T> = T extends
   : { -readonly [P in keyof T]: Mutable<T[P]> };
 
 /** For when an object that contains internal state that needs to be changed is exposed as read-only public property. */
-export const mutate2 = /*#__PURE__*/ <T>(target: T): Mutable<T> =>
-  target as any;
+export const mutate = /*#__PURE__*/ <T>(target: T): Mutable<T> => target as any;

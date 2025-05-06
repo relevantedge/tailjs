@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "name": "@tailjs/react-jsx",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./jsx-runtime": "./jsx-runtime.js",
+    "./jsx-dev-runtime": "./jsx-dev-runtime.js",
+    "./react-dom/server": "./react-dom/server.js",
+    "./react-dom/server.browser": "./react-dom/server.browser.js",
+    "./react-dom/server.edge": "./react-dom/server.edge.js",
+    "./react-dom/server.node": "./react-dom/server.node.js",
+    "./react-dom/server.bun": "./react-dom/server.bun.js",
+    "./react-server-dom-webpack/server": "./react-server-dom-webpack/server.js",
+    "./react-server-dom-webpack/server.browser": "./react-server-dom-webpack/server.browser.js",
+    "./react-server-dom-webpack/server.edge": "./react-server-dom-webpack/server.edge.js",
+    "./react-server-dom-webpack/server.node": "./react-server-dom-webpack/server.node.js",
+    "./react-server-dom-webpack/server.bun": "./react-server-dom-webpack/server.bun.js"
+  }
+}

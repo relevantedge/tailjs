@@ -5,7 +5,7 @@ import {
   VariableResultStatus,
   VariableSuccessResult,
 } from "@tailjs/types";
-import { add2, delay, map2, mapAwait2, MaybePromise } from "@tailjs/util";
+import { add, delay, map, mapAwait, MaybePromise } from "@tailjs/util";
 import {
   DefaultCryptoProvider,
   TrackerEnvironment,
@@ -118,7 +118,7 @@ export const setupStorageTests = (
         expect(variable.status).toBe(VariableResultStatus.NotFound);
 
         // Set many
-        const manyKeys = map2(maxItems, (i) => ({
+        const manyKeys = map(maxItems, (i) => ({
           scope: "test1",
           entityId: `many${i % 10}`,
           key: `many${i}`,
@@ -234,7 +234,7 @@ export const setupStorageTests = (
         ).toBe(1);
 
         await storage.set(
-          map2(9, (i) => ({
+          map(9, (i) => ({
             scope: "test1",
             entityId: "test3",
             key: `item${i}`,
@@ -244,7 +244,7 @@ export const setupStorageTests = (
 
         expect(
           (
-            await mapAwait2(
+            await mapAwait(
               iterateQueryResults(storage, [
                 { scope: "test1" },
                 { scope: "test2" },
@@ -256,13 +256,13 @@ export const setupStorageTests = (
         await storage.purge([{ scope: "test1", keys: { values: ["key1"] } }]);
 
         expect(
-          (await mapAwait2(iterateQueryResults(storage, [{ scope: "test1" }])))
+          (await mapAwait(iterateQueryResults(storage, [{ scope: "test1" }])))
             .length
         ).toBe(10);
 
         expect(
           (
-            await mapAwait2(
+            await mapAwait(
               iterateQueryResults(storage, [
                 { scope: "test1" },
                 { scope: "test2" },
@@ -287,7 +287,7 @@ export const setupStorageTests = (
             for (const result of results.variables) {
               const variableKey = keyToString(result);
 
-              expect(add2(seen, variableKey)).toBe(true);
+              expect(add(seen, variableKey)).toBe(true);
               --n;
             }
             if (!(cursor = results.cursor)) {

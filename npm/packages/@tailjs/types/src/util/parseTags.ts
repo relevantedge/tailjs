@@ -1,11 +1,11 @@
 import {
   MaybeUndefined,
   Nullish,
-  array2,
-  forEach2,
+  array,
+  forEach,
   isIterable,
   isString,
-  map2,
+  map,
   match,
 } from "@tailjs/util";
 import { ParsableTags, Tag } from "..";
@@ -25,7 +25,7 @@ export const parseTags = <Input extends ParsableTags>(
   tagString: Input,
   prefix?: string
 ): MaybeUndefined<Input, Tag[]> =>
-  array2(collectTags(tagString, prefix)?.values()) as any;
+  array(collectTags(tagString, prefix)?.values()) as any;
 
 export const parseTagValue = <Value extends string | Nullish>(
   value: string | (string | null)[] | null | undefined,
@@ -51,7 +51,7 @@ export const collectTags = <Input extends ParsableTags>(
 ): MaybeUndefined<Input, TagCollection> => {
   if (!tagString) return undefined as any;
   if (isIterable(tagString)) {
-    forEach2(tagString, (input) => collectTags(input, prefix, collected));
+    forEach(tagString, (input) => collectTags(input, prefix, collected));
     return collected as any;
   }
 

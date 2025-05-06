@@ -14,7 +14,7 @@ import {
   type LogMessage,
   type ResourceEntry,
 } from "@tailjs/engine";
-import { MaybePromise, MINUTE, now, Nullish, obj2, skip2 } from "@tailjs/util";
+import { MaybePromise, MINUTE, now, Nullish, obj, skip } from "@tailjs/util";
 import { DefaultLogger, DefaultLoggerSettings } from "./DefaultLogger";
 
 export type NativeHostLogger = {
@@ -265,7 +265,7 @@ export class NativeHost implements EngineHost {
         };
 
         const headers =
-          obj2(request.headers, (kv) => (kv[1] != null ? kv : skip2)) ?? {};
+          obj(request.headers, (kv) => (kv[1] != null ? kv : skip)) ?? {};
         if (request.body) {
           headers["content-length"] =
             "" +

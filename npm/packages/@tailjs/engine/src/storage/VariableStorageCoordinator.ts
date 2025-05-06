@@ -45,23 +45,23 @@ import {
 } from "@tailjs/types";
 import {
   AllRequired,
-  array2,
+  array,
   ArrayOrSelf,
   delay,
   Falsish,
-  forEach2,
+  forEach,
   formatError,
   isArray,
-  itemize2,
-  keyCount2,
-  map2,
-  merge2,
+  itemize,
+  keyCount,
+  map,
+  merge,
   now,
   Nullish,
-  skip2,
-  some2,
+  skip,
+  some,
   throwError,
-  truish2,
+  truish,
 } from "@tailjs/util";
 import {
   clearTrace,
@@ -327,7 +327,7 @@ export class VariableStorageCoordinator<
           ? this._types.subset(scopeMappings.schemas)
           : this._types
       );
-      forEach2(scopeMappings.prefixes, ([prefix, config]) => {
+      forEach(scopeMappings.prefixes, ([prefix, config]) => {
         if (!config) return;
 
         this._storageTypeResolvers.set(
@@ -340,7 +340,7 @@ export class VariableStorageCoordinator<
     ({
       retries: { patch: this._patchRetries, error: this._errorRetries },
       errorLogger: this._errorLogger,
-    } = this._settings = merge2(settings, [defaultContext, DEFAULT_SETTINGS], {
+    } = this._settings = merge(settings, [defaultContext, DEFAULT_SETTINGS], {
       overwrite: false,
     }));
   }
@@ -950,7 +950,7 @@ export class VariableStorageCoordinator<
     purgeFilter: boolean
   ): Promise<R> {
     const mapped: VariableStorageQuery[] = [];
-    for (let query of this._storage.splitSourceQueries(truish2(filters))) {
+    for (let query of this._storage.splitSourceQueries(truish(filters))) {
       const contextScopes = context.scope;
       if (contextScopes != null && query.scope !== "global") {
         const scopeEntityId = contextScopes[query.scope + "Id"];
@@ -961,9 +961,9 @@ export class VariableStorageCoordinator<
 
           if (invalidEntityIds?.length) {
             throwError(
-              `The entity IDs ${itemize2(
-                invalidEntityIds
-              )} are not allowed in ${query.scope} scope.`
+              `The entity IDs ${itemize(invalidEntityIds)} are not allowed in ${
+                query.scope
+              } scope.`
             );
           }
           query.entityIds = [scopeEntityId];
@@ -979,7 +979,7 @@ export class VariableStorageCoordinator<
 
       if (query.classification || query.purposes) {
         const scopeVariables = resolver.variables[query.scope];
-        forEach2(scopeVariables, ([key, variable]) => {
+        forEach(scopeVariables, ([key, variable]) => {
           const usage = variable.usage;
           if (!usage) return;
           if (
@@ -1012,7 +1012,7 @@ export class VariableStorageCoordinator<
         if (query.keys) {
           variableKeys = filterKeys(query.keys, variableKeys);
         }
-        if (variableKeys.length < keyCount2(scopeVariables)) {
+        if (variableKeys.length < keyCount(scopeVariables)) {
           query = {
             ...query,
             keys: variableKeys,
@@ -1020,7 +1020,7 @@ export class VariableStorageCoordinator<
         }
       }
       const { scope, entityIds, keys, ifModifiedSince } = query;
-      const keyArray = array2(keys?.not ?? keys);
+      const keyArray = array(keys?.not ?? keys);
       mapped.push({
         scope,
         entityIds,
@@ -1058,10 +1058,10 @@ export class VariableStorageCoordinator<
       filters = [filters];
     }
 
-    filters = truish2(filters);
+    filters = truish(filters);
     if (
       (!bulk || !context.trusted) &&
-      some2(
+      some(
         filters,
         (filter: VariableQuery<VariableServerScope>) => !filter.entityIds
       )
@@ -1107,7 +1107,7 @@ export class VariableStorageCoordinator<
           this._assignResultSchemas(
             result.variables.map((variable) => [, variable])
           );
-          result.variables = map2(result.variables, (variable) => {
+          result.variables = map(result.variables, (variable) => {
             const variableType = this._getVariable(variable);
             const censored = variableType?.censor(
               variable.value,
@@ -1118,7 +1118,7 @@ export class VariableStorageCoordinator<
                 ? variable.value !== censored
                   ? { ...variable, value: censored }
                   : variable
-                : skip2
+                : skip
               : variable;
           });
         }

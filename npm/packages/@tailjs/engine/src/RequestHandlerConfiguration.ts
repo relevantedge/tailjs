@@ -9,11 +9,11 @@ import {
   type DataPurposes,
 } from "@tailjs/types";
 import {
-  add2,
+  add,
   AllRequired,
   ellipsis,
-  forEach2,
-  get2,
+  forEach,
+  get,
   JsonObject,
   required,
   throwError,
@@ -284,19 +284,19 @@ export class SchemaBuilder {
    * If the intended target schema is not present, `undefined` is passed which gives an opportunity to do nothing or throw an error.
    */
   public patchSchema(namespace: string, patch: SchemaPatchFunction) {
-    get2(this._patches, namespace, () => []).push(patch);
+    get(this._patches, namespace, () => []).push(patch);
   }
 
   private _applyPatches(schemas: SchemaDefinition[]) {
     const usedPatches = new Set<SchemaPatchFunction>();
     for (const schema of schemas) {
-      forEach2(this._patches.get(schema.namespace), (patch) => {
+      forEach(this._patches.get(schema.namespace), (patch) => {
         usedPatches.add(patch);
         patch(schema);
       });
     }
-    forEach2(this._patches, ([, patches]) =>
-      forEach2(patches, (patch) => !usedPatches.has(patch) && patch(undefined))
+    forEach(this._patches, ([, patches]) =>
+      forEach(patches, (patch) => !usedPatches.has(patch) && patch(undefined))
     );
   }
 
@@ -328,7 +328,7 @@ export class SchemaBuilder {
     }
     const usedNamespaces = new Set<string>();
     for (const schema of schemas) {
-      if (!add2(usedNamespaces, schema.namespace)) {
+      if (!add(usedNamespaces, schema.namespace)) {
         throwError(
           `A schema with the namespace '${schema.namespace}' has been registered more than once.`
         );

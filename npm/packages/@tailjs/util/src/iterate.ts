@@ -1,22 +1,22 @@
 import {
   AsyncIterationItem,
-  AsyncIterationProjection2,
+  AsyncIterationProjection,
   AsyncIterationSource,
   AsyncIterationSourceOf,
   AsyncItProjection,
   Falsish,
-  get2,
+  get,
   isArray,
   isIterable,
   isPromiseLike,
-  itemize2,
-  IterationFilterCallback2,
+  itemize,
+  IterationFilterCallback,
   IterationProjected,
-  IterationProjection2,
+  IterationProjection,
   IterationSource,
   IterationSourceOf,
-  IterationTypeGuardCallback2,
-  IteratorItem2,
+  IterationTypeGuardCallback,
+  IteratorItem,
   MaybeArray,
   MaybeNullish,
   MaybeNullishOrFalse,
@@ -42,8 +42,8 @@ import {
 let stopInvoked = false;
 const stopSymbol = Symbol();
 
-export const skip2 = Symbol();
-export const stop2: (<T = any>(value: T) => T) & typeof stopSymbol = (<T>(
+export const skip = Symbol();
+export const stop: (<T = any>(value: T) => T) & typeof stopSymbol = (<T>(
   value: T
 ) => ((stopInvoked = true), value)) as any;
 
@@ -75,9 +75,9 @@ const ensureForEachImplementations = <R>(
         if (
           (projected = projection
             ? projection(item, i++, seed, context)
-            : item) !== skip2
+            : item) !== skip
         ) {
-          if (projected === stop2) {
+          if (projected === stop) {
             break;
           }
           seed = projected;
@@ -103,9 +103,9 @@ const ensureForEachImplementations = <R>(
       item = target[i];
       if (
         (projected = projection ? projection(item, i, seed, context) : item) !==
-        skip2
+        skip
       ) {
-        if (projected === stop2) {
+        if (projected === stop) {
           break;
         }
         seed = projected;
@@ -155,9 +155,9 @@ const ensureForEachImplementations = <R>(
       if (
         (projected = projection
           ? projection(item, i++, seed, context)
-          : item) !== skip2
+          : item) !== skip
       ) {
-        if (projected === stop2) {
+        if (projected === stop) {
           break;
         }
         seed = projected;
@@ -205,13 +205,13 @@ const ensureForEachImplementations = <R>(
     context
   ) =>
     genericForEachIterable(
-      range2(target),
+      range(target),
       projection,
       mapped,
       seed,
       context
     )) satisfies ForEachFunction;
-  scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
+  scope.Number.prototype[asyncIteratorFactorySymbol] = range;
 
   scope.Function.prototype[forEachSymbol] = ((
     target,
@@ -221,21 +221,21 @@ const ensureForEachImplementations = <R>(
     context
   ) =>
     genericForEachIterable(
-      traverse2(target),
+      traverse(target),
       projection,
       mapped,
       seed,
       context
     )) satisfies ForEachFunction;
 
-  scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+  scope.Function.prototype[asyncIteratorFactorySymbol] = traverse;
 
   return retry();
 };
 
 export type ForEachFunction = (
   target: any,
-  projection: IterationProjection2<any, any, any> | undefined,
+  projection: IterationProjection<any, any, any> | undefined,
   mapped: any[] | undefined,
   seed: any,
   context: any
@@ -243,11 +243,11 @@ export type ForEachFunction = (
 
 // #endregion
 
-export function* range2(length: number = this) {
+export function* range(length: number = this) {
   for (let i = 0; i < length; i++) yield i;
 }
 
-export function* traverse2(
+export function* traverse(
   next: <T>(current: T | undefined) => T | Nullish = this
 ) {
   let item: any = undefined;
@@ -260,21 +260,21 @@ function* iterateEntries(source: any) {
   }
 }
 
-export const forEach2: {
+export const forEach: {
   <Source extends IterationSource>(source: Source): MaybeNullishOrFalse<
-    IteratorItem2<Source> | undefined,
+    IteratorItem<Source> | undefined,
     Source
   >;
   <
     Source extends IterationSource,
     Projected,
-    Signal extends typeof skip2 | typeof stop2 | never,
+    Signal extends typeof skip | typeof stop | never,
     Accumulator extends Projected | undefined = undefined,
     Context = Source
   >(
     source: Source,
     projection:
-      | IterationProjection2<Source, Accumulator, Projected | Signal, Context>
+      | IterationProjection<Source, Accumulator, Projected | Signal, Context>
       | Nullish,
     seed?: Accumulator,
     context?: Context
@@ -289,22 +289,22 @@ export const forEach2: {
       : undefined;
   } catch (e) {
     return ensureForEachImplementations(source, e, () =>
-      forEach2(source, projection, seed, context)
+      forEach(source, projection, seed, context)
     );
   }
 };
 
-export let map2: {
+export let map: {
   <
     Source extends IterationSource,
     Projected,
     Accumulator extends Projected,
-    Signal extends typeof skip2 | typeof stop2 | never, // Otherwise Projected may be `symbol`
+    Signal extends typeof skip | typeof stop | never, // Otherwise Projected may be `symbol`
     Target = undefined,
     Context = Source
   >(
     source: Source,
-    projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
+    projection: IterationProjection<Source, Accumulator, Projected | Signal>,
     target?: Target & IterationProjected<Projected>[],
     seed?: Accumulator,
     context?: Context
@@ -337,12 +337,12 @@ export let map2: {
       : source[forEachSymbol](source, projection, target, seed, context);
   } catch (e) {
     return ensureForEachImplementations(source, e, () =>
-      map2(source, projection, target, seed, context)
+      map(source, projection, target, seed, context)
     );
   }
 };
 
-export const batch2 = <T, Arg>(
+export const batch = <T, Arg>(
   source: Arg & Iterable<T>,
   batchSize: number
 ): MaybeNullish<T[][], Arg> => {
@@ -377,7 +377,7 @@ type FilterTruish<T extends readonly any[]> = T extends readonly [
   : never;
 
 /** Creates an array with the parameters that are not false'ish */
-export const truish2: {
+export const truish: {
   <Values extends TupleOrArray<{} | Falsish>>(
     values: Values
   ): FilterTruish<Values>;
@@ -385,65 +385,62 @@ export const truish2: {
     ...values: Values
   ): FilterTruish<Values>;
 } = (...values: any[]) =>
-  filter2(values.length === 1 ? values[0] : values, false) as any;
+  filter(values.length === 1 ? values[0] : values, false) as any;
 
-export let filter2: {
+export let filter: {
   <Source extends IterationSource, Strict extends boolean = true>(
     target: Source,
     /**
      * Whether to filter out only `null` and `undefined` or all false'ish values (`null`, `undefined`, `false`, `""` and `0`).
-     * If the latter behavior is preferred, you can also use {@link truish2}.
+     * If the latter behavior is preferred, you can also use {@link truish}.
      *
      * @default true
      */
     strict?: Strict
   ): MaybeNullishOrFalse<
     Exclude<
-      IteratorItem2<Source>,
-      typeof skip2 | typeof stop2 | (Strict extends true ? Nullish : Falsish)
+      IteratorItem<Source>,
+      typeof skip | typeof stop | (Strict extends true ? Nullish : Falsish)
     >[],
     Source
   >;
   <
     Source extends IterationSource,
-    R extends Exclude<
-      IteratorItem2<Source>,
-      typeof skip2 | typeof stop2 | Falsish
-    >
+    R extends Exclude<IteratorItem<Source>, typeof skip | typeof stop | Falsish>
   >(
     target: Source,
-    filter: IterationTypeGuardCallback2<Source, R>,
+    filter: IterationTypeGuardCallback<Source, R>,
     invert?: boolean
   ): MaybeNullishOrFalse<R[], Source>;
 
   <Source extends IterationSource>(
     target: Source,
-    filter: IterationFilterCallback2<Source>,
+    filter: IterationFilterCallback<Source>,
     invert?: boolean
   ): IterationResultArray<Source>;
 
   <Source extends IterationSource>(
     target: Source,
-    filter: { has(item: Exclude<IteratorItem2<Source>, Nullish>): any },
+    filter: { has(item: Exclude<IteratorItem<Source>, Nullish>): any },
     invert?: boolean
   ): MaybeNullishOrFalse<
-    IteratorItem2<Exclude<Source, NullishOrFalse>>[],
+    IteratorItem<Exclude<Source, NullishOrFalse>>[],
     Source
   >;
 } = (items: any, filter: any = true, invert = false) =>
-  map2(
+  map(
     items,
     filter === true
-      ? (item) => item ?? skip2
+      ? (item) => item ?? skip
       : !filter
-      ? (item) => item || skip2
+      ? (item) => item || skip
       : filter.has
-      ? (item) => (item == null || filter.has(item) === invert ? skip2 : item)
+      ? (item) => (item == null || filter.has(item) === invert ? skip : item)
       : (item, index, prev) =>
-          !filter(item, index, prev, items) === invert ? item : skip2
+          !filter(item, index, prev, items) === invert ? item : skip
   );
 
-export const take2: {
+export const take: {
   <Source extends IterationSource>(
     source: Source,
     count: number,
@@ -453,61 +450,63 @@ export const take2: {
     Source extends IterationSource,
     Projected,
     Accumulator extends Projected,
-    Signal extends typeof skip2 | typeof stop2 | never
+    Signal extends typeof skip | typeof stop | never
   >(
     source: Source,
     count: number,
-    projection: IterationProjection2<Source, Accumulator, Projected | Signal>
+    projection: IterationProjection<Source, Accumulator, Projected | Signal>
   ): MaybeNullishOrFalse<IterationProjected<Projected>[], Source>;
 } = (source: any, count: any, projection?: any) =>
-  map2(
+  map(
     source,
     (item, index, prev) => (
       index === count + 1 && (stopInvoked = true),
       projection ? projection(item, index, prev) : item
     )
   );
-export const first2: {
+export const first: {
   <Source extends IterationSource, R>(
     source: Source,
-    predicate: IterationTypeGuardCallback2<Source, R>
+    predicate: IterationTypeGuardCallback<Source, R>
   ): R | undefined;
   <Source extends IterationSource>(
     source: Source,
-    predicate?: IterationFilterCallback2<Source>
-  ): IteratorItem2<Source> | undefined;
-} = (source: any, predicate = source) =>
-  forEach2(
-    source,
-    (item, index, prev) => (
-      (!predicate || predicate(item, index, prev, source)) &&
-        (stopInvoked = true),
-      item
-    )
-  );
-
-export const last2: {
-  <Source extends IterationSource, R>(
-    source: Source,
-    predicate: IterationTypeGuardCallback2<Source, R>
-  ): R | undefined;
-  <Source extends IterationSource>(
-    source: Source,
-    predicate?: IterationFilterCallback2<Source>
-  ): IteratorItem2<Source> | undefined;
-} = (source: any, predicate = source) =>
+    predicate?: IterationFilterCallback<Source>
+  ): IteratorItem<Source> | undefined;
+} = (source: any, predicate?: any) =>
   !predicate && isArray(source)
-    ? source[source.length - 1]
-    : forEach2(source, (item, index, prev) =>
-        !predicate || predicate(item, index, prev, source) ? prev : item
+    ? source[0]
+    : forEach(
+        source,
+        (item, index, prev) => (
+          (!predicate || predicate(item, index, prev, source)) &&
+            (stopInvoked = true),
+          item
+        )
       );
 
-export const count2 = <Source extends IterationSource>(
+export const last: {
+  <Source extends IterationSource, R>(
+    source: Source,
+    predicate: IterationTypeGuardCallback<Source, R>
+  ): R | undefined;
+  <Source extends IterationSource>(
+    source: Source,
+    predicate?: IterationFilterCallback<Source>
+  ): IteratorItem<Source> | undefined;
+} = (source: any, predicate?: any) =>
+  !predicate && isArray(source)
+    ? source[source.length - 1]
+    : forEach(source, (item, index, prev) =>
+        !predicate || predicate(item, index, prev, source) ? item : skip
+      );
+
+export const count = <Source extends IterationSource>(
   source: Source,
-  predicate?: IterationFilterCallback2<Source>
+  predicate?: IterationFilterCallback<Source>
 ) => {
   let n = 0;
-  forEach2(
+  forEach(
     source,
     predicate
       ? (item, index, prev) => predicate(item, index, prev, source) && ++n
@@ -536,18 +535,18 @@ type Flat<T, Depth extends number> = Depth extends 0
   ? Flat<T, Dec<Depth>>
   : T;
 
-export const flatMap2: {
+export const flatMap: {
   <
     Source extends IterationSource,
     Projected,
     Accumulator extends Projected,
-    Signal extends typeof skip2 | typeof stop2 | never, // Otherwise R may be `symbol`
+    Signal extends typeof skip | typeof stop | never, // Otherwise R may be `symbol`
     Target = undefined,
     Context = Source,
     Depth extends number = -1
   >(
     source: Source,
-    projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
+    projection: IterationProjection<Source, Accumulator, Projected | Signal>,
     depth?: Depth,
     target?: Target & Flat<IterationProjected<Projected>, Depth>[],
     seed?: Accumulator,
@@ -566,7 +565,7 @@ export const flatMap2: {
     target?: any[],
     seed?: any,
     context?: any
-  ): Source extends Nullish ? Source : Flat<IteratorItem2<Source>, Depth>[];
+  ): Source extends Nullish ? Source : Flat<IteratorItem<Source>, Depth>[];
 } = (
   source: any,
   projection?: any,
@@ -575,7 +574,7 @@ export const flatMap2: {
   seed?: any,
   context = source
 ) =>
-  map2(
+  map(
     source,
     (item, index, previous) =>
       (projection ? (item = projection(item, index, previous)) : item) !=
@@ -583,7 +582,7 @@ export const flatMap2: {
       item[Symbol.iterator] &&
       typeof item !== "string" &&
       depth
-        ? (flatMap2(item, undefined, depth - 1, target, item), skip2)
+        ? (flatMap(item, undefined, depth - 1, target, item), skip)
         : item,
     target,
     seed,
@@ -602,7 +601,7 @@ type Group2Result<Source, AsMap, Many = true> = AsMap extends true
   ? { [P in Key]: ToggleArray<Value, Many> }
   : never;
 
-export const group2: {
+export const group: {
   <
     Source extends ObjectSource<any> | NullishOrFalse,
     AsMap extends boolean = true
@@ -626,11 +625,11 @@ export const group2: {
     Source extends IterationSource,
     Projected extends KeyValueType<keyof any> | Falsish,
     Accumulator extends Projected,
-    Signal extends typeof skip2 | typeof stop2 | never,
+    Signal extends typeof skip | typeof stop | never,
     AsMap extends boolean = true
   >(
     source: Source,
-    projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
+    projection: IterationProjection<Source, Accumulator, Projected | Signal>,
     map?: AsMap
   ): MaybeNullishOrFalse<
     Group2Result<IterationProjected<Projected, Falsish>[], AsMap>,
@@ -640,10 +639,10 @@ export const group2: {
     Source extends IterationSource,
     Projected extends KeyValueType<any> | Falsish,
     Accumulator extends Projected,
-    Signal extends typeof skip2 | typeof stop2 | never
+    Signal extends typeof skip | typeof stop | never
   >(
     source: Source,
-    projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
+    projection: IterationProjection<Source, Accumulator, Projected | Signal>,
     map?: true
   ): MaybeNullishOrFalse<
     Group2Result<IterationProjected<Projected, Falsish>[], true>,
@@ -654,14 +653,14 @@ export const group2: {
     [projection, map] = [undefined, projection];
   }
   let groups: any, kv: [any, any];
-  forEach2(
+  forEach(
     source,
     map !== false
       ? ((groups = new Map()),
         (item, index, prev) => {
           kv = projection ? projection(item, index, prev) : item;
           if (kv[0] !== undefined) {
-            get2(groups, kv[0], () => []).push(kv[1]);
+            get(groups, kv[0], () => []).push(kv[1]);
           }
         })
       : ((groups = {}),
@@ -674,7 +673,7 @@ export const group2: {
   return groups;
 };
 
-export let forEachAwait2: {
+export let forEachAwait: {
   <Source extends AsyncIterationSource | Nullish>(source: Source): Promise<
     MaybeNullish<AsyncIterationItem<Source>, Source> | undefined
   >;
@@ -682,12 +681,12 @@ export let forEachAwait2: {
     Source extends AsyncIterationSource | Nullish,
     Projected,
     Accumulated extends UnwrapPromiseLike<Projected>,
-    Signal extends typeof skip2 | typeof stop2 | never,
+    Signal extends typeof skip | typeof stop | never,
     Context = Source
   >(
     source: Source,
     projection:
-      | AsyncIterationProjection2<
+      | AsyncIterationProjection<
           Source,
           Accumulated,
           EncourageTuples<Projected> | Signal,
@@ -699,25 +698,25 @@ export let forEachAwait2: {
   ): Promise<MaybeNullish<AsyncItProjection<Projected>, Source> | undefined>;
 } = (source: any, projection?: any, seed?: any, context?: any) => {
   try {
-    return iterateAsync2(source, projection, undefined, seed, context);
+    return iterateAsync(source, projection, undefined, seed, context);
   } catch (e) {
     return ensureForEachImplementations(source, e, () =>
-      forEachAwait2(source, projection, seed, context)
+      forEachAwait(source, projection, seed, context)
     );
   }
 };
 
-export let mapAwait2: {
+export let mapAwait: {
   <
     Source extends IterationSource,
     Projected,
     Accumulator extends UnwrapPromiseLike<Projected>,
-    Signal extends typeof skip2 | typeof stop2 | never, // Otherwise R may be `symbol`
+    Signal extends typeof skip | typeof stop | never, // Otherwise R may be `symbol`
     Target = undefined,
     Context = Source
   >(
     source: Source,
-    projection: AsyncIterationProjection2<
+    projection: AsyncIterationProjection<
       Source,
       Accumulator,
       Projected | Signal
@@ -747,17 +746,17 @@ export let mapAwait2: {
   >;
 } = (source: any, projection: any, target = [], seed: any, context: any) => {
   try {
-    return iterateAsync2(source, projection, target, seed, context);
+    return iterateAsync(source, projection, target, seed, context);
   } catch (e) {
     return ensureForEachImplementations(source, e, () =>
-      mapAwait2(source, projection, target, seed, context)
+      mapAwait(source, projection, target, seed, context)
     );
   }
 };
 
-const iterateAsync2 = async (
+const iterateAsync = async (
   source: any,
-  projection?: IterationProjection2<any, any, any, any> | Nullish,
+  projection?: IterationProjection<any, any, any, any> | Nullish,
   mapped?: any[],
   seed?: any,
   context?: any
@@ -786,9 +785,9 @@ const iterateAsync2 = async (
     if (
       (projected = await (projection
         ? projection(item, i++, seed, context)
-        : item)) !== skip2
+        : item)) !== skip
     ) {
-      if (projected === stop2) {
+      if (projected === stop) {
         break;
       }
       seed = projected;
@@ -803,9 +802,9 @@ const iterateAsync2 = async (
   return mapped || seed;
 };
 
-export const collect2 = <T, Nulls>(
+export const collect = <T, Nulls>(
   source: T | Iterable<T> | Nulls,
-  generator: (item: T) => Iterable<T> | T | typeof skip2 | typeof stop2,
+  generator: (item: T) => Iterable<T> | T | typeof skip | typeof stop,
   includeSelf = true,
   collected?: Set<T>
 ): MaybeNullish<Set<T>, Nulls> => {
@@ -814,9 +813,7 @@ export const collect2 = <T, Nulls>(
   collected ??= new Set();
   if (source[symbolIterator] && typeof source !== "string") {
     for (const item of source as Iterable<any>) {
-      if (
-        (collect2(item, generator, includeSelf, collected) as any) === stop2
-      ) {
+      if ((collect(item, generator, includeSelf, collected) as any) === stop) {
         break;
       }
     }
@@ -825,15 +822,15 @@ export const collect2 = <T, Nulls>(
       collected.add(source as any);
     }
     let generated = generator(source as any);
-    if (generated === stop2) return root ? stop2 : (collected as any);
-    if (generated !== skip2) {
-      collect2(generated, generator, true, collected);
+    if (generated === stop) return root ? stop : (collected as any);
+    if (generated !== skip) {
+      collect(generated, generator, true, collected);
     }
   }
   return collected as any;
 };
 
-export const distinct2 = <T>(
+export const distinct = <T>(
   source: T
 ): unknown extends T
   ? any
@@ -854,7 +851,7 @@ export const distinct2 = <T>(
           : ([source] as any)
       ) as any);
 
-export const iterable2 = <T>(
+export const iterable = <T>(
   source: T
 ): T extends undefined ? [] : T extends Iterable<any> ? T : [T] =>
   source === void 0
@@ -863,7 +860,7 @@ export const iterable2 = <T>(
     ? source
     : ([source] as any);
 
-export const array2 = <T>(
+export const array = <T>(
   source: T
 ): unknown extends T
   ? any[]
@@ -882,25 +879,25 @@ export const array2 = <T>(
     ? [...(source as any)]
     : ([source] as any);
 
-export const some2: {
+export const some: {
   <Source extends IterationSource>(
     source: Source,
-    predicate?: IterationFilterCallback2<Source>
+    predicate?: IterationFilterCallback<Source>
   ): boolean;
 } = (source, predicate) =>
-  forEach2(source, (item, index, prev) =>
+  forEach(source, (item, index, prev) =>
     (predicate ? predicate(item, index, prev, source) : item)
       ? (stopInvoked = true)
       : item
   ) === true;
 
-export const all2: {
+export const all: {
   <Source extends IterationSource>(
     source: Source,
-    predicate?: IterationFilterCallback2<Source>
+    predicate?: IterationFilterCallback<Source>
   ): boolean;
 } = (source, predicate) =>
-  forEach2(source, (item, index, prev) =>
+  forEach(source, (item, index, prev) =>
     !(predicate ? predicate(item, index, prev, source) : item)
       ? !(stopInvoked = true)
       : item
@@ -921,7 +918,7 @@ type ConcatResult<T extends readonly any[]> = [Nullish | T[number]] extends [
           : T
         : never;
     }[number][];
-export const concat2: {
+export const concat: {
   <T extends readonly any[]>(args: T): ConcatResult<T>;
   <T extends readonly any[]>(...args: T): ConcatResult<T>;
 } = (arg0: any, ...other: any[]) => {
@@ -959,11 +956,11 @@ const sortCompare = (x: Sortable, y: Sortable, descending: boolean) =>
     ? 1
     : (x as any) - (y as any));
 
-export const sort2: {
+export const sort: {
   <T extends Sortable, Source>(
     items: Source & (Iterable<T> | Nullish),
     descending?: boolean
-  ): Source extends Nullish ? T : IteratorItem2<T>[];
+  ): Source extends Nullish ? T : IteratorItem<T>[];
 
   <T, Source>(
     items: Source & (Iterable<T> | undefined),
@@ -971,7 +968,7 @@ export const sort2: {
     descending?: boolean
   ): Source extends Nullish ? T : T[];
 } = (items: any, selector: any, descending?: any) =>
-  (array2(items) as any[]).sort(
+  (array(items) as any[]).sort(
     typeof selector === "function"
       ? (x, y) => sortCompare(selector(x), selector(y), descending)
       : isArray(selector)
@@ -987,7 +984,7 @@ export const sort2: {
       : (x, y) => sortCompare(x, y, selector)
   );
 
-export const topoSort2 = <Source, T>(
+export const topoSort = <Source, T>(
   items: (Iterable<T> | Nullish) & Source,
   dependencies: (item: T) => Iterable<T> | Nullish,
   format?: Selector<T>
@@ -1000,7 +997,7 @@ export const topoSort2 = <Source, T>(
   let mapped: T[] = [];
 
   const edges = new Map<T, Info>(
-    map2(items, (item) => [item, [item, [], null!]])
+    map(items, (item) => [item, [item, [], null!]])
   );
   for (const [item, info] of edges) {
     for (const dependency of dependencies(item) ?? []) {
@@ -1026,13 +1023,13 @@ export const topoSort2 = <Source, T>(
   return mapped.length === edges.size
     ? (mapped as any)
     : throwError(
-        `Cyclic dependencies: ${itemize2(
-          map2(edges, ([, info]) =>
+        `Cyclic dependencies: ${itemize(
+          map(edges, ([, info]) =>
             info[2]?.size
               ? (format = normalizeSelector(format))(info[0]) +
                 " depends on " +
-                itemize2(info[2], format)
-              : skip2
+                itemize(info[2], format)
+              : skip
           )
         )}.`
       );
@@ -1043,34 +1040,34 @@ const normalizeSelector = (selector: Selector, require = false) =>
     ? selector
     : selector != null
     ? (item: any) =>
-        (item = item[selector]) === undefined && require ? skip2 : item
+        (item = item[selector]) === undefined && require ? skip : item
     : (item: any) => item;
 
 type ReduceFunction<Default = undefined, By = false> = {
   <T extends number>(source: readonly [T, ...T[]]): T;
   <Source>(
     source: Source & Iterable<number | undefined>
-  ): Source extends Nullish ? Source : IteratorItem2<Source> | Default;
+  ): Source extends Nullish ? Source : IteratorItem<Source> | Default;
   <
     Source extends IterationSource,
     Projected extends number | undefined,
-    Signal extends typeof skip2 | typeof stop2 | never,
+    Signal extends typeof skip | typeof stop | never,
     Accumulator extends Projected = any,
     Item extends boolean = false
   >(
     ...args: [
       source: Source,
-      projection: IterationProjection2<Source, Accumulator, Projected | Signal>,
+      projection: IterationProjection<Source, Accumulator, Projected | Signal>,
       ...(true extends By ? [returnItem?: Item] : [])
     ]
   ): Source extends Nullish
     ? Source
     : Item extends true
-    ? IteratorItem2<Source>
+    ? IteratorItem<Source>
     : number | Default;
 };
 
-const reduce2 = (
+const reduce = (
   source: any,
   projection: any,
   reduce: (current: number | undefined, value: number) => number | undefined,
@@ -1078,7 +1075,7 @@ const reduce2 = (
 ) => {
   let value: number | undefined;
   let result: any;
-  forEach2(
+  forEach(
     source,
     returnItem
       ? (item, index, prev: any) =>
@@ -1095,49 +1092,49 @@ const reduce2 = (
   return result;
 };
 
-export const min2: ReduceFunction<undefined, true> = (
+export const min: ReduceFunction<undefined, true> = (
   source: any,
   projection?: any,
   by?: boolean
 ) =>
   !projection && isArray(source)
     ? Math.min(...source)
-    : reduce2(
+    : reduce(
         source,
         projection,
         (prev, x) => (prev == null || x < prev ? x : prev),
         by
       );
 
-export const max2: ReduceFunction<undefined, true> = (
+export const max: ReduceFunction<undefined, true> = (
   source: any,
   projection?: any,
   by?: boolean
 ) =>
   !projection && isArray(source)
     ? Math.max(...source)
-    : reduce2(
+    : reduce(
         source,
         projection,
         (prev, x) => (prev == null || x > prev ? x : prev),
         by
       );
 
-export const sum2: ReduceFunction<number> = (source: any, projection?: any) =>
-  reduce2(source, projection, (prev = 0, x) => {
+export const sum: ReduceFunction<number> = (source: any, projection?: any) =>
+  reduce(source, projection, (prev = 0, x) => {
     return prev + x;
   }) || 0;
 
-export const avg2: ReduceFunction<number> = (source: any, projection?: any) => {
+export const avg: ReduceFunction<number> = (source: any, projection?: any) => {
   let n = 0;
-  let sum = reduce2(source, projection, (prev = 0, x) => (n++, prev + x));
+  let sum = reduce(source, projection, (prev = 0, x) => (n++, prev + x));
   return n ? sum / n : undefined;
 };
 
-export const keys2 = Object.keys;
+export const keys = Object.keys;
 
-export const hasKeys2 = (obj: any) => !!keyCount2(obj, true);
-export const keyCount2 = (obj: any, some = false) => {
+export const hasKeys = (obj: any) => !!keyCount(obj, true);
+export const keyCount = (obj: any, some = false) => {
   if (!obj) return 0;
   let count = 0;
   for (const _ in obj) {

@@ -4,18 +4,18 @@ import {
   PickRequired,
   PrettifyIntersection,
   SimpleObject,
-  concat2,
-  forEach2,
-  group2,
+  concat,
+  forEach,
+  group,
   isArray,
   isString,
-  join2,
-  map2,
+  join,
+  map,
   match,
   nil,
-  obj2,
-  skip2,
-  stop2,
+  obj,
+  skip,
+  stop,
   undefined,
 } from ".";
 
@@ -101,8 +101,8 @@ export const parseKeyValue = <
     (parts[1] &&
       ((isString(delimiters) && (delimiters = [delimiters] as any)) ||
         isArray(delimiters)) &&
-      forEach2(delimiters as string[], (delim) =>
-        (split = parts[1]!.split(delim)).length > 1 ? stop2(split) : undefined
+      forEach(delimiters as string[], (delim) =>
+        (split = parts[1]!.split(delim)).length > 1 ? stop(split) : undefined
       )) ||
     (parts[1] ? [parts[1]] : []);
 
@@ -257,7 +257,7 @@ export const parseParameters = <
     ...options
   }: QueryStringParseOptions<Delimiters> = {}
 ): PrettifyIntersection<ParsedQueryString<Delimiters>> => {
-  const parameters = map2(
+  const parameters = map(
     query?.match(/(?:^.*?\?|^)([^#]*)/)?.[1]?.split(separator),
     (part) => {
       let [key, value, values] =
@@ -274,15 +274,15 @@ export const parseParameters = <
         ? delimiters !== false
           ? [key, values!.length > 1 ? values! : value!]
           : [key, value!]
-        : skip2;
+        : skip;
     }
   );
 
-  const results = obj2(group2(parameters, false), ([key, values]) => [
+  const results = obj(group(parameters, false), ([key, values]) => [
     key,
     delimiters !== false
       ? values.length > 1
-        ? concat2(values)
+        ? concat(values)
         : values[0]
       : values.join(","),
   ]) as any;
@@ -303,15 +303,15 @@ export const toQueryString = <
 ): MaybeUndefined<P, string> =>
   parameters == nil
     ? undefined
-    : (map2(parameters, ([key, value]) => {
-        return isString(key)
+    : (map(parameters, ([key, value]) =>
+        isString(key)
           ? key +
-              "=" +
-              (isArray(value)
-                ? map2(value, uriEncode).join(delimiter)
-                : uriEncode(value) ?? "")
-          : undefined;
-      })?.join("&") as any);
+            "=" +
+            (isArray(value)
+              ? map(value, uriEncode).join(delimiter)
+              : uriEncode(value) ?? "")
+          : undefined
+      )?.join("&") as any);
 
 export const appendQueryString = <Uri extends string | undefined>(
   baseUri: Uri,
@@ -334,10 +334,7 @@ export const mergeQueryString = <Uri extends string | undefined>(
 ): MaybeUndefined<Uri, string> => {
   if (!currentUri) return undefined!;
   const current = parseQueryString(currentUri);
-  forEach2(
-    parameters,
-    ([key, value]) => (current[key] = current[key] ?? value)
-  );
+  forEach(parameters, ([key, value]) => (current[key] = current[key] ?? value));
   return appendQueryString(currentUri, current) as any;
 };
 
@@ -346,7 +343,7 @@ export const formatUri = <Uri extends Omit<ParsedUri, "source">>(
 ): MaybeUndefined<Uri, string> =>
   uri == nil
     ? (undefined as any)
-    : join2(
+    : join(
         [
           uri.scheme || uri.urn === false
             ? (uri.scheme ? uri.scheme + ":" : "") + (!uri.urn ? "//" : "")

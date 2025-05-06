@@ -16,16 +16,16 @@ import {
   createTimeout,
   ellipsis,
   equalsAny,
-  forEach2,
+  forEach,
   isObject,
-  map2,
+  map,
   nil,
   parseUri,
-  remove2,
+  remove,
   restrict,
-  some2,
-  stop2,
-  update2,
+  some,
+  stop,
+  update,
   type Nullish,
 } from "@tailjs/util";
 import {
@@ -110,13 +110,13 @@ export const userInteraction: TrackerExtensionFactory = {
     const stripPositions = <T = any>(el: any, hitTest: boolean): T =>
       hitTest
         ? el
-        : (map2(el, ([key]) =>
+        : (map(el, ([key]) =>
             key === "rect" ||
             //key === "pos"  Changed so pos is always included.
             key === "viewport"
-              ? remove2(el, key)
+              ? remove(el, key)
               : isObject(el[key]) &&
-                map2(el[key], (item) => stripPositions(item, hitTest))
+                map(el[key], (item) => stripPositions(item, hitTest))
           ),
           el);
     const trackDocument = (document: Document) => {
@@ -140,12 +140,12 @@ export const userInteraction: TrackerExtensionFactory = {
             const boundary = getBoundaryData(el);
             const components = boundary?.component;
             if (!ev.button && components?.length && !clickables) {
-              forEach2(
+              forEach(
                 el.querySelectorAll("a,button"),
                 (clickable) =>
                   isClickable(clickable) &&
                   ((clickables ??= []).length > 3
-                    ? stop2 // If there are more than three clickables, there is presumably not any missed click intent.
+                    ? stop // If there are more than three clickables, there is presumably not any missed click intent.
                     : clickables.push({
                         ...getElementInfo(clickable, true),
                         component: forAncestorsOrSelf(
@@ -169,10 +169,10 @@ export const userInteraction: TrackerExtensionFactory = {
             trackClicks ??=
               trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
               (components &&
-                some2(components, (cmp) => cmp.track?.clicks !== F));
+                some(components, (cmp) => cmp.track?.clicks !== F));
             trackRegion ??=
               trackerFlag(el, "region", T, (data) => data.track?.region) ??
-              (components && some2(components, (cmp) => cmp.track?.region));
+              (components && some(components, (cmp) => cmp.track?.region));
           });
 
           if (!(containerElement ??= clickableElement)) {
@@ -205,7 +205,7 @@ export const userInteraction: TrackerExtensionFactory = {
           };
           if (!clickableElement) {
             clickIntent &&
-              update2(activeEventClicks, containerElement, (current) => {
+              update(activeEventClicks, containerElement, (current) => {
                 const pos = getPos(containerElement!, ev);
                 if (!current) {
                   // Reuse the same event and only add the new click coordinates

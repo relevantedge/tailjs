@@ -21,6 +21,7 @@
     "@tailjs/types": "workspace:*",
     "framer-motion": "11.2.10",
     "next": "^14.2.24",
+    "largo": "./src/hax0r",
     "react": ">=18.3.0",
     "react-dom": ">=18.3.1",
     "server-only": "^0.0.1"

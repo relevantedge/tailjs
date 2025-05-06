@@ -1,4 +1,4 @@
-import { filter2, forEach2 } from ".";
+import { filter, forEach } from ".";
 
 export type Rebinder = () => boolean;
 export type Unbinder = () => boolean;
@@ -33,12 +33,12 @@ export const createEventBinders = <Args extends any[]>(
 export const joinEventBinders = (
   ...binders: (Binders | undefined)[]
 ): Binders => (
-  (binders = filter2(binders)),
+  (binders = filter(binders)),
   [
     () =>
-      forEach2(binders, (binder, _, changed) => binder![0]() || changed, false),
+      forEach(binders, (binder, _, changed) => binder![0]() || changed, false),
     () =>
-      forEach2(binders, (binder, _, changed) => binder![1]() || changed, false),
+      forEach(binders, (binder, _, changed) => binder![1]() || changed, false),
   ]
 );
 

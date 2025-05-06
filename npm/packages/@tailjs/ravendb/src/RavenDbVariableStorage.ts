@@ -20,7 +20,7 @@ import {
   VariableSuccessResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { batch2, json2, map2, now, stringify2 } from "@tailjs/util";
+import { batch, parseJson, map, now, stringify } from "@tailjs/util";
 import { RavenDbSettings } from ".";
 import { RavenDbTarget } from "./RavenDbTarget";
 
@@ -93,17 +93,17 @@ export class RavenDbVariableStorage
     keys: readonly ReadOnlyVariableGetter[]
   ): Promise<VariableGetResult[]> {
     const results: VariableGetResult[] = [];
-    for (const batch of batch2(keys, 100)) {
+    for (const keyBatch of batch(keys, 100)) {
       const response = await this._request(
         "GET",
-        `docs?${batch.map((key) => `id=${keyToDocumentId(key)}`).join("&")}`
+        `docs?${keyBatch.map((key) => `id=${keyToDocumentId(key)}`).join("&")}`
       );
 
       const timestamp = now();
-      const body = json2(response.body);
+      const body = parseJson(response.body);
       const batchResults = body?.Results;
       let i = 0;
-      for (const _ of batch) {
+      for (const _ of keyBatch) {
         const result = mapDocumentResult(
           response.status,
           batchResults?.[i++],
@@ -113,8 +113,8 @@ export class RavenDbVariableStorage
           result.status === 200
             ? (mapVariableResult(200, result) as VariableSuccessResult)
             : result.status === 404
-            ? mapNotFoundResult(batch[i])
-            : mapErrorResult(batch[i], result)
+            ? mapNotFoundResult(keyBatch[i])
+            : mapErrorResult(keyBatch[i], result)
         );
       }
     }
@@ -180,7 +180,7 @@ export class RavenDbVariableStorage
               "If-Match": JSON.stringify(version),
             }
           );
-      let body = json2(response.body);
+      let body = parseJson(response.body);
       let result = mapDocumentResult(
         response.status,
         body?.ModifiedDocument,
@@ -207,7 +207,7 @@ export class RavenDbVariableStorage
       ) {
         // Get current version of the variable.
         response = await this._request("GET", href);
-        body = json2(response.body);
+        body = parseJson(response.body);
         result = mapDocumentResult(
           response.status,
           body?.Results?.[0],
@@ -245,8 +245,10 @@ export class RavenDbVariableStorage
     });
 
     const results: VariableSetResult[] = [];
-    for (const batch of batch2(requests, 100)) {
-      results.push(...(await Promise.all(batch.map((request) => request()))));
+    for (const requestBatch of batch(requests, 100)) {
+      results.push(
+        ...(await Promise.all(requestBatch.map((request) => request())))
+      );
     }
     return results;
   }
@@ -315,7 +317,7 @@ export class RavenDbVariableStorage
       const rql = queryToRql(query, {
         fixed:
           i - 1 === offset && skipId
-            ? [`id() > ${stringify2(skipId)}`]
+            ? [`id() > ${stringify(skipId)}`]
             : undefined,
         append: page ? `order by id() limit ${page}` : undefined,
       });
@@ -326,7 +328,7 @@ export class RavenDbVariableStorage
       if (response.error) {
         throw response.error;
       }
-      const json = json2(response.body);
+      const json = parseJson(response.body);
       for (const result of json?.Results ?? []) {
         const variable = mapDocumentResult(200, result, timestamp).document;
         if (variable) {
@@ -478,7 +480,7 @@ const queryToRql = (
       const filters = `${entityIds
         .map(
           (entityId) =>
-            `startsWith(id(),${stringify2(
+            `startsWith(id(),${stringify(
               keyToDocumentId({ scope: query.scope, entityId, key: "" })
             )})`
         )
@@ -490,10 +492,10 @@ const queryToRql = (
       // Specific document IDs must match (or not match).
       const comparer = keys.exclude ? "!=" : "==";
       const keyFilter = entityIds.flatMap((entityId) =>
-        map2(
+        map(
           keys.values,
           (key) =>
-            `id() ${comparer} ${stringify2(
+            `id() ${comparer} ${stringify(
               keyToDocumentId({
                 scope: query.scope,
                 entityId,
@@ -513,9 +515,9 @@ const queryToRql = (
     }
   } else if (keys) {
     const comparer = keys.exclude ? "!=" : "==";
-    const keyFilter = map2(
+    const keyFilter = map(
       keys.values,
-      (key) => `key ${comparer} ${stringify2(key)}`
+      (key) => `key ${comparer} ${stringify(key)}`
     ).join(" or ");
 
     if (keyFilter) {

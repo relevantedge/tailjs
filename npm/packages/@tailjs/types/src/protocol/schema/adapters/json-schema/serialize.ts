@@ -1,4 +1,4 @@
-import { forEach2, throwTypeError } from "@tailjs/util";
+import { forEach, throwTypeError } from "@tailjs/util";
 import { serializeAnnotations } from ".";
 import {
   Schema,
@@ -96,7 +96,7 @@ const serializeType = (type: SchemaObjectType) => {
     properties: {},
   } as any;
 
-  forEach2(type.ownProperties, ([name, property]) => {
+  forEach(type.ownProperties, ([name, property]) => {
     jsonType.properties[name] = serializeProperty(property.type);
     if (property.required) {
       (jsonType.required ??= []).push(name);

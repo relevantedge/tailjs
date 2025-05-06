@@ -8,12 +8,17 @@ export function useTracking(
 ): void;
 export function useTracking(data: UseTrackingOptions): void;
 export function useTracking(data: any) {
-  if (currentContext) {
-    currentContext.state = mergeStates(
-      currentContext.state,
-      typeof data === "function"
-        ? data(currentContext.state)
-        : { ...currentContext.state, ...data }
-    );
-  }
+  // TODO: Add a tracker component.
+  console.warn(
+    "The `useTracking` hook is currently not available due to the JSX visitor changes in v0.39.3. Use the `TrackerBoundary` component for now."
+  );
+  return;
+  // if (currentContext) {
+  //   currentContext.state = mergeStates(
+  //     currentContext.state,
+  //     typeof data === "function"
+  //       ? data(currentContext.state)
+  //       : { ...currentContext.state, ...data }
+  //   );
+  // }
 }

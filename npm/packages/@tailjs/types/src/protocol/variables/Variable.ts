@@ -1,9 +1,9 @@
 import {
   createEnumParser,
-  itemize2,
+  itemize,
   MaybeNullish,
   Nullish,
-  pick2,
+  pick,
 } from "@tailjs/util";
 import { Timestamp, VariableKey } from "../..";
 import { SchemaDataUsage } from "../schema/SchemaDataUsage";
@@ -87,7 +87,7 @@ export const validateVariableKeySyntax = (
   }
   return (
     invalidComponents &&
-    `Invalid ${itemize2(invalidComponents)}. ${VARIABLE_SYNTAX_RULES_TEXT}`
+    `Invalid ${itemize(invalidComponents)}. ${VARIABLE_SYNTAX_RULES_TEXT}`
   );
 };
 

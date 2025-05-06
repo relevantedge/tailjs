@@ -2,9 +2,9 @@ import {
   PrettifyIntersection,
   createEvent,
   delay,
-  forEachAwait2,
+  forEachAwait,
   isFunction,
-  stop2,
+  stop,
   throwError,
   undefined,
 } from "@tailjs/util";
@@ -100,8 +100,8 @@ export const request: {
   } else {
     let retries = 1;
     return await requestLock(() =>
-      forEachAwait2(1, async (retry) => {
-        if (!prepareRequestData(retry)) return stop();
+      forEachAwait(1, async (retry) => {
+        if (!prepareRequestData(retry)) return stop;
 
         const response = await fetch(url, {
           method: currentData != null ? "POST" : "GET",
@@ -116,7 +116,7 @@ export const request: {
 
         if (response.status >= 400) {
           return retry === retries - 1
-            ? stop2(throwError(`Invalid response: ${await response.text()}`))
+            ? stop(throwError(`Invalid response: ${await response.text()}`))
             : (console.warn(
                 `Request to ${url} failed on attempt ${retry + 1}/${3}.`
               ),
@@ -134,7 +134,7 @@ export const request: {
         if (parsed != null) {
           dispatchResponse(parsed);
         }
-        return stop2(parsed);
+        return stop(parsed);
       })
     );
   }

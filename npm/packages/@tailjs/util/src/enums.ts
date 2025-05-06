@@ -1,4 +1,4 @@
-import { Nullish, isNumber, map2, skip2, throwError, undefined } from ".";
+import { Nullish, isNumber, map, skip, throwError, undefined } from ".";
 
 export type EnumParser<Values> = _EnumParser<FilterEnumValues<Values>>;
 

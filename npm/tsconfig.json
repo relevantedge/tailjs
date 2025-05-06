@@ -33,6 +33,8 @@
       "@tailjs/ravendb": ["packages/@tailjs/ravendb/src"],
 
       "@tailjs/react": ["packages/@tailjs/react/src"],
+      "@tailjs/react/jsx": ["packages/@tailjs/react/src/jsxx.pkg"],
+      "@tailjs/react/webpack": ["packages/@tailjs/react/src/webpack.pkg"],
 
       "@tailjs/sitecore-cdp": ["packages/@tailjs/react/src"],
 

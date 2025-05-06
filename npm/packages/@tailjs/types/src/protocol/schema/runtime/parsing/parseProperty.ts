@@ -1,10 +1,4 @@
-import {
-  forEach2,
-  itemize2,
-  Nullish,
-  OmitUnion,
-  throwError,
-} from "@tailjs/util";
+import { forEach, itemize, Nullish, OmitUnion, throwError } from "@tailjs/util";
 import { getEntityIdProperties, parsePropertyType, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,
@@ -129,14 +123,14 @@ export const parseProperty = <DeclaringType extends SchemaObjectType | null>(
         : null;
 
     if (baseTypes && types) {
-      forEach2(
+      forEach(
         types,
         (type) =>
           !baseTypes.some(
             (baseType) => type !== baseType && !baseType.extendedByAll.has(type)
           ) &&
           overrideError(
-            `The type ${type} is not the same or an extension of the base property's ${itemize2(
+            `The type ${type} is not the same or an extension of the base property's ${itemize(
               baseTypes,
               "or"
             )}`

@@ -11,21 +11,25 @@ import {
 import {
   F,
   T,
-  add2,
-  array2,
+  add,
+  array,
   clock,
   createEvent,
   createTimer,
-  forEach2,
-  map2,
+  forEach,
+  map,
   nil,
   now,
   parseQueryString,
   parseUri,
   replace,
-  skip2,
+  skip,
 } from "@tailjs/util";
-import { TrackerExtensionFactory, isChangeUserCommand } from "..";
+import {
+  TrackerExtensionFactory,
+  isChangeUserCommand,
+  isViewCommand,
+} from "..";
 import { tracker } from "../initializeTracker";
 import {
   TAB_ID,
@@ -108,7 +112,7 @@ export const onFrame: typeof addFrameListenerInternal = (
   listener,
   triggerCurrent
 ) => {
-  triggerCurrent && forEach2(frames, (frame) => listener(frame, () => false));
+  triggerCurrent && forEach(frames, (frame) => listener(frame, () => false));
   return addFrameListenerInternal(listener);
 };
 //export { addFrameListener as onFrame };
@@ -121,9 +125,9 @@ export const context: TrackerExtensionFactory = {
   setup(tracker) {
     clock(
       () =>
-        forEach2(
+        forEach(
           frames,
-          (frame) => add2(knownFrames, frame) && callOnFrame(frame)
+          (frame) => add(knownFrames, frame) && callOnFrame(frame)
         ),
       500
     ).trigger();
@@ -232,16 +236,16 @@ export const context: TrackerExtensionFactory = {
       setLocalVariables({ scope: "tab", key: "viewIndex", value: ++viewIndex });
 
       const qs = parseQueryString(location.href);
-      map2(
+      map(
         ["source", "medium", "campaign", "term", "content"],
         (p, _) =>
-          ((currentViewEvent!.utm ??= {})[p] = array2(qs[`utm_${p}`])?.[0]) ??
-          skip2
+          ((currentViewEvent!.utm ??= {})[p] = array(qs[`utm_${p}`])?.[0]) ??
+          skip
       );
 
       !(currentViewEvent.navigationType = pushPopNavigation) &&
         performance &&
-        forEach2(
+        forEach(
           performance.getEntriesByType("navigation"),
           (entry: PerformanceNavigationTiming) => {
             currentViewEvent!.redirects = entry.redirectCount;
@@ -304,7 +308,7 @@ export const context: TrackerExtensionFactory = {
       "popstate",
       () => ((pushPopNavigation = "back-forward"), postView())
     );
-    forEach2(["push", "replace"], (name) => {
+    forEach(["push", "replace"], (name) => {
       const inner = history[(name += "State")];
       history[name] = (...args: any) => {
         inner.apply(history, args);
@@ -316,14 +320,18 @@ export const context: TrackerExtensionFactory = {
     postView();
 
     return {
-      processCommand: (command) =>
-        isChangeUserCommand(command) &&
-        (tracker(
-          command.username
-            ? { type: "login", username: command.username }
-            : { type: "logout" }
-        ),
-        T),
+      processCommand: (command) => {
+        if (isChangeUserCommand(command)) {
+          tracker(
+            command.username
+              ? { type: "login", username: command.username }
+              : { type: "logout" }
+          );
+          return true;
+        }
+
+        return false;
+      },
 
       decorate: (event) => {
         currentViewEvent &&

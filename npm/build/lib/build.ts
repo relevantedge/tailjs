@@ -23,14 +23,52 @@ export const build = async (
   if (pkg.externalTargets.length && exportScripts) {
     buildEndActions.push(async () => {
       const pkg = await env();
+      for (const target of pkg.externalTargets) {
+        if (!target.npm) {
+          continue;
+        }
+        const targetPath = path.join(target.path, pkg.qualifiedName);
+        if (fs.existsSync(targetPath)) {
+          await fs.promises.rm(targetPath, { recursive: true });
+        }
+        await fs.promises.cp("./dist", targetPath, { recursive: true });
+        const pkgJsonPath = path.join(targetPath, "package.json");
+        if (fs.existsSync(pkgJsonPath)) {
+          const pkgJson = JSON.parse(
+            await fs.promises.readFile(pkgJsonPath, "utf-8")
+          );
+          const dependencies = pkgJson.dependencies;
+          for (const lib in target.libs) {
+            if (lib === "*") {
+              for (const key in dependencies) {
+                if (key.startsWith("@tailjs/")) {
+                  delete dependencies[key];
+                }
+              }
+              continue;
+            }
+            delete dependencies[`@tailjs/${lib}`];
+          }
+          await fs.promises.writeFile(
+            pkgJsonPath,
+            JSON.stringify(pkgJson, null, 2),
+            "utf-8"
+          );
+        }
+        console.log(`Copied the package script to '${targetPath}'.`);
+      }
+
       const src = "./dist/es/index.mjs";
       if (fs.existsSync(src)) {
         for (const target of pkg.externalTargets) {
-          if (!fs.existsSync(target)) {
+          if (target.npm) {
+            continue;
+          }
+          if (!fs.existsSync(target.path)) {
             console.warn(`External target '${target}' does not exist.`);
             continue;
           }
-          const targetFile = path.join(target, pkg.name + ".js");
+          const targetFile = path.join(target.path, pkg.name + ".js");
           await fs.promises.copyFile(src, targetFile);
           console.log(`Copied the external script to '${targetFile}'.`);
         }

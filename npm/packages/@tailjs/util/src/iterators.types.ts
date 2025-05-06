@@ -1,4 +1,4 @@
-import { skip2, stop2 } from ".";
+import { skip, stop } from ".";
 
 import {
   Falsish,
@@ -7,17 +7,17 @@ import {
   NullishOrFalse,
   UnwrapPromiseLike,
 } from ".";
-import { AnyTuple, EntriesOf, KeyValueType as Kv2 } from "./_internal";
+import { AnyTuple, EntriesOf, KeyValueType as Kv } from "./_internal";
 
-export type IterationProjection2<It, Accumulator, Projected, Context = It> = (
-  item: IteratorItem2<It>,
+export type IterationProjection<It, Accumulator, Projected, Context = It> = (
+  item: IteratorItem<It>,
   index: number,
   accumulator: unknown extends Accumulator ? any : Accumulator,
   context: Context
 ) =>
   | Projected
-  | typeof skip2
-  | typeof stop2
+  | typeof skip
+  | typeof stop
   // Encourage TypeScript to interpret return values as tuples rather than arrays,
   // e.g. `[1,2,[3,4]]` becomes `[number,number,[number,number]]` instead of `(number|number[])[]`).
   | AnyTuple;
@@ -38,34 +38,34 @@ export type AsyncIterationItem<It> = It extends PromiseLike<infer T>
   ? T
   : It extends AsyncIterable<infer T>
   ? T
-  : IteratorItem2<It>;
+  : IteratorItem<It>;
 
-export type AsyncIterationProjection2<
+export type AsyncIterationProjection<
   It,
   S,
   R,
   Context = It
-> = IterationProjection2<
+> = IterationProjection<
   Iterable<AsyncIterationItem<It>>,
   S,
   MaybePromiseLike<R>,
   Context
 >;
-export type IterationFilterCallback2<It> = (
-  item: IteratorItem2<It>,
+export type IterationFilterCallback<It> = (
+  item: IteratorItem<It>,
   index: number,
-  previous: IteratorItem2<It> | undefined,
+  previous: IteratorItem<It> | undefined,
   context: It
 ) => any;
 
-export type IterationTypeGuardCallback2<It, R> = (
-  item: IteratorItem2<It>,
+export type IterationTypeGuardCallback<It, R> = (
+  item: IteratorItem<It>,
   index: number,
-  previous: IteratorItem2<It> | undefined,
+  previous: IteratorItem<It> | undefined,
   context: It
-) => item is R & IteratorItem2<It>;
+) => item is R & IteratorItem<It>;
 
-export type IteratorItem2<T> = unknown extends T
+export type IteratorItem<T> = unknown extends T
   ? any
   : T extends Exclude<Falsish, number>
   ? never
@@ -91,7 +91,7 @@ export type IterationSourceOf<T> = unknown extends T
   : [T] extends [never]
   ? IterationSource
   :
-      | (T extends Kv2<infer K extends keyof any, infer V>
+      | (T extends Kv<infer K extends keyof any, infer V>
           ? { [P in K]: V }
           : never)
       | (T extends number ? number : never)
@@ -101,8 +101,8 @@ export type IterationSourceOf<T> = unknown extends T
       | Falsish;
 
 export type IterationProjected<R, ExcludeTypes = never> = R extends
-  | typeof skip2
-  | typeof stop2
+  | typeof skip
+  | typeof stop
   ? never
   : Exclude<R, ExcludeTypes>;
 

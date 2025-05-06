@@ -2,13 +2,13 @@ import {
   If,
   MaybeUndefined,
   Nullable,
-  distinct2,
-  filter2,
+  distinct,
+  filter,
   isArray,
   isBoolean,
   isString,
-  join2,
-  map2,
+  join,
+  map,
   nil,
   undefined,
   type ConstToNormal,
@@ -98,7 +98,7 @@ export const escapeRegEx = <T extends string | Nullish>(
 
 const REGEX_NEVER = /\z./g;
 const unionOrNever = (parts: (string | Nullish)[], joined?: string) =>
-  (joined = join2(distinct2(filter2(parts, (part) => part?.length)), "|"))
+  (joined = join(distinct(filter(parts, (part) => part?.length)), "|"))
     ? new RegExp(joined, "gu")
     : REGEX_NEVER;
 
@@ -117,7 +117,7 @@ export const parseRegex = <T>(
   isRegEx(input)
     ? input
     : isArray(input) // Parse individual specifiers, and join them into one long regex. An empty array is interpreted as "never".
-    ? unionOrNever(map2(input, (part) => parseRegex(part, separators)?.source)!)
+    ? unionOrNever(map(input, (part) => parseRegex(part, separators)?.source)!)
     : isBoolean(input)
     ? input // `true` is "always", `false` is "never"
       ? /./g
@@ -130,16 +130,16 @@ export const parseRegex = <T>(
           regex
             ? new RegExp(regex, "gu")
             : unionOrNever(
-                map2(
+                map(
                   split(
                     text!,
                     new RegExp(
-                      `(?<!(?<!\\\\)\\\\)[${join2(separators, escapeRegEx)}]`
+                      `(?<!(?<!\\\\)\\\\)[${join(separators, escapeRegEx)}]`
                     )
                   ),
                   (text) =>
                     text &&
-                    `^${join2(
+                    `^${join(
                       // Split on non-escaped asterisk (Characterized by a leading backslash that is not itself an escaped backslash).
                       split(text, /(?<!(?<!\\)\\)\*/),
                       (part) =>
@@ -166,7 +166,7 @@ export const split = <T extends string | Nullish>(
   s == null
     ? undefined
     : trim
-    ? filter2(split(s, separator, false))
+    ? filter(split(s, separator, false))
     : (s.split(separator) as any);
 
 /**

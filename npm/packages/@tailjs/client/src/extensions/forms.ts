@@ -4,13 +4,13 @@ import {
   ansi,
   createTimeout,
   ellipsis,
-  forEach2,
-  get2,
+  forEach,
+  get,
   nil,
   now,
   parseBoolean,
   replace,
-  some2,
+  some,
   tryCatch,
   type Nullish,
 } from "@tailjs/util";
@@ -99,7 +99,7 @@ export const forms: TrackerExtensionFactory = {
         scopeAttribute(formElement, trackerPropertyName("ref")) || "track_ref";
 
       const parseElements = () => {
-        forEach2(
+        forEach(
           formElement.querySelectorAll(
             "INPUT,SELECT,TEXTAREA,BUTTON"
           ) as any as Iterable<FormElement>,
@@ -144,7 +144,7 @@ export const forms: TrackerExtensionFactory = {
       const isFormVisible = () =>
         formElement.isConnected && getRect(formElement).width;
 
-      const state = get2(formEvents, formElement, () => {
+      const state = get(formEvents, formElement, () => {
         const fieldMap = new Map<Element, FormFieldState>();
         const ev: FormEvent = {
           type: "form",
@@ -194,7 +194,7 @@ export const forms: TrackerExtensionFactory = {
           let probeDoc: Document | undefined = formElement.ownerDocument;
           while (probeDoc) {
             if (
-              some2(
+              some(
                 probeDoc.querySelectorAll("iframe"),
                 (frame) =>
                   frame.src.match(
@@ -345,7 +345,7 @@ export const forms: TrackerExtensionFactory = {
         field.filled = T;
 
         state[3] = FormFillState.Pending;
-        forEach2(
+        forEach(
           form.fields!,
           ([name, value]) => (value.lastField = name === field.name)
         );

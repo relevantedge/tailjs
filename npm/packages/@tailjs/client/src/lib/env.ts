@@ -11,7 +11,7 @@ import {
   ansi,
   isFunction,
   isObject,
-  join2,
+  join,
   parseUri,
   replace,
   split,
@@ -42,7 +42,7 @@ export const isInternalUrl = (url: string | Nullish) =>
   );
 
 export const mapUrl = (...urlParts: string[]) =>
-  replace(join2(urlParts), /(^(?=\?))|(^\.(?=\/))/, SCRIPT_SRC.split("?")[0]);
+  replace(join(urlParts), /(^(?=\?))|(^\.(?=\/))/, SCRIPT_SRC.split("?")[0]);
 
 export const VAR_URL = mapUrl("?", EVENT_HUB_QUERY);
 export const MNT_URL = mapUrl("?", CONTEXT_NAV_QUERY);

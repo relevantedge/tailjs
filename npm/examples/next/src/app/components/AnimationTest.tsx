@@ -75,6 +75,16 @@ export function SimpleTest({ text }: { text: string }) {
   return text;
 }
 
+export const BreakTest = () => {
+  return (
+    <>
+      Hello
+      <br />
+      Break
+    </>
+  );
+};
+
 export function MotionTest() {
   const [state, updateState] = useState({ visible: true, n: 1 });
 

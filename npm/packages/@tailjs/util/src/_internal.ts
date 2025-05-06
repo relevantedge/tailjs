@@ -1,6 +1,6 @@
 import {
   Falsish,
-  IteratorItem2,
+  IteratorItem,
   MaybeNullishOrFalse,
   Nullish,
   SimpleObject,
@@ -21,17 +21,8 @@ export type AllowAdditionalElements<T extends readonly any[]> =
   number extends T["length"] ? T : [...T, ...any];
 
 export type KeyValueType<K = keyof any, V = any> = readonly [K, V];
-export type KeyValueTypeLike<K = keyof any, V = any> = readonly [K, V, ...any];
 
-export type UnknownIsOkay<R, V> = R extends undefined
-  ? R
-  : unknown extends V
-  ? any
-  : R extends V
-  ? R
-  : V & R extends never[]
-  ? R
-  : never;
+export type KeyValueTypeLike<K = keyof any, V = any> = readonly [K, V, ...any];
 
 export type NeverIsAny<T> = T extends never[]
   ? any[]
@@ -39,14 +30,6 @@ export type NeverIsAny<T> = T extends never[]
   ? any
   : [T] extends [never]
   ? any
-  : T;
-
-export type NotMapOrSet<T> = T extends
-  | ReadonlyMap<any, any>
-  | WeakMap<any, any>
-  | ReadonlySet<any>
-  | WeakSet<any>
-  ? never
   : T;
 
 export type RecordKeyOf<T> = T extends infer T ? keyof T : never;
@@ -62,8 +45,8 @@ export type EntriesOf<T> = { [P in keyof T]-?: [P, T[P]] }[keyof T];
  *  of a record when later used in ValueTypeOf.
  *
  * Example:
- * `const x = {a: true, b: 37}; exchange2(x, "a", undefined);`
- * If `exchange2` didn't have two overloads (one where Target is constrained to LookupType) and one using keyof T, the return value
+ * `const x = {a: true, b: 37}; exchange(x, "a", undefined);`
+ * If `exchange` didn't have two overloads (one where Target is constrained to LookupType) and one using keyof T, the return value
  * would here be `boolean | number`.
  */
 export type LookupType =
@@ -145,37 +128,9 @@ export type ObjectSourceToObject<Source> = Source extends Falsish
   : Source;
 
 export type IterationResultArray<It> = MaybeNullishOrFalse<
-  [IteratorItem2<It>] extends [never] ? undefined : IteratorItem2<It>[],
+  [IteratorItem<It>] extends [never] ? undefined : IteratorItem<It>[],
   It
 >;
-
-export type DefaultAssignValue<
-  T,
-  K extends KeyTypeOf<T> = KeyTypeOf<T>
-> = T extends Set<any> | WeakSet<any>
-  ? true
-  : undefined extends ValueTypeOf<T, K>
-  ? undefined
-  : never;
-
-/** Converts generic types with `any` parameters to their specific types. E.g. Map<any,any> to Map<string,number>.  */
-export type ToSpecificGenericType<Value, SpecificType> =
-  SpecificType extends infer SpecificType
-    ? Value extends SpecificType
-      ? SpecificType
-      : never
-    : never;
-
-/** Wraps the value in a promise if the function is async.  */
-export type PromiseIfAsync<Value, F> = F extends (...args: any) => infer R
-  ? unknown extends R
-    ? any
-    : R extends PromiseLike<any>
-    ? Promise<Value>
-    : Value
-  : never;
-
-// #region region_simple_objects
 
 type SpecificKeys<K extends keyof any> = K extends keyof any
   ? string extends K
@@ -210,7 +165,7 @@ type _DispatchMergeRecords<T1, T2, MergeRecords, Overwrite, OverwriteNulls> =
     ? T2
     : T2 extends Falsish
     ? T1
-    : _MergeRecords2<T1, T2, MergeRecords, Overwrite, OverwriteNulls>;
+    : _MergeRecords<T1, T2, MergeRecords, Overwrite, OverwriteNulls>;
 
 type _MergeRecordsIfRecords<
   T1P,
@@ -232,7 +187,7 @@ type _OverwriteNull<V1, V2, Toggle> = Toggle extends true
     ? V2
     : V1
   : V1;
-type _MergeRecords2<
+type _MergeRecords<
   T1,
   T2,
   Deep,
@@ -347,8 +302,6 @@ export type MergeObjectSources<
 ) extends infer T
   ? { [P in keyof T]: T[P] }
   : never;
-
-// #endregion
 
 const getRootPrototype = (value: any) => {
   let proto = value;

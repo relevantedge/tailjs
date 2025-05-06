@@ -1,11 +1,11 @@
 import {
   AssignSource,
   Falsish,
-  forEach2,
+  forEach,
   isArray,
-  iterable2,
+  iterable,
   IterationProjected,
-  IterationProjection2,
+  IterationProjection,
   IterationSource,
   MapSource,
   MaybeNullish,
@@ -14,8 +14,8 @@ import {
   ObjectSource,
   PromiseIfPromiseLike,
   SimpleObject,
-  skip2,
-  stop2,
+  skip,
+  stop,
 } from ".";
 import {
   EncourageTuples,
@@ -69,15 +69,12 @@ let ensureAssignImplementations = <R>(
         : this.delete(key);
     };
     prototype[getSymbol] = prototype.has;
-    prototype[pushSymbol] = function (keys: any[]) {
+    prototype[pushSymbol] = function (...keys: any[]) {
       for (const key of keys) key !== void 0 && this.add(key);
       return this;
     };
   }
-  scope.Array.prototype[pushSymbol] = function (values: any[]) {
-    this.push(...values);
-    return this;
-  };
+  scope.Array.prototype[pushSymbol] = scope.Array.prototype.push;
 
   for (const { prototype } of [scope.Object, scope.Array]) {
     prototype[setSymbol] = function (key: any, value: any) {
@@ -104,7 +101,7 @@ type GetResult<Source, K, Default> = unknown extends Default
   ? ValueTypeOf<Source, K>
   : ValueTypeOf<Source, K> & {};
 
-export let get2: {
+export let get: {
   <
     Source,
     K extends KeyTypeOf<Source>,
@@ -151,12 +148,12 @@ export let get2: {
     return value;
   } catch (e) {
     return ensureAssignImplementations(source, e, () =>
-      get2(source, key, initialize)
+      get(source, key, initialize)
     );
   }
 };
 
-export let add2: {
+export let add: {
   <Target, K extends KeyTypeOf<Target>>(
     target: (Set<K> | WeakSet<K & {}>) & Target,
     key: K,
@@ -172,12 +169,12 @@ export let add2: {
     return target?.[setSymbol](key, value, true) === true;
   } catch (e) {
     return ensureAssignImplementations(target, e, () =>
-      add2(target, key, value)
+      add(target, key, value)
     );
   }
 };
 
-export let set2: {
+export let set: {
   <
     Target,
     K extends KeyTypeOf<Target>,
@@ -193,13 +190,13 @@ export let set2: {
     return value;
   } catch (e) {
     return ensureAssignImplementations(target, e, () =>
-      set2(target, key, value)
+      set(target, key, value)
     );
   }
 };
 
 /** Removes the value with the specified key, and returns it. */
-export const remove2: {
+export const remove: {
   <Target extends LookupType, K extends KeyTypeOf<Target>>(
     target: Target,
     key: K
@@ -207,9 +204,9 @@ export const remove2: {
   <Target, K extends keyof Target>(target: Target, key: K):
     | Target[K]
     | undefined;
-} = (target: any, key: any) => exchange2(target, key, undefined);
+} = (target: any, key: any) => exchange(target, key, undefined);
 
-export let exchange2: {
+export let exchange: {
   <
     Target extends LookupType,
     K extends KeyTypeOf<Target>,
@@ -235,12 +232,12 @@ export let exchange2: {
     return previous;
   } catch (e) {
     return ensureAssignImplementations(target, e, () =>
-      exchange2(target, key, value)
+      exchange(target, key, value)
     );
   }
 };
 
-export const update2: {
+export const update: {
   <Target, K, Value extends InputValueTypeOf<Target, K>, UpdateResult>(
     target: Target,
     key: KeyTypeOf<Target> & K,
@@ -252,31 +249,31 @@ export const update2: {
     UpdateResult
   >;
 } = (target: any, key: any, update: any) => {
-  let updated = update(get2(target, key));
+  let updated = update(get(target, key));
   return typeof updated?.then === "function"
-    ? updated.then((value: any) => set2(target, key, value))
-    : set2(target, key, updated);
+    ? updated.then((value: any) => set(target, key, value))
+    : set(target, key, updated);
 };
 
-export const clone2: {
+export const clone: {
   <T extends SimpleObject | readonly any[]>(value: T, depth?: number): T;
 } = (template, depth = -1) => {
   const ctor = template?.constructor;
   if (ctor === Object || ctor === Array) {
-    const clone: any = ctor();
+    const cloned: any = ctor();
     for (const p in template) {
       const propValue = template[p];
-      clone[p] =
+      cloned[p] =
         depth && (propValue?.constructor === Object || isArray(propValue))
-          ? clone2(propValue, depth - 1)
+          ? clone(propValue, depth - 1)
           : propValue;
     }
-    return clone;
+    return cloned;
   }
   return template;
 };
 
-export let push2: {
+export let push: {
   <Target, Item>(
     target: Target & (readonly Item[] | Nullish),
     ...values: (Item | undefined)[]
@@ -287,15 +284,13 @@ export let push2: {
   );
 } = (target: any, ...items: any[]) => {
   try {
-    return target == null ? target : target[pushSymbol](items);
+    return target == null ? target : (target[pushSymbol](...items), target);
   } catch (e) {
-    return ensureAssignImplementations(target, e, () =>
-      push2(target, ...items)
-    );
+    return ensureAssignImplementations(target, e, () => push(target, ...items));
   }
 };
 
-export const dict2: {
+export const dict: {
   <Source extends MapSource<K, V>, K, V>(source: Source): Source extends Nullish
     ? Source
     : ObjectSourceToObject<Source>;
@@ -303,35 +298,34 @@ export const dict2: {
     Source extends IterationSource,
     Projected extends readonly [K, V] | Nullish,
     Accumulator extends Projected,
-    Signal extends typeof skip2 | typeof stop2 | never,
+    Signal extends typeof skip | typeof stop | never,
     K,
     V
   >(
     source: Source,
-    projection: IterationProjection2<Source, Accumulator, Projected | Signal>
+    projection: IterationProjection<Source, Accumulator, Projected | Signal>
   ): Source extends Nullish
     ? Source
     : MapFromEntries<IterationProjected<Projected>>;
 } = (source: any, projection?: any) => {
   const target = new Map();
-  forEach2(
+  forEach(
     source,
     projection
       ? (item, index, seed) =>
           (item = projection(item, index, seed)) &&
-          (typeof item !== "symbol" || (item !== skip2 && item !== stop2))
+          (typeof item !== "symbol" || (item !== skip && item !== stop))
             ? target.set(item[0], item[1])
             : item
       : (item) =>
-          item &&
-          (typeof item !== "symbol" || (item !== skip2 && item !== stop2))
+          item && (typeof item !== "symbol" || (item !== skip && item !== stop))
             ? target.set(item[0], item[1])
             : item
   );
   return target;
 };
 
-export const obj2: {
+export const obj: {
   <Source extends ObjectSource<K, V>, K extends keyof any, V>(
     source: Source
   ): Source extends Nullish ? Source : ObjectSourceToObject<Source>;
@@ -339,35 +333,34 @@ export const obj2: {
     Source extends IterationSource,
     Projected extends KeyValueType<K, V> | Nullish,
     Accumulator extends Projected,
-    Signal extends typeof skip2 | typeof stop2 | never,
+    Signal extends typeof skip | typeof stop | never,
     K extends keyof any,
     V
   >(
     source: Source,
-    projection: IterationProjection2<Source, Accumulator, Projected | Signal>
+    projection: IterationProjection<Source, Accumulator, Projected | Signal>
   ): Source extends Nullish
     ? Source
     : ObjectFromEntries<IterationProjected<Projected>>;
 } = (source: any, projection?: any) => {
   const target = {};
-  forEach2(
+  forEach(
     source,
     projection
       ? (item, index, seed) =>
           (item = projection(item, index, seed)) &&
-          (typeof item !== "symbol" || (item !== skip2 && item !== stop2))
+          (typeof item !== "symbol" || (item !== skip && item !== stop))
             ? (target[item[0]] = item[1])
             : item
       : (item) =>
-          item &&
-          (typeof item !== "symbol" || (item !== skip2 && item !== stop2))
+          item && (typeof item !== "symbol" || (item !== skip && item !== stop))
             ? (target[item[0]] = item[1])
             : item
   );
   return target;
 };
 
-export let assign2: {
+export let assign: {
   <Target, Its extends readonly AssignSource<Target>[]>(
     target: Target,
     ...sources: Its
@@ -375,18 +368,18 @@ export let assign2: {
 } = (target, ...sources) => {
   try {
     if (target?.constructor === Object) {
-      forEach2(sources, (source) =>
-        forEach2(source!, (kv) => kv && (target[kv[0]] = kv[1]))
+      forEach(sources, (source) =>
+        forEach(source!, (kv) => kv && (target[kv[0]] = kv[1]))
       );
     } else {
-      forEach2(sources, (source) =>
-        forEach2(source, (kv) => kv && target[setSymbol](kv[0], kv[1]))
+      forEach(sources, (source) =>
+        forEach(source, (kv) => kv && target[setSymbol](kv[0], kv[1]))
       );
     }
     return target;
   } catch (e) {
     return ensureAssignImplementations(target, e, () =>
-      assign2(target, ...sources)
+      assign(target, ...sources)
     );
   }
 };
@@ -415,7 +408,7 @@ export interface Merge2Settings<
    */
   nulls?: boolean;
 }
-export const merge2: {
+export const merge: {
   <
     Target,
     Source extends SimpleObject | Falsish | Iterable<ObjectSource>,
@@ -440,8 +433,8 @@ export const merge2: {
 
   const { deep = true, overwrite = true, nulls = false } = options;
 
-  for (const source of iterable2(sources)) {
-    forEach2(source, (kv) => {
+  for (const source of iterable(sources)) {
+    forEach(source, (kv) => {
       if (!kv) return;
       const [key, value] = kv;
       const current = target[key];
@@ -455,7 +448,7 @@ export const merge2: {
         value?.constructor === Object &&
         current?.constructor === Object
       ) {
-        merge2(current, value, options);
+        merge(current, value, options);
       } else if (overwrite) {
         target[key] = value;
       }
@@ -464,7 +457,7 @@ export const merge2: {
   return target;
 };
 
-export const pick2: {
+export const pick: {
   <
     T extends object | Nullish,
     TK extends keyof (T & {}),
@@ -487,9 +480,9 @@ export const pick2: {
 } = (target, keys) =>
   target == null
     ? target
-    : (obj2(keys, (key) =>
+    : (obj(keys, (key) =>
         // The first check is presumably faster than the `in` operator.
         target[key as any] !== void 0 || key in target
           ? [key, target[key as any]]
-          : skip2
+          : skip
       ) as any);

@@ -10,7 +10,7 @@ import {
   VariableSetResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { distinct2, get2, group2, jsonClone, map2 } from "@tailjs/util";
+import { distinct, get, group, jsonClone, map } from "@tailjs/util";
 import { VariableStorage, VariableStorageQuery } from "..";
 
 const internalIdSymbol = Symbol();
@@ -165,7 +165,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         continue;
       }
 
-      const [, , variables] = get2(
+      const [, , variables] = get(
         (this._entities[key.scope] ??= new Map()),
         key.entityId,
         () => [now, this._nextInternalId++, new Map()]
@@ -238,12 +238,12 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     let affected = 0;
 
     let [cursorScopeIndex = 0, cursorEntityId = -1, cursorVariableId = -1] =
-      map2(cursor?.split("."), (value) => +value || 0) ?? [];
+      map(cursor?.split("."), (value) => +value || 0) ?? [];
 
     let scopeIndex = 0;
-    const scopes = group2(queries, (query) => [
+    const scopes = group(queries, (query) => [
       this._entities[query.scope],
-      [query, query.entityIds && distinct2(query.entityIds)],
+      [query, query.entityIds && distinct(query.entityIds)],
     ]);
     for (const [entities, scopeQueries] of scopes) {
       if (scopeIndex++ < cursorScopeIndex) {
@@ -284,7 +284,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         for (const [query, queryEntityIds] of scopeQueries) {
           if (queryEntityIds?.has(entityId) === false) continue;
 
-          const keyFilter = distinct2(query.keys?.values);
+          const keyFilter = distinct(query.keys?.values);
           const keyFilterMatch = query.keys && !query.keys.exclude;
 
           for (const [variableKey, variable] of entityVariables) {

@@ -1,4 +1,4 @@
-import { Nullish, obj2 } from "@tailjs/util";
+import { Nullish, obj } from "@tailjs/util";
 import {
   handleValidationErrors,
   pushInnerErrors,
@@ -31,7 +31,7 @@ export const getMinimumUsage = <T extends SchemaDataUsage | Nullish>(
             DataClassification.ranks[other.classification]
               ? current.classification
               : other.classification,
-          purposes: obj2(current.purposes, ([key, value]) =>
+          purposes: obj(current.purposes, ([key, value]) =>
             value && !other.purposes[key] ? undefined : [key, value]
           ),
         }

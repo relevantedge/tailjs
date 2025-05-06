@@ -1,13 +1,8 @@
-import { PropsWithChildren } from "react";
+import React, { PropsWithChildren } from "react";
 
-import { TraverseFunctions, traverseNodes } from "./internal";
-
-export interface MapStateProperties<State = any>
-  extends TraverseFunctions<State>,
-    PropsWithChildren {
-  initialState?: State;
-  clientComponentContext?: boolean;
-}
-
-export const MapState = <State,>(props: MapStateProperties<State>) =>
-  traverseNodes(props.children, props);
+export const MapState = (props: PropsWithChildren<any>) => {
+  console.warn(
+    "The `MapState` component is obsolete. Use the `TailJsPlugin` from `@tailjs/react/webpack` instead."
+  );
+  return ((props: any) => props.children) as any;
+};

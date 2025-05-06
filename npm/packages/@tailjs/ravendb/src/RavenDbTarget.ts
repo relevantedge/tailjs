@@ -4,7 +4,13 @@ import {
   TrackerEnvironment,
   TrackerEnvironmentInitializable,
 } from "@tailjs/engine";
-import { delay, formatError, json2, stringify2, withRetry } from "@tailjs/util";
+import {
+  delay,
+  formatError,
+  parseJson,
+  stringify,
+  withRetry,
+} from "@tailjs/util";
 import { RavenDbSettings } from ".";
 
 export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
@@ -67,7 +73,7 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
           error?: any;
         };
         if (response.status === 500) {
-          const body = json2(response.body);
+          const body = parseJson(response.body);
           response.error = new Error(
             body?.Type ? `${body.Type}: ${body.Message}` : "(unspecified error)"
           );
@@ -93,7 +99,7 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
             status: 500,
             headers: {},
             cookies: {},
-            body: stringify2({ Message: formatError(error, true) }),
+            body: stringify({ Message: formatError(error, true) }),
             error,
           };
         },

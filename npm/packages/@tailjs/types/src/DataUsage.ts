@@ -1,4 +1,4 @@
-import { itemize2, MaybeNullish, Nullish } from "@tailjs/util";
+import { itemize, MaybeNullish, Nullish } from "@tailjs/util";
 import {
   DataClassification,
   DataPurposes,
@@ -7,7 +7,7 @@ import {
 } from ".";
 
 export const formatDataUsage = (usage?: DataUsage) =>
-  `${usage?.classification ?? "anonymous"} data for ${itemize2(
+  `${usage?.classification ?? "anonymous"} data for ${itemize(
     DataPurposes.parse(usage?.purposes, { names: true })
   )}  purposes.`;
 

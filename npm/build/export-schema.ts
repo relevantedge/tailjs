@@ -48,7 +48,9 @@ await build(
       try {
         for (const target of [
           join(pkg.path, "dist", "schema"),
-          ...pkg.externalTargets,
+          ...pkg.externalTargets
+            .filter((target) => !target.npm)
+            .map((target) => target.path),
         ]) {
           await fs.writeFile(
             join(target, "tailjs-schema.json"),

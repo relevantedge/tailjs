@@ -1,5 +1,5 @@
 import { UserAgentEvent, UserAgentLanguage } from "@tailjs/types";
-import { map2, restrict } from "@tailjs/util";
+import { map, restrict } from "@tailjs/util";
 import { Tracker, currentViewEvent, detectDeviceType } from "..";
 
 export const postUserAgentEvent = (tracker: Tracker) =>
@@ -9,7 +9,7 @@ export const postUserAgentEvent = (tracker: Tracker) =>
       hasTouch: navigator.maxTouchPoints > 0,
       userAgent: navigator.userAgent,
       view: currentViewEvent?.clientId,
-      languages: map2(navigator.languages, (id, i) => {
+      languages: map(navigator.languages, (id, i) => {
         const [language, region] = id.split("-");
         return restrict<UserAgentLanguage>({
           id,

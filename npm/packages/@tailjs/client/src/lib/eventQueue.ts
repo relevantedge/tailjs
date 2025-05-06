@@ -12,20 +12,20 @@ import {
   F,
   Nullish,
   ToggleArray,
-  array2,
+  array,
   clock,
-  clone2,
-  concat2,
-  count2,
+  clone,
+  concat,
+  count,
   diff,
-  forEach2,
+  forEach,
   isString,
-  itemize2,
-  map2,
-  merge2,
+  itemize,
+  map,
+  merge,
   now,
   pluralize,
-  skip2,
+  skip,
   structuralEquals,
   throwError,
 } from "@tailjs/util";
@@ -116,13 +116,13 @@ export const createEventQueue = (
   ): EventPatch<T> =>
     !sourceEvent.metadata?.queued
       ? throwError("Source event not queued.")
-      : (merge2(patch, {
+      : (merge(patch, {
           type: sourceEvent.type + PATCH_EVENT_POSTFIX,
           patchTargetId: sourceEvent.clientId,
         }) as any);
 
   const updateSnapshot = (ev: ProtectedEvent) => {
-    snapshots.set(ev, clone2(ev));
+    snapshots.set(ev, clone(ev));
   };
 
   const registerEventPatchSource = <T extends ProtectedEvent>(
@@ -153,7 +153,7 @@ export const createEventQueue = (
         if (delta && !structuralEquals(current, snapshot)) {
           // The new "current" differs from the previous.
 
-          snapshots.set(sourceEvent, clone2(current));
+          snapshots.set(sourceEvent, clone(current));
           // Add patch target ID and the correct event type to the delta data before we return it.
           return [mapPatchTarget(sourceEvent, delta) as any, unbinding];
         }
@@ -180,14 +180,14 @@ export const createEventQueue = (
       key = events[0];
       events = events.slice(1) as any;
     }
-    events = map2(events, (ev: any) => {
+    events = map(events, (ev: any) => {
       context?.validateKey(key ?? ev.key);
       // Update metadata in the source event,
       // and send a clone of the event without client metadata, and its timestamp in relative time
       // (the server expects this, and will adjust accordingly to its own time).
-      merge2(ev, { metadata: { posted: true } });
+      merge(ev, { metadata: { posted: true } });
       if (ev[postCallbacks]) {
-        const abort = forEach2(
+        const abort = forEach(
           ev[postCallbacks],
           (callback, _, abort) => callback(ev) === false || abort,
           false
@@ -198,20 +198,20 @@ export const createEventQueue = (
         delete ev[postCallbacks];
       }
 
-      return merge2(clearMetadata(clone2(ev), true), {
+      return merge(clearMetadata(clone(ev), true), {
         timestamp: ev.timestamp! - now(),
       });
     }) as ProtectedEvent[];
 
     debug(
-      { [childGroups]: map2(events, (ev: ProtectedEvent) => [ev, ev.type, F]) },
+      { [childGroups]: map(events, (ev: ProtectedEvent) => [ev, ev.type, F]) },
       "Posting " +
-        itemize2([
+        itemize([
           pluralize("new event", [
-            count2(events, (ev) => !isEventPatch(ev)) || undefined,
+            count(events, (ev) => !isEventPatch(ev)) || undefined,
           ]),
           pluralize("event patch", [
-            count2(events, (ev) => isEventPatch(ev)) || undefined,
+            count(events, (ev) => isEventPatch(ev)) || undefined,
           ]),
         ]) +
         (beacon ? " asynchronously" : " synchronously") +
@@ -235,17 +235,17 @@ export const createEventQueue = (
   ): Promise<any> => {
     const newEvents: ProtectedEvent[] = [];
 
-    events = map2(
-      array2(events),
+    events = map(
+      array(events),
       (event) => (
         !event.metadata?.queued && newEvents.push(event),
-        merge2(context.applyEventExtensions(event), {
+        merge(context.applyEventExtensions(event), {
           metadata: { queued: true },
-        }) ?? skip2
+        }) ?? skip
       )
     ) as ProtectedEvent[];
 
-    forEach2(newEvents, (event) => debug(event, event.type));
+    forEach(newEvents, (event) => debug(event, event.type));
 
     if (!async) {
       return postEvents(events, false, variables);
@@ -271,15 +271,15 @@ export const createEventQueue = (
     // More than that the user is probably just switching between tabs moving past this one.
     // NOTE: (This number should preferably be better qualified. We could also look into user activation events).
     if (!visible && (queue.length || unloading || delta > 1500)) {
-      const updatedEvents = map2(sources, ([sourceEvent, source]) => {
+      const updatedEvents = map(sources, ([sourceEvent, source]) => {
         const [event, unbinding] = source();
         unbinding &&
           (sources.delete(sourceEvent), snapshots.delete(sourceEvent));
-        return event ?? skip2;
+        return event ?? skip;
       });
 
       if (queue.length || updatedEvents.length) {
-        post(concat2(queue.splice(0), updatedEvents)!, { flush: true });
+        post(concat(queue.splice(0), updatedEvents)!, { flush: true });
       }
     }
   });

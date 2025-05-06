@@ -17,19 +17,19 @@ import {
 } from "@tailjs/types";
 import {
   clock,
-  concat2,
-  forEach2,
-  get2,
+  concat,
+  forEach,
+  get,
   isString,
-  map2,
+  map,
   now,
   Nullish,
-  pick2,
-  push2,
-  remove2,
+  pick,
+  push,
+  remove,
   required,
-  skip2,
-  some2,
+  skip,
+  some,
 } from "@tailjs/util";
 import {
   addPageLoadedListener,
@@ -119,16 +119,16 @@ export const createVariableStorage = (
   context?: TrackerContext
 ): TrackerVariableStorage => {
   const pollVariables = clock(async () => {
-    const getters: ClientVariableGetter[] = map2(
+    const getters: ClientVariableGetter[] = map(
       activeCallbacks,
       ([key, callbacks]) =>
         // Only request the variable if one or more callbacks originally requested the variable to be refreshed.
-        some2(callbacks, (callback) => callback[callbackSourceSymbol]?.refresh)
+        some(callbacks, (callback) => callback[callbackSourceSymbol]?.refresh)
           ? ({
               ...stringToVariableKey(key),
               refresh: true,
             } satisfies ClientVariableGetter)
-          : skip2
+          : skip
     );
 
     getters.length && (await vars.get(getters));
@@ -139,16 +139,16 @@ export const createVariableStorage = (
     callback: RegisteredCallback | undefined
   ) =>
     callback &&
-    !!get2(activeCallbacks, mappedKey, () => new Set()).add(callback);
+    !!get(activeCallbacks, mappedKey, () => new Set()).add(callback);
 
   const invokeCallbacks = (result: ClientVariableGetResult) => {
     if (!result) return;
 
     const key = variableKeyToString(result);
-    const callbacks = remove2(activeCallbacks, key);
+    const callbacks = remove(activeCallbacks, key);
     if (!callbacks?.size) return;
 
-    forEach2(
+    forEach(
       callbacks,
       (callback) => callback(result) === true && registerCallback(key, callback)
     );
@@ -164,7 +164,7 @@ export const createVariableStorage = (
   );
 
   addVariablesChangedListener((changes) =>
-    forEach2(changes, ([key, current]) => {
+    forEach(changes, ([key, current]) => {
       if (current?.passive) {
         delete current.passive;
         return;
@@ -200,7 +200,7 @@ export const createVariableStorage = (
           const requestGetters: [
             request: VariableGetRequest,
             source: ClientVariableGetter
-          ][] = map2(getters, (getter) => {
+          ][] = map(getters, (getter) => {
             const key = variableKeyToString(getter);
             const current = tryGetVariable(key);
             const purpose = getter.purpose;
@@ -228,7 +228,7 @@ export const createVariableStorage = (
                   cache: [timestamp, getter.ttl ?? current?.ttl],
                 };
 
-                push2(newLocal, [extractKey(local), local]);
+                push(newLocal, [extractKey(local), local]);
                 results.set(getter, {
                   status: VariableResultStatus.Success,
                   ...local,
@@ -241,11 +241,11 @@ export const createVariableStorage = (
               }
             } else {
               return [
-                pick2(getter, GETTER_REQUEST_PROPS) as VariableGetRequest,
+                pick(getter, GETTER_REQUEST_PROPS) as VariableGetRequest,
                 getter,
               ];
             }
-            return skip2;
+            return skip;
           });
 
           const timestamp = now();
@@ -254,7 +254,7 @@ export const createVariableStorage = (
               (
                 await request<PostRequest, PostResponse>(endpoint, {
                   variables: {
-                    get: map2(requestGetters, ([getter]) => getter),
+                    get: map(requestGetters, ([getter]) => getter),
                   },
                   deviceSessionId: context?.deviceSessionId,
                 })
@@ -265,7 +265,7 @@ export const createVariableStorage = (
             source: ClientVariableGetter,
             setter: ClientVariableSetter
           ][] = [];
-          forEach2(response, (result, i) => {
+          forEach(response, (result, i) => {
             if (result?.status === VariableResultStatus.NotFound) {
               const getter = requestGetters[i][1];
               const initValue = getter.init?.();
@@ -281,8 +281,8 @@ export const createVariableStorage = (
           });
 
           if (initSetters.length) {
-            forEach2(
-              await vars.set(map2(initSetters, ([, setter]) => setter)).all(),
+            forEach(
+              await vars.set(map(initSetters, ([, setter]) => setter)).all(),
               (result, i) => {
                 return results.set(
                   initSetters[i][0],
@@ -348,7 +348,7 @@ export const createVariableStorage = (
           let pendingPatches: ClientVariableSetter[] = [];
 
           // Only request non-null setters, and use the most recent version we have already read, if any.
-          const requestVariables = map2(setters, (setter) => {
+          const requestVariables = map(setters, (setter) => {
             const key = variableKeyToString(setter);
             const current = tryGetVariable(key);
 
@@ -395,33 +395,33 @@ export const createVariableStorage = (
                     }
               );
 
-              push2(localResults, [extractKey(setter), local]);
+              push(localResults, [extractKey(setter), local]);
 
-              return skip2;
+              return skip;
             }
 
             if (setter.patch) {
               pendingPatches.push(setter);
-              return skip2;
+              return skip;
             }
 
             if (setter?.version === undefined) {
               setter.version = current?.version;
             }
 
-            return [pick2(setter, SETTER_REQUEST_PROPS as any), setter];
+            return [pick(setter, SETTER_REQUEST_PROPS as any), setter];
           });
 
           let attempts = 0;
           while (!attempts++ || pendingPatches.length) {
             const current = await vars
-              .get(map2(pendingPatches, (patch) => extractKey(patch)))
+              .get(map(pendingPatches, (patch) => extractKey(patch)))
               .all();
-            forEach2(current, (result, i) => {
+            forEach(current, (result, i) => {
               const setter = pendingPatches[i];
 
               if (isSuccessResult(result, false)) {
-                push2(requestVariables, [
+                push(requestVariables, [
                   {
                     ...setter,
                     patch: undefined,
@@ -442,7 +442,7 @@ export const createVariableStorage = (
                   (
                     await request<PostRequest, PostResponse>(endpoint, {
                       variables: {
-                        set: map2(requestVariables, ([setter]) => setter),
+                        set: map(requestVariables, ([setter]) => setter),
                       },
                       deviceSessionId: context?.deviceSessionId,
                     })
@@ -450,7 +450,7 @@ export const createVariableStorage = (
                   "No result."
                 );
 
-            forEach2(response, (result, index) => {
+            forEach(response, (result, index) => {
               const [, setter] = requestVariables[index];
               if (
                 attempts <= 3 &&
@@ -458,7 +458,7 @@ export const createVariableStorage = (
                 (result?.status === VariableResultStatus.Conflict ||
                   result?.status === VariableResultStatus.NotFound)
               ) {
-                push2(pendingPatches, setter);
+                push(pendingPatches, setter);
                 return;
               }
               results.set(setter, maskEntityId(result!));
@@ -481,18 +481,16 @@ export const createVariableStorage = (
   addResponseHandler(({ variables }: PostResponse) => {
     if (!variables) return;
 
-    const changed = concat2(
-      map2(variables.get, (result) =>
-        isVariableResult(result) ? result : skip2
+    const changed = concat(
+      map(variables.get, (result) =>
+        isVariableResult(result) ? result : skip
       ),
-      map2(variables.set, (result) =>
-        isSuccessResult(result) ? result : skip2
-      )
+      map(variables.set, (result) => (isSuccessResult(result) ? result : skip))
     );
 
     changed?.length &&
       updateVariableState(
-        map2(
+        map(
           changed,
           (result) =>
             [

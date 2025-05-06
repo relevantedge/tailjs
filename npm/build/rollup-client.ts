@@ -118,10 +118,10 @@ const vars: Record<string, any> = {};
 await build([createConfig(false), createConfig(true)], {
   export: false,
   async buildEnd() {
-    for (const target of pkg.externalTargets) {
+    for (const target of pkg.externalTargets.filter((target) => !target.npm)) {
       for (const srcFile of await fs.promises.readdir(destinations[0])) {
         if (srcFile.startsWith("tail")) {
-          const targetFile = path.join(target, srcFile);
+          const targetFile = path.join(target.path, srcFile);
           await fs.promises.copyFile(
             path.join(destinations[0], srcFile),
             targetFile

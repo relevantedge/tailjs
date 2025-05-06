@@ -15,7 +15,7 @@ import {
   VariableSetResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { batch2, group2, map2, mapAwait2, now, skip2 } from "@tailjs/util";
+import { batch, group, map, mapAwait, now, skip } from "@tailjs/util";
 import { Db, Filter, WithId } from "mongodb";
 import { MongoDbTarget } from "./MongoDbTarget";
 
@@ -68,7 +68,7 @@ export class MongoDbVariableStorage
     return await this._execute(async (db) => {
       const resultMap = new Map<string, Variable>();
 
-      for (const [scope, scopeGetters] of group2(getters, (key) => [
+      for (const [scope, scopeGetters] of group(getters, (key) => [
         key.scope,
         key,
       ])) {
@@ -109,18 +109,18 @@ export class MongoDbVariableStorage
 
     const timestamp = now();
     const nextVersion = randomUUID();
-    for (const [scope, scopeSetters] of group2(values, (key) => [
+    for (const [scope, scopeSetters] of group(values, (key) => [
       key.scope,
       key,
     ])) {
       // bulkWrite does not work with optimistic concurrency since it cannot return the (maybe) updated document for each operation.
 
-      for (const batch of batch2(scopeSetters, 5)) {
+      for (const setterBatch of batch(scopeSetters, 5)) {
         await this._execute(async (db) => {
           const collection = await this._getScopeCollection(db, scope);
 
           await Promise.all(
-            batch.map(async (setter): Promise<VariableSetResult> => {
+            setterBatch.map(async (setter): Promise<VariableSetResult> => {
               const key = extractKey(setter);
 
               const filter: Filter<MongoVariable> = setter.force
@@ -224,7 +224,7 @@ export class MongoDbVariableStorage
   ): Promise<number | undefined> {
     return await this._execute(async (db) => {
       let n = 0;
-      for (const [scope, scopeQueries] of group2(queries, (query) => [
+      for (const [scope, scopeQueries] of group(queries, (query) => [
         query.scope,
         query,
       ])) {
@@ -248,13 +248,13 @@ export class MongoDbVariableStorage
     // TODO: Cursors!
     const results: any[] = [];
     await this._execute(async (db) => {
-      for (const [scope, scopeQueries] of group2(queries, (query) => [
+      for (const [scope, scopeQueries] of group(queries, (query) => [
         query.scope,
         query,
       ])) {
         const collection = await this._getScopeCollection(db, scope);
         results.push(
-          ...(await mapAwait2(
+          ...(await mapAwait(
             collection.find(
               {
                 $or: scopeQueries.map((query) =>
@@ -273,7 +273,7 @@ export class MongoDbVariableStorage
   async renew(
     queries: readonly VariableStorageQuery[]
   ): Promise<number | undefined> {
-    const current = await mapAwait2(
+    const current = await mapAwait(
       this._query(
         queries,
         { ttl: 1, scope: 1 },
@@ -281,13 +281,13 @@ export class MongoDbVariableStorage
       )
     );
     let n = 0;
-    for (const [scope, docs] of group2(current, (doc) => [doc.scope, doc])) {
+    for (const [scope, docs] of group(current, (doc) => [doc.scope, doc])) {
       n += docs.length;
       await this._execute(async (db) => {
         const timestamp = now();
         const collection = await this._getScopeCollection(db, scope);
         await collection.bulkWrite(
-          map2(docs, (doc) => {
+          map(docs, (doc) => {
             const expires = doc.ttl ? timestamp + doc.ttl : undefined;
             return expires
               ? {
@@ -298,7 +298,7 @@ export class MongoDbVariableStorage
                     },
                   },
                 }
-              : skip2;
+              : skip;
           })
         );
       });
@@ -310,6 +310,6 @@ export class MongoDbVariableStorage
     queries: readonly VariableStorageQuery[],
     options?: VariableQueryOptions
   ): Promise<VariableQueryResult> {
-    return await mapAwait2(this._query(queries));
+    return await mapAwait(this._query(queries));
   }
 }
