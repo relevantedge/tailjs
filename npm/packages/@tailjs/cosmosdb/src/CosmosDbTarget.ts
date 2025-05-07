@@ -121,7 +121,7 @@ export class CosmosDbTarget {
       async (retry, previousError) => {
         const client = new CosmosClient({
           endpoint: this._settings.endpoint,
-          key: this._settings.key, // Your primary key
+          key: this._settings.key,
         });
         const db = client.database(this._settings.database);
         return await action(db, previousError);
@@ -133,7 +133,9 @@ export class CosmosDbTarget {
           if (retry) {
             this._env.log(this, {
               level: "error",
-              message: `Request to Cosmos DB failed on attempt ${retry + 1}.`,
+              message: `Request to Cosmos DB (${this._settings.endpoint}, db: ${
+                this._settings.database
+              }) failed on attempt ${retry + 1}.`,
               error,
             });
           }
