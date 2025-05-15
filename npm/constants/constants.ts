@@ -1,5 +1,3 @@
-import type { ProvisionalTracker } from "../packages/@tailjs/client/src/external.pkg";
-
 export const QUERY_DEVICE = "qd";
 export const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
 export const TRACKER_CONFIG_PLACEHOLDER = "{{CONFIG}}";
@@ -28,7 +26,7 @@ export const CLIENT_CALLBACK_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "push";
 export const PLACEHOLDER_SCRIPT: <Quote extends boolean = false>(
   trackerName?: string,
   quote?: Quote
-) => Quote extends true ? string : ProvisionalTracker = ((
+) => Quote extends true ? string : (...commands: any[]) => void = ((
   trackerName = "tail",
   quote: boolean
 ) => {

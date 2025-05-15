@@ -144,7 +144,7 @@ export class CosmosDbVariableStorage
       });
     }
 
-    return getters.map((getter) => {
+    var results = getters.map((getter) => {
       const result = resultMap.get(mapCosmosId(getter));
       return (
         result
@@ -157,6 +157,8 @@ export class CosmosDbVariableStorage
             }
       ) satisfies VariableGetResult;
     });
+
+    return results;
   }
 
   private async _getVariables(
@@ -329,7 +331,9 @@ export class CosmosDbVariableStorage
                 });
                 return skip;
               }
+              itemToUpsert.created = existingItem?.created ?? timestamp;
             }
+
             return [
               setter,
               {
@@ -550,7 +554,11 @@ export class CosmosDbVariableStorage
                   path: "/expires",
                   value: timestamp + projection.ttl * 1000,
                 },
-                { op: "set", path: "/ttl", value: Math.round(projection.ttl) },
+                {
+                  op: "set",
+                  path: "/ttl",
+                  value: Math.round(projection.ttl / 1000),
+                },
               ],
             },
           };

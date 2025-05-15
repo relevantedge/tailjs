@@ -222,7 +222,7 @@ export const components: TrackerExtensionFactory = {
                 area: command?.area ?? current?.area,
                 tags: concat(current?.tags, command.tags),
                 cart: command.cart ?? current?.cart,
-                track: command.track ?? current?.track,
+                track: { ...current?.track, ...command.track },
               }
             : "update" in command
             ? command.update(current)

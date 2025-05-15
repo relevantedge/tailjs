@@ -1,5 +1,4 @@
 import type { BoundaryData } from "@tailjs/client/external";
-import { currentContext, mergeStates } from "./internal";
 
 export type UseTrackingOptions = BoundaryData;
 

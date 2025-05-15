@@ -85,7 +85,8 @@ export const BreakTest = () => {
   );
 };
 
-export function MotionTest() {
+export function MotionTest(props: any) {
+  console.log("MOTION", props);
   const [state, updateState] = useState({ visible: true, n: 1 });
 
   return (
@@ -123,3 +124,5 @@ export function MotionTest() {
     </>
   );
 }
+
+export default (props: any) => "ok";

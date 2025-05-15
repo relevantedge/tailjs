@@ -1,5 +1,5 @@
-import { Component, FunctionComponent, JSXElementConstructor } from "react";
-import { Nullish } from "./internal";
+import type { Component, FunctionComponent } from "react";
+type Nullish = null | undefined;
 import { concat } from "@tailjs/util";
 
 export type ExcludeRule = (type: any) => boolean;

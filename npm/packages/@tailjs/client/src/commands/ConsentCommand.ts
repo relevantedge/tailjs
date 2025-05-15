@@ -3,8 +3,8 @@ import { commandTest } from "./shared";
 import { MaybePromiseLike } from "@tailjs/util";
 
 export type ExternalConsentPoller = (
-  current: DataUsage | undefined
-) => DataUsage | undefined;
+  current: UserConsent | undefined
+) => UserConsent | undefined;
 
 /** Return `true` if you want this callback invoked every time the consent changes, and not just once. */
 export type ConsentCallback = (
@@ -17,9 +17,9 @@ export interface ConsentCommand {
   consent: {
     get?: ConsentCallback;
     set?:
-      | DataUsage
+      | UserConsent
       | {
-          consent: DataUsage;
+          consent: UserConsent;
           callback?: (
             updated: boolean,
             current: UserConsent | undefined

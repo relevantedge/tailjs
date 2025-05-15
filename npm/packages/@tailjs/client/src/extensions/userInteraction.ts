@@ -69,6 +69,7 @@ const isClickable = (
 ): el is HTMLElement =>
   attr !== F &&
   (equalsAny(t, "A", "BUTTON") ||
+    t === "LABEL" ||
     (t === "INPUT" &&
       equalsAny(normalizedAttribute(el, "type"), "button", "submit")) ||
     attr === T);
@@ -170,6 +171,7 @@ export const userInteraction: TrackerExtensionFactory = {
               trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
               (components &&
                 some(components, (cmp) => cmp.track?.clicks !== F));
+
             trackRegion ??=
               trackerFlag(el, "region", T, (data) => data.track?.region) ??
               (components && some(components, (cmp) => cmp.track?.region));

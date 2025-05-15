@@ -18,6 +18,7 @@
     "iife",
     "Initializable",
     "Jsonable",
+    "jsxs",
     "lfsr",
     "loslessly",
     "maxmind",

@@ -1,5 +1,5 @@
 import type { Funnel, Integer, TrackedEvent } from "..";
-import { typeTest } from "../util/type-test";
+import { typeTest } from "../util";
 
 /**
  * The event that is send when a user transitions to a new stage in a {@link Funnel}.

@@ -1,14 +1,15 @@
 import { createClientConfiguration } from "@tailjs/next";
 
-// This file configures the context for tracking.
-//
-// Wrap the content you want to track with the ConfiguredTracker component.
-// Preferably, this should be in one of your high-level 'layout.tsx' or 'page.tsx' files.
-
+// This file configures how properties and React components are mapped to content, components, tags etc. for tail.js.
 export default createClientConfiguration({
   tracker: {
     map: (state, type, props) => {
-      return { component: { id: "ok" } };
+      if (props?.component) {
+        // When using a headless CMS, you typically get the page and component data, and the layout is rendered dynamically.
+        // Use the properties passed to the components handling this to map to tail.js component and content data.
+        return { component: { id: props.component.id ?? "unknown component" } };
+      }
+      return { component: { id: "ok" + (type as any)?.name } };
     },
   },
 });

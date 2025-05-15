@@ -80,11 +80,13 @@ export const request: {
       )
     );
 
-    return cancel
+    const payload = cancel
       ? false
       : (serialized = encrypt
           ? httpEncrypt(currentData, true)
           : JSON.stringify(currentData));
+
+    return payload && payload.length ? payload : false;
   };
 
   if (beacon) {

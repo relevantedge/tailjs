@@ -1,7 +1,7 @@
 const original = require("react");
-const { visit, updateConfig, TrackerBoundary } = require("./visit.js");
+const { updateConfig, TrackerBoundary } = require("./visit.js");
 const { createElement } = original;
-require("./bootstrap.js");
+const { visit } = require("./bootstrap.js");
 
 module.exports = {
   ...original,

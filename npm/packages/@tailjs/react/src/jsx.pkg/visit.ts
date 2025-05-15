@@ -1,4 +1,13 @@
-import React, { ReactNode, Fragment, PropsWithChildren } from "react";
+import React, {
+  createElement,
+  ReactNode,
+  Fragment,
+  PropsWithChildren,
+  ComponentClass,
+  FunctionComponent,
+  ComponentType as ReactComponentType,
+  ComponentProps,
+} from "react";
 
 import {
   isBoundaryData,
@@ -15,7 +24,7 @@ let tracker = baseTracker;
 
 const wrapped = Symbol();
 
-type ComponentType = JSX.ElementClass | React.FunctionComponent<any>;
+type ComponentType = ComponentClass<any, any> | React.FunctionComponent<any>;
 type ElementType = string | ComponentType;
 
 export interface BoundaryDataWithView extends BoundaryData {
@@ -42,7 +51,11 @@ export type ElementStateMapper<CustomState = never> = (
   data: BoundaryDataWithView | CustomState
 ) => void | false;
 export interface JsxConfiguration<CustomState = never> {
-  /** The script to include the the page's `<head>` section. */
+  /**
+   * The script to inject in the the page's `<head>` section.
+   *
+   * @default false
+   */
   script?:
     | { src?: string; async?: boolean; attrs?: Record<string, any> }
     | false;
@@ -97,14 +110,16 @@ export const updateConfig: ConfigUpdater = (update: any) => {
     stateMapper = config?.map;
     customRef = null;
   }
-  script = (config?.script as any)?.src ? config!.script : false;
+  script =
+    (config?.script as any)?.src || typeof config?.script === "function"
+      ? config!.script
+      : false;
 
   const trackJsx = config?.trackJsx ?? true;
   if (trackJsx !== false) {
     const innerMapper = stateMapper;
     stateMapper = (currentState, type, props) => {
       currentState = innerMapper?.(currentState, type, props) ?? currentState;
-
       if (typeof type === "function" && !isClientComponentReference(type)) {
         let displayName = trackJsx === true ? type.displayName : trackJsx(type);
         if (displayName) {
@@ -135,25 +150,51 @@ const asArray = (value: any): any[] | undefined =>
     ? [...value]
     : undefined;
 
-const PARENT_STATE_PROP = "__tjsps";
-const withProp = (target: any, prop: keyof any, value: any) => {
-  if (Object.isFrozen(target) || Object.isFrozen((target.props ??= {}))) {
-    return { ...target, props: { ...target.props, [prop]: value } };
+const cloneIfFrozen = <T>(obj: T): T => {
+  if (!Object.isFrozen(obj)) return obj;
+  if (Array.isArray(obj)) {
+    return [...obj] as T;
   }
+  const props = Object.getOwnPropertyDescriptors(obj);
+  for (let prop in props) {
+    if (props[prop].writable === false) {
+      props[prop].writable = true;
+    }
+  }
+  return Object.defineProperties({}, props) as T;
+};
 
+const singleOrArray = (children: any[], alwaysArray = false) =>
+  children.length === 1 && !alwaysArray
+    ? children[0]
+    : children.map((child, i) => {
+        if (child == null || typeof child !== "object" || child.key) {
+          return child;
+        }
+        child = cloneIfFrozen(child);
+        child.key = `__child_${i}`;
+        return child;
+      });
+
+const PARENT_STATE_PROP = "_tjs_ps";
+/** This is allowed on all elements/components to explicitly define the boundary data. */
+const EXPLICIT_STATE_PROP = "tailjs";
+const withProp = (target: any, prop: keyof any, value: any) => {
+  target = cloneIfFrozen(target);
+  target.props = cloneIfFrozen(target.props ?? {});
   target.props[prop] = value;
   return target;
 };
 
 // `state` may also be CustomState, but for simplicity we just assume boundary data here.
-const tryBindState = (jsx: any, state: BoundaryDataWithView) => {
+const tryBindState = (jsx: any, state: BoundaryDataWithView): any => {
   if (!jsx) {
     return undefined;
   }
 
   if (typeof jsx.type === "string") {
     // HTML element.
-    if (jsx.props?.ref) {
+    if (jsx.ref) {
       // Don't replace refs (it might confuse e.g. Motion), so need to put them on children.
       if (!jsx.props.children) {
         // Nothing to do about.
@@ -189,23 +230,21 @@ const tryBindState = (jsx: any, state: BoundaryDataWithView) => {
       }
     };
 
-    if (Object.isFrozen(jsx)) {
-      jsx = { ...jsx, ref };
-    } else {
-      jsx.ref = ref;
-    }
+    jsx = cloneIfFrozen(jsx);
+    jsx.ref = ref;
+
     return jsx;
   } else if (typeof jsx.type === "function") {
     const wrapped = wrapType(jsx.type);
     if (wrapped && wrapped !== jsx.type) {
-      if (Object.isFrozen(jsx)) {
-        jsx = { ...jsx };
-      }
+      jsx = cloneIfFrozen(jsx);
       jsx.type = wrapped;
     }
-    return withProp(jsx, PARENT_STATE_PROP, state);
+    return withStateProperty(jsx, PARENT_STATE_PROP, state, true);
   } else if (jsx.type === Fragment) {
     return tryBindState(jsx.props?.children, state);
+  } else if (isClientComponentReference(jsx.type)) {
+    return withStateProperty(jsx, PARENT_STATE_PROP, state, true);
   }
 
   let list = asArray(jsx);
@@ -215,9 +254,7 @@ const tryBindState = (jsx: any, state: BoundaryDataWithView) => {
       let updated = tryBindState(list[i], state);
       if (updated) {
         if (!hasChanges) {
-          if (Object.isFrozen(list)) {
-            list = [...list];
-          }
+          list = cloneIfFrozen(list);
           hasChanges = true;
         }
         list[i] = updated;
@@ -228,24 +265,54 @@ const tryBindState = (jsx: any, state: BoundaryDataWithView) => {
   return undefined;
 };
 
+const withStateRefs = (render: () => any, state: any) => {
+  const output = render();
+  return output?.then
+    ? output.then((output: any) => tryBindState(output, state) ?? output)
+    : tryBindState(output, state) ?? output;
+};
+
+const withStateProperty = (
+  props: any,
+  prop: string,
+  state: any,
+  jsx = false
+) => {
+  if (!state) {
+    return props;
+  }
+  if (jsx) {
+    return withProp(props, prop, JSON.stringify(state));
+  }
+
+  props = cloneIfFrozen(props);
+  props[prop] = JSON.stringify(state);
+  return props;
+};
+const parseStateProperty = (props: any, prop: string) => {
+  let state = props?.[prop];
+  if (typeof state === "string") {
+    try {
+      return JSON.parse(state);
+    } catch (e) {}
+  } else if (state && typeof state === "object") {
+    return state;
+  }
+  return undefined;
+};
+
 const wrapRender = (
   type: ElementType,
   props: Record<string, any>,
   render: () => ReactNode
 ) => {
-  const parentState = props?.[PARENT_STATE_PROP];
+  const parentState = parseStateProperty(props, PARENT_STATE_PROP);
   const state = stateMapper
     ? stateMapper(parentState, type, props)
     : parentState;
 
   if (state) {
-    let rendered = render();
-    if (rendered?.["then"]) {
-      return (rendered as any).then((rendered: any) =>
-        tryBindState(rendered, state)
-      );
-    }
-    return tryBindState(rendered, state) ?? rendered;
+    return withStateRefs(render, state);
   }
 
   return render();
@@ -271,6 +338,40 @@ const indexOfChild = (el: any, test: (el: any) => boolean) => {
     return test(el) ? 0 : null;
   }
 };
+
+let headCreated: boolean[] = [];
+const EnsureHeadScript = () => {
+  const hasHead = headCreated.pop();
+
+  return !script || hasHead
+    ? null
+    : createElement("head", { children: createScriptElement(script) });
+};
+const CaptureHead = ({ children }: PropsWithChildren<{}>) => {
+  headCreated.push(false);
+  const htmlChildren = getChildArray(children);
+  const bodyIndex = htmlChildren.findIndex((el) => el.type === "body");
+  htmlChildren.splice(
+    bodyIndex === -1 ? htmlChildren.length : bodyIndex,
+    0,
+    // Utilize that react components are rendered depth-first, so our "EnsureHeadScript" component will not be rendered
+    // before any preceding components might have created a `<head />` element which we capture in `injectScript`.
+    createElement(EnsureHeadScript)
+  );
+  return createElement(Fragment, {
+    children: singleOrArray(htmlChildren, Array.isArray(children)),
+  });
+};
+
+const createScriptElement = (script: JsxConfiguration["script"]) =>
+  script && script.src
+    ? createElement("script", {
+        src: script.src,
+        async: script.async ?? true,
+        ...script.attrs,
+      })
+    : null;
+
 const getChildArray = (children: any) =>
   children == null ? [] : Array.isArray(children) ? [...children] : [children];
 
@@ -283,38 +384,46 @@ const injectScript = (
     return;
   }
 
-  if (type === "head") {
-    if (
-      indexOfChild(
-        children ?? props.children,
-        (el) =>
-          el &&
-          (el.key === "tailjs-script" ||
-            (el.type === "script" && el.props?.src === (script as any).src))
-      )
-    ) {
-      return;
-    }
+  if (type === "html") {
+    props = cloneIfFrozen(props ?? {});
+    children ??= props.children;
+    const wrapper = createElement(CaptureHead, {
+      children: children ?? props.children,
+    });
+    props.children = singleOrArray([wrapper], Array.isArray(children));
 
-    children = getChildArray(children ?? props?.children);
-    let scriptIndex =
-      indexOfChild(children, (el) => el?.type === "script") ?? children.length;
-    children.splice(
-      scriptIndex,
-      0,
-      React.createElement("script", {
-        src: script.src,
-        key: "tailjs-script",
-        async: script.async ?? true,
-        ...script.attrs,
-      })
-    );
-    if (Object.isFrozen(props)) {
-      props = { ...props };
-    }
-
-    props.children = children;
     return { type, props };
+  } else if (type === "head") {
+    if (headCreated.length) {
+      headCreated[headCreated.length - 1] = true;
+    }
+    children ??= props.children;
+    const headChildren = getChildArray(children);
+    headChildren.unshift(createScriptElement(script));
+    props = cloneIfFrozen(props);
+    props.children = singleOrArray(headChildren, Array.isArray(children));
+  }
+};
+
+const mergeChildren = (props: any, children: any) => {
+  if (children) {
+    // createElement's variadic `...children` parameter takes precedence over props.children.
+    // https://github.com/facebook/react/blob/d85f86cf017151bcf5908d593c3899d876656a01/packages/react/src/jsx/ReactJSXElement.js#L711
+    props = cloneIfFrozen(props ?? {});
+    props.children = children;
+  }
+  return props;
+};
+
+const getStateFromProps = (type: any, props: any) => {
+  if (props) {
+    let state = parseStateProperty(props, EXPLICIT_STATE_PROP);
+    if (stateMapper) {
+      const parentState = parseStateProperty(props, PARENT_STATE_PROP);
+      const mappedState = stateMapper(parentState, type, props);
+      state = state ? updateState(mappedState, state) : mappedState;
+    }
+    return state;
   }
 };
 
@@ -327,7 +436,6 @@ export const visit = (
   if (!stateMapper) {
     return;
   }
-
   let updated = false;
   const injected = injectScript(type, props, children);
   if (injected) {
@@ -335,20 +443,45 @@ export const visit = (
     ({ type, props } = injected);
   }
 
-  const parentState = props?.[PARENT_STATE_PROP];
-
   if (typeof type === "function" && type !== TrackerBoundary) {
-    const currentState = stateMapper(parentState, type, props);
-    if (!currentState) {
+    const state = getStateFromProps(type, props);
+    if (!state) {
       return;
     }
+    if (isClientComponentReference(type)) {
+      return {
+        type,
+        props: withStateProperty(props, PARENT_STATE_PROP, state),
+      };
+    }
+
     type = wrapType(type);
     if (type) {
-      if (children && !props.children) {
-        // Not frozen at this point.
-        props.children = children;
-      }
+      props = mergeChildren(props, children);
+      updated = true;
+    }
+  } else {
+    if (typeof type === "string") {
+      const state = getStateFromProps(type, props);
+      if (state) {
+        const boundState = tryBindState(
+          { type, props: mergeChildren(props, children), ref: props?.ref },
+          state
+        );
 
+        if (boundState?.type) {
+          type = boundState.type;
+          props = withProp(boundState, "ref", boundState.ref).props;
+          updated = true;
+        }
+      }
+    }
+
+    if (props?.[PARENT_STATE_PROP] || props?.[EXPLICIT_STATE_PROP]) {
+      // Make sure these properties don't leak into the SSR-generated HTML.
+      props = cloneIfFrozen(mergeChildren(props, children));
+      delete props[PARENT_STATE_PROP];
+      delete props[EXPLICIT_STATE_PROP];
       updated = true;
     }
   }
@@ -398,13 +531,20 @@ const wrapType = (type: any) => {
 
 /** Use this component to explicitly define tracker boundary data for its children (components, content, etc.). */
 export const TrackerBoundary = (props: PropsWithChildren<BoundaryData>) => {
-  let state = stateMapper?.(props[PARENT_STATE_PROP], TrackerBoundary, props);
+  let state = stateMapper?.(
+    parseStateProperty(props, PARENT_STATE_PROP),
+    TrackerBoundary,
+    props
+  );
 
   const { children, ...stateProps } = props;
   if (isBoundaryData(stateProps)) {
     state = updateState(state, stateProps);
   }
-  return state ? tryBindState(children, state) : children;
+  if (state) {
+    return withStateRefs(() => children, state);
+  }
+  return children;
 };
 
 const mergeProperties = (
@@ -423,3 +563,29 @@ const mergeProperties = (
   }
   return target;
 };
+
+type PropertyMapper<P> = (
+  props: Readonly<P>
+) => BoundaryDataWithView | null | undefined | void;
+
+export type WithTrackingFunction = {
+  <C, P extends object>(
+    Component: FunctionComponent<P> & C,
+    mapState: PropertyMapper<P>
+  ): C;
+  <T extends ReactComponentType<any>>(
+    Component: T,
+    mapState: PropertyMapper<ComponentProps<T>>
+  ): T;
+};
+
+export const withTracking: WithTrackingFunction =
+  (component: any, mapState: any) => (props: any) => {
+    const mapped = mapState(props);
+    return mapped
+      ? createElement(component, props)
+      : TrackerBoundary({
+          ...mapped,
+          children: createElement(component, props),
+        });
+  };

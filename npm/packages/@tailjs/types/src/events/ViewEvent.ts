@@ -141,6 +141,11 @@ export interface ViewEvent extends TrackedEvent {
   navigationType?: "navigate" | "back-forward" | "prerender" | "reload";
 
   /**
+   * The navigation happened without making an additional request to the server (the [History API](https://developer.mozilla.org/en-US/docs/Web/API/History_API)).
+   */
+  clientNavigation?: "push" | "replace";
+
+  /**
    * Indicates whether the event was manually triggered through a tracker command, or happened automatically by the tracker's ability to infer navigation.
    *
    * @default "automatic"

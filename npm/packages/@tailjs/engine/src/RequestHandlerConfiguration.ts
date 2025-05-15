@@ -4,6 +4,7 @@
 import { type TrackerClientConfiguration } from "@tailjs/client/external";
 import {
   JsonSchemaAdapter,
+  OptionalPurposes,
   SchemaDefinition,
   UserConsent,
   type DataPurposes,
@@ -149,7 +150,7 @@ export type RequestHandlerConfiguration = {
    * That is, consent for inactive purposes cannot be controlled independently if not active.
    *
    */
-  additionalPurposes?: Pick<DataPurposes, "personalization" | "security">;
+  additionalPurposes?: Partial<OptionalPurposes>;
 
   /**
    * Whether device cookies should be split by purpose (performance, functionality etc.) or just be shared in one,

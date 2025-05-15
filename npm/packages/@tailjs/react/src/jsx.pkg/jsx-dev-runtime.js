@@ -1,7 +1,6 @@
 const original = require("react/jsx-dev-runtime");
-const { visit } = require("./visit.js");
+const { visit } = require("./bootstrap.js");
 const { jsxDEV } = original;
-require("./bootstrap.js");
 
 module.exports = {
   ...original,

@@ -1,15 +1,18 @@
-import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { BreakTest, InputTest, MotionTest } from "./components/AnimationTest";
 import { ClickIntentTest } from "./components/ClickIntentTest";
 import { ConsentMonitor } from "./components/ConsentMonitor";
-import { WidgetsProvider } from "@sitecore-search/react";
 import { Login } from "./components/Login";
-import { BreakTest, InputTest, MotionTest } from "./components/AnimationTest";
 
+function ServerThenClient(props: any) {
+  return <MotionTest laks="80"></MotionTest>;
+}
+ServerThenClient.displayName = "OOK";
 export default function Home() {
   return (
     <>
+      <ServerThenClient />
       <main className="flex min-h-screen flex-col items-center justify-between p-24">
         <div>
           <h1>
@@ -17,7 +20,9 @@ export default function Home() {
           </h1>
         </div>
         <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-          <InputTest />
+          <a href="mailto:123@nope.foo">Mail</a>
+          <a href="tel:123">Phone</a>
+          <InputTest tailjs={{ track: { clicks: true } }} />
           <MotionTest></MotionTest>
           <BreakTest />
           <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">

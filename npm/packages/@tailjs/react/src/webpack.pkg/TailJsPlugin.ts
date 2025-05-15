@@ -2,12 +2,35 @@ import path from "path";
 import type { Compiler } from "webpack";
 
 export interface TailJsPluginConfiguration {
-  config: string;
+  /**
+   * The path the the configuration file (excluding extension).
+   *
+   * @default "/tailjs.client.config.ts"
+   */
+  config?: string;
+
+  /**
+   * Disable tracking. Aliases will till be applied.
+   *
+   * @default false
+   */
+  disable?: boolean;
+
+  /**
+   * If you want to use a different "react" (such as preact),
+   * you can specify these mappings here.
+   */
+  aliases?: {
+    react?: string;
+    "react/jsx-runtime"?: string;
+    "react/jsx-dev-runtime"?: string;
+    "react/react-dom"?: string;
+  };
 }
 export class TailJsPlugin {
   public readonly config: TailJsPluginConfiguration;
 
-  constructor(config: Partial<TailJsPluginConfiguration> = {}) {
+  constructor(config: TailJsPluginConfiguration = {}) {
     this.config = config as any;
   }
 
@@ -15,24 +38,39 @@ export class TailJsPlugin {
     // const {  customReactPackage, originalReactPackage, packagePath } = this.options;
 
     const packageName = "@tailjs/react/jsx";
+    // Everything in the @tailjs/react package.
     const packagePath = path.resolve(
       path.join(
         //@ts-ignore
         typeof __dirname === "undefined" ? import.meta.dirname : __dirname,
-        "..",
-        "jsx"
+        ".."
       )
     );
     const tryMapRequest = (
       request: string,
       context?: string
     ): string | undefined => {
+      let alias: string | undefined = undefined;
+
+      if (this.config.aliases) {
+        const aliasedPackage = request.replace(
+          /(?<=^|\s)([^\s]+)$/,
+          (name) => this.config.aliases?.[name] ?? name
+        );
+        if (aliasedPackage !== request) {
+          alias = aliasedPackage;
+        }
+      }
+      if (this.config.disable) {
+        return alias ?? request;
+      }
+
       if (
         context &&
         (context === packagePath ||
           path.dirname(context).startsWith(packagePath))
       ) {
-        return undefined;
+        return alias;
       }
 
       const updated = request?.replace?.(
@@ -40,21 +78,12 @@ export class TailJsPlugin {
         `$1${packageName}$2`
       );
 
-      // // Reserved for future use.
-      // .replace(
-      //   /(^|\s+)react-server-dom-webpack(\/server(?:\.(?:browser|bun|edge|node))?)$/g,
-      //   `$1${packageName}/react-server-dom-webpack$2`
-      // )
-      // .replace(
-      //   /(^|\s+)react-dom(\/server(?:\.(?:browser|bun|edge|node))?)$/g,
-      //   `$1${packageName}$2`
-      // );
-
-      return updated !== request ? updated : undefined;
+      return updated !== request ? updated : alias;
     };
 
     compiler.hooks.environment.tap("TailJsPlugin", () => {
       let externals = compiler.options.externals;
+
       if (externals != null && !Array.isArray(externals)) {
         externals = [externals];
       }
@@ -65,6 +94,7 @@ export class TailJsPlugin {
           }
         });
       }
+
       compiler.options.externals = externals?.map((external) => {
         if (
           typeof external === "function" ||

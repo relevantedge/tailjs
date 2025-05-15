@@ -62,12 +62,13 @@ import {
   HttpResponse,
   KnownTrackerKeys,
   RequestHandler,
+  RequestHandlerConfiguration,
   TrackerEnvironment,
   VariableStorageContext,
   requestCookies,
 } from "./shared";
 
-export interface TrackerServerConfiguration {
+export type TrackerServerConfiguration = {
   disabled?: boolean;
   /** Transport used for client-side communication with a key unique('ish) to the client. */
   transport?: Transport;
@@ -92,7 +93,7 @@ export interface TrackerServerConfiguration {
   requestHandler: RequestHandler;
 
   trustedContext?: boolean;
-}
+} & Pick<RequestHandlerConfiguration, "additionalPurposes">;
 
 const enum ExtensionState {
   Pending = 0,
@@ -244,6 +245,9 @@ export class Tracker {
   public readonly host: string | undefined;
   public readonly path: string;
   public readonly url: string;
+  public readonly additionalPurposes: Required<
+    Required<TrackerServerConfiguration>["additionalPurposes"]
+  >;
 
   public constructor({
     disabled = false,
@@ -260,6 +264,7 @@ export class Tracker {
     anonymousSessionReferenceId,
     defaultConsent,
     trustedContext,
+    additionalPurposes,
   }: TrackerServerConfiguration) {
     this.disabled = disabled;
     this._requestHandler = requestHandler;
@@ -268,6 +273,10 @@ export class Tracker {
     this.path = path;
     this.url = url;
     this._defaultConsent = defaultConsent;
+    this.additionalPurposes = {
+      personalization: additionalPurposes?.personalization ?? false,
+      security: additionalPurposes?.security ?? false,
+    };
 
     this.queryString = queryString ?? {};
 
@@ -328,7 +337,7 @@ export class Tracker {
     purposes: {},
   };
 
-  public get consent(): Freeze<DataUsage> {
+  public get consent(): Freeze<UserConsent> {
     return this._consent;
   }
 
@@ -583,12 +592,14 @@ export class Tracker {
       this.cookies[this._requestHandler._cookieNames.consent]?.value
     );
 
-    this._consent =
+    this._consent = DataUsage.applyOptional(
       legacyConsent ??
-      DataUsage.deserialize(
-        this.cookies[this._requestHandler._cookieNames.consent]?.value,
-        this._defaultConsent
-      );
+        DataUsage.deserialize(
+          this.cookies[this._requestHandler._cookieNames.consent]?.value,
+          this._defaultConsent
+        ),
+      this.additionalPurposes
+    );
 
     await this._ensureSession(timestamp, {
       deviceId,
@@ -645,7 +656,8 @@ export class Tracker {
   public async updateConsent({
     purposes,
     classification,
-  }: Partial<DataUsage>): Promise<void> {
+    source,
+  }: Partial<UserConsent>): Promise<void> {
     if (!this._session) return;
 
     purposes = DataPurposes.parse(purposes);
@@ -694,8 +706,10 @@ export class Tracker {
 
     let previousLevel = this._consent.classification;
     const previousConsent = this._consent;
-    this._consent = { classification, purposes };
-
+    this._consent = DataUsage.applyOptional(
+      { classification, purposes, source },
+      this.additionalPurposes
+    );
     const timestamp = now();
     if ((classification === "anonymous") !== (previousLevel === "anonymous")) {
       // We switched from cookie-less to cookies or vice versa.
@@ -1050,7 +1064,9 @@ export class Tracker {
         maxAge: Number.MAX_SAFE_INTEGER,
         essential: true,
         sameSitePolicy: "None",
-        value: DataUsage.serialize(this.consent),
+        value: DataUsage.serialize(
+          DataUsage.applyOptional(this.consent, this.additionalPurposes)
+        ),
       };
 
       const splits: PartialRecord<DataPurposeName, ClientDeviceDataBlob> = {};

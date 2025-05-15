@@ -62,6 +62,7 @@ export const sitecoreJss = ({
             language: route.itemLanguage,
             version: "" + route.itemVersion,
             personalization: getPagePersonalization(layoutData),
+            source: "sitecore",
           },
         });
       }

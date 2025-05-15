@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { RollupOptions, rollup, watch } from "rollup";
-import { arg, pack, env } from ".";
+import { arg, pack, env, withRetries } from ".";
 
 export type BuildOptions = {
   export?: boolean;
@@ -160,40 +160,49 @@ export const build = async (
         },
       };
 
-      console.log(`Build ${buildName} started.`);
-      if (watchMode) {
-        let resolve: any;
-        const waitForFirstBuild = new Promise((r) => (resolve = r));
-        const watcher = watch(config);
-        watcher.on("event", async (ev) => {
-          if (ev.code === "START") {
-            !pending++ && (await buildStart?.());
-
-            console.log(`Build started. ${config.input}`);
-          } else if (ev.code === "ERROR") {
-            console.log("ERROR", ev.error.cause || ev.error);
-          } else if (ev.code === "BUNDLE_END") {
-            ev.result?.close();
-          } else if (ev.code === "END") {
-            console.log(`Build ${buildName} completed.`);
-            !--pending && (await buildEnd?.());
-
-            resolve();
-          }
-        });
-
-        await waitForFirstBuild;
-      } else {
-        if (!pending++) {
-          await buildStart?.();
-        }
-        const bundle = await rollup(config);
-        await Promise.all(outputs.map((output) => bundle.write(output)));
-        console.log(`Build ${buildName} completed.`);
-        if (!--pending) {
-          await buildEnd?.();
-        }
+      if (buildStart) {
+        buildStart = withRetries(buildStart);
       }
+      if (buildEnd) {
+        buildEnd = withRetries(buildEnd);
+      }
+
+      console.log(`Build ${buildName} started.`);
+      await withRetries(async () => {
+        if (watchMode) {
+          let resolve: any;
+          const waitForFirstBuild = new Promise((r) => (resolve = r));
+          const watcher = watch(config);
+          watcher.on("event", async (ev) => {
+            if (ev.code === "START") {
+              !pending++ && (await buildStart?.());
+
+              console.log(`Build started. ${config.input}`);
+            } else if (ev.code === "ERROR") {
+              console.log("ERROR", ev.error.cause || ev.error);
+            } else if (ev.code === "BUNDLE_END") {
+              ev.result?.close();
+            } else if (ev.code === "END") {
+              console.log(`Build ${buildName} completed.`);
+              !--pending && (await buildEnd?.());
+
+              resolve();
+            }
+          });
+
+          await waitForFirstBuild;
+        } else {
+          if (!pending++) {
+            await buildStart?.();
+          }
+          const bundle = await rollup(config);
+          await Promise.all(outputs.map((output) => bundle.write(output)));
+          console.log(`Build ${buildName} completed.`);
+          if (!--pending) {
+            await buildEnd?.();
+          }
+        }
+      })();
     })
   );
 };

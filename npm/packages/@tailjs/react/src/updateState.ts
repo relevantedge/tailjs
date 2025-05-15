@@ -77,7 +77,7 @@ export const updateState = (
     current.cart = state.cart;
   }
   if (state.track != null) {
-    current.track = state.track;
+    current.track = { ...current.track, ...state.track };
   }
 
   return current;

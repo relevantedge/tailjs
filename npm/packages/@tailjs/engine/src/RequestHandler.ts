@@ -713,6 +713,7 @@ export class RequestHandler {
         requestHandler: this,
         defaultConsent: this._defaultConsent,
         cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
+        additionalPurposes: this._config.additionalPurposes,
         clientEncryptionKey: this._config.json
           ? undefined
           : clientEncryptionKey,

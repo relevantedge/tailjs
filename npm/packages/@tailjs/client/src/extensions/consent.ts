@@ -124,7 +124,7 @@ export const consent: TrackerExtensionFactory = {
                       item[2][key] === "granted" &&
                       ((purposes[code] = true),
                       (anonymous &&=
-                        // Security is considered "necessary" for some external purpose by tail.js
+                        // Security is considered "necessary" by tail.js,
                         // and does not deactivate anonymous tracking by itself.
                         code === "security" || code === "necessary"))
                   );
@@ -148,9 +148,9 @@ export const consent: TrackerExtensionFactory = {
         if (isUpdateConsentCommand(command)) {
           const getter = command.consent.get;
           if (getter) {
-            getCurrentConsent((current, _, previous) => {
-              return current ? getter(current, previous) : true;
-            });
+            getCurrentConsent((current, _, previous) =>
+              current ? getter(current, previous) : true
+            );
           }
 
           const setter = command.consent.set;
@@ -171,7 +171,7 @@ export const consent: TrackerExtensionFactory = {
             const poller = (externalConsentSources[key] ??= clock({
               frequency: externalSource.frequency ?? 1000,
             }));
-            let previousConsent: DataUsage | undefined;
+            let previousConsent: UserConsent | undefined;
 
             const pollConsent = async () => {
               if (!document.hasFocus()) return;
@@ -184,6 +184,7 @@ export const consent: TrackerExtensionFactory = {
                 newConsent &&
                 !DataUsage.equals(previousConsent, newConsent)
               ) {
+                newConsent.source ??= key;
                 const [updated, current] = await updateConsent(newConsent);
                 if (updated) {
                   debug(current, "Consent was updated from " + key);

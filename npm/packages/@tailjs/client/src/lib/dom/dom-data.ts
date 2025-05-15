@@ -172,6 +172,7 @@ const parseCssMappingRules = (
 };
 
 let currentBoundaryData: BoundaryData<true> | Nullish;
+let boundaryDataValue: any;
 export const trackerProperty = (
   el: Element,
   name: string,
@@ -180,23 +181,23 @@ export const trackerProperty = (
     | ((el: NodeWithParentElement, distance: number) => boolean) = F,
   boundaryData?: (el: BoundaryData<true>) => string | Nullish
 ): string | null =>
-  (inherit
-    ? forAncestorsOrSelf(
-        el,
-        (el, r) => r(trackerProperty(el, name, F)),
-        isFunction(inherit) ? inherit : undefined
-      )
-    : join(
-        concat(
-          attr(el, trackerPropertyName(name)),
-          cssProperty(el, trackerPropertyName(name, T))
-        ),
-        " "
-      )) ??
-  (boundaryData &&
-    (currentBoundaryData = getBoundaryData(el)) &&
-    boundaryData(currentBoundaryData)) ??
-  nil;
+  boundaryData &&
+  (currentBoundaryData = getBoundaryData(el)) &&
+  (boundaryDataValue = boundaryData(currentBoundaryData)) != null
+    ? boundaryDataValue
+    : (inherit
+        ? forAncestorsOrSelf(
+            el,
+            (el, r) => r(trackerProperty(el, name, F)),
+            isFunction(inherit) ? inherit : undefined
+          )
+        : join(
+            concat(
+              attr(el, trackerPropertyName(name)),
+              cssProperty(el, trackerPropertyName(name, T))
+            ),
+            " "
+          )) ?? nil;
 
 let propertyValue: string | Nullish;
 export const trackerFlag = (

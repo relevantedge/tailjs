@@ -16,7 +16,7 @@ import {
 } from ".";
 
 /**
- *  A lock that is shared between all tabs.
+ * A lock that is shared between all tabs.
  * It would seem tempting to use the browser's native LockManager, yet that disables bf_cache, so we don't.
  */
 export const sharedLock = (

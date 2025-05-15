@@ -51,8 +51,8 @@ export function useConsent(): [
 
   return [
     consent,
-    (patch) =>
-      new Promise((resolve) => {
+    (patch) => {
+      return new Promise((resolve) => {
         notifyChanged({ consent, updating: true });
         if (!consent) {
           state.pendingPatch = (consent) =>
@@ -60,7 +60,8 @@ export function useConsent(): [
         } else {
           updateConsent(patch(consent), resolve);
         }
-      }),
+      });
+    },
     updating,
   ];
 }

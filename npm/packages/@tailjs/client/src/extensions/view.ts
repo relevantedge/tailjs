@@ -47,10 +47,12 @@ import {
 } from "../lib";
 
 export let currentViewEvent: ViewEvent | undefined;
+let unbindViewEventPatcher: (() => void) | undefined;
 
 export const getCurrentViewId = () => currentViewEvent?.clientId;
 
 let pushPopNavigation: ViewEvent["navigationType"] | undefined;
+let pushPopNavigationType: ViewEvent["clientNavigation"] | undefined;
 
 const referrerKey = {
   scope: "shared",
@@ -210,6 +212,8 @@ export const context: TrackerExtensionFactory = {
         return;
       }
 
+      unbindViewEventPatcher?.();
+
       const {
         source: href,
         scheme,
@@ -256,8 +260,11 @@ export const context: TrackerExtensionFactory = {
             ) as any;
           }
         );
+      if (pushPopNavigationType) {
+        currentViewEvent.clientNavigation = pushPopNavigationType;
+      }
 
-      pushPopNavigation = undefined;
+      pushPopNavigation = pushPopNavigationType = undefined;
 
       if ((currentViewEvent.navigationType ??= "navigate") === "navigate") {
         // Try find related event and parent tab context if any.
@@ -287,9 +294,12 @@ export const context: TrackerExtensionFactory = {
 
       tracker.events.post(currentViewEvent);
 
-      tracker.events.registerEventPatchSource(currentViewEvent!, () => ({
-        duration: getViewTimeOffset(),
-      }));
+      unbindViewEventPatcher = tracker.events.registerEventPatchSource(
+        currentViewEvent!,
+        () => ({
+          duration: getViewTimeOffset(),
+        })
+      );
 
       dispatchViewChanged(currentViewEvent);
     };
@@ -308,11 +318,13 @@ export const context: TrackerExtensionFactory = {
       "popstate",
       () => ((pushPopNavigation = "back-forward"), postView())
     );
-    forEach(["push", "replace"], (name) => {
-      const inner = history[(name += "State")];
-      history[name] = (...args: any) => {
+    forEach(["push", "replace"] as const, (name) => {
+      const methodName = name + "State";
+      const inner = history[methodName];
+      history[methodName] = (...args: any) => {
         inner.apply(history, args);
         pushPopNavigation = "navigate";
+        pushPopNavigationType = name;
         postView();
       };
     });

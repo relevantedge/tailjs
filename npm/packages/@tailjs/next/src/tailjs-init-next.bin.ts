@@ -36,22 +36,18 @@ if (process.argv.includes("--help")) {
     );
     const prefix = fs.existsSync("src") ? "./src/" : "./";
     const apiDir = prefix + "app/api/tailjs";
-    const componentDir = apiDir + "/components";
 
     const useAt =
       fs.existsSync("tsconfig.json") &&
       fs.readFileSync("tsconfig.json").includes('"@/*":');
 
-    for (const dir of [apiDir, componentDir]) {
+    for (const dir of [apiDir]) {
       !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
     }
 
     const apiConfigFile = "./tailjs.api.config.ts";
     const clientConfigFile = "./tailjs.client.config.ts";
     const routeHandler = apiDir + "/route.ts";
-    const componentIndex = componentDir + "/index.ts";
-    const clientComponent = componentDir + "/ConfiguredTracker.client.ts";
-    const serverComponent = componentDir + "/ConfiguredTracker.server.ts";
 
     const getImportReference = (from: string, to: string) =>
       useAt
@@ -62,12 +58,18 @@ if (process.argv.includes("--help")) {
       [
         apiConfigFile,
         "API configuration file",
-        `import { ConsoleLogger, createApi } from "@tailjs/next/server";
+        `import {DefaultLogger} from "@tailjs/node";
+import { ConsoleLogger, createApi } from "@tailjs/next/server";
 
 export default createApi({
   debugScript: true, // Useful to see what is going on, once first installed (DISABLE IN PRODUCTION)
   json: true, // Useful to see what is sent to the server. If false, all communication is encrypted. (DISABLE IN PRODUCTION)
   extensions: [new ConsoleLogger()], // Add extensions here to store data etc.
+  logger: new DefaultLogger({
+      basePath: false,
+      console: "error",
+    }),
+  resourcesPath: "./tmp",
 });
 `,
       ],
@@ -75,47 +77,19 @@ export default createApi({
         clientConfigFile,
         "Client configuration file",
         `import { createClientConfiguration } from "@tailjs/next";
-import Link from "next/link";
 
-// This file configures the context for tracking.
-//
-// Wrap the content you want to track with the ConfiguredTracker component.
-// Preferably, this should be in one of your high-level 'layout.tsx' or 'page.tsx' files.
-
+// This file configures how properties and React components are mapped to content, components, tags etc. for tail.js.
 export default createClientConfiguration({
   tracker: {
-    map: ({ type, props }) => {
-      // The below are just examples.
-      // Configure this to match your CMS or whatever.
-
-      if (props.componentId) {
-        // Associate tracked events that happens in the context of
-        // a React components that get a property called 'componentId'
-        // with this. (Assuming this property comes from some kind of headless CMS)
-        return {
-          component: { id: props.componentId },
-          content: props.itemId && { id: props.itemId },
-        };
-      }
-
-      if (type === Link) {
-        // Track NextJS links as a special kind of components.
-        // (As an example of how you can test on component types)
-        return {
-          component: {
-            id: "next-link",
-            instanceId: props.href?.href ?? props.href ?? "#",
-          },
-        };
-      }
-
-      if (type === "main") {
-        // Add a tag to all events that is related to content in the page's '<main>' element.
-        return { tags: [{ tag: "content:area", value: "main" }] };
+    map: (state, type, props) => {
+      if (props?.componentData) {        
+        // Inspect the properties passed to the components and map to tail.js component, content, tag data etc.
+        // For example, when using a headless CMS the page, layout and component data are typically mapped to properties in structured form.
+        return { component: { id: props.componentData.id ?? "unknown component" } };
       }
     },
-  }
-});
+  },
+});      
 `,
       ],
       [
@@ -124,33 +98,6 @@ export default createClientConfiguration({
         `import api from "${getImportReference(apiDir, apiConfigFile)}";
 
 export const { GET, POST } = api;`,
-      ],
-      [
-        clientComponent,
-        "Client tracker component",
-        `"use client";
-import { bakeTracker } from "@tailjs/next";
-import configuration from "${getImportReference(apiDir, clientConfigFile)}"
-
-export const ConfiguredClientTracker = bakeTracker(configuration);
-`,
-      ],
-      [
-        serverComponent,
-        "Server tracker component",
-        `import { bakeTracker } from "@tailjs/next";
-import {ConfiguredClientTracker} from "./ConfiguredTracker.client";
-import configuration from "${getImportReference(apiDir, clientConfigFile)}"
-
-export const ConfiguredTracker = bakeTracker(configuration, ConfiguredClientTracker);
-`,
-      ],
-      [
-        componentIndex,
-        "Component index file",
-        `export {ConfiguredClientTracker} from "./ConfiguredTracker.client";
-export {ConfiguredTracker} from "./ConfiguredTracker.server";
-`,
       ],
     ])
       try {
@@ -180,11 +127,16 @@ export {ConfiguredTracker} from "./ConfiguredTracker.server";
     console.log(
       format(
         `tail.js: Configuration and routing were added.
+Please remember to update the 'map' function in 'tailjs.client.config.ts'
 
-Please remember to wrap your root layout, or specific parts you want to track, in the <ConfiguredTracker> component (import from '${getImportReference(
-          ".",
-          componentDir
-        )}').`,
+Also update you next.config to include the TailJsPlugin from '@tailjs/react/webpack':
+  webpack: (config) => {
+    // ...any existing configuration you may have.
+    config.plugins = [...(config.plugins ?? []), new TailJsPlugin()];
+    return config;
+  }
+
+Please note that @tailjs does currently NOT support turbopack, so you have to use webpack.`,
         flash
       )
     );

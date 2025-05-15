@@ -1,4 +1,5 @@
 import {
+  createPollCallback,
   extractKey,
   isSuccessResult,
   isVariableResult,
@@ -11,7 +12,6 @@ import {
   VariableOperationParameter,
   VariableOperationResult,
   VariableResultStatus,
-  VariableSetter,
   VariableValueSetter,
   WithCallbacks,
 } from "@tailjs/types";
@@ -177,6 +177,14 @@ export const createVariableStorage = (
     })
   );
 
+  const registerPollCallback = (source: VariableGetter, callback: any) => {
+    callback[callbackSourceSymbol] = source;
+    return registerCallback(
+      variableKeyToString(source as any),
+      callback as any
+    );
+  };
+
   const vars: TrackerVariableStorage = {
     get: ((getters: ClientVariableGetter[]) =>
       toVariableResultPromise(
@@ -248,6 +256,16 @@ export const createVariableStorage = (
             return skip;
           });
 
+          forEach(results, ([getter, result]) => {
+            if (getter.poll) {
+              const callback = createPollCallback(getter as any, result);
+              const pollingCallback = async (result: any) =>
+                (await callback(result)) === true &&
+                registerPollCallback?.(getter as any, pollingCallback);
+              pollingCallback(result);
+            }
+          });
+
           const timestamp = now();
           const response =
             (requestGetters.length &&
@@ -313,13 +331,7 @@ export const createVariableStorage = (
           return results;
         },
         {
-          poll: (source: VariableGetter, callback) => {
-            callback[callbackSourceSymbol] = source;
-            return registerCallback(
-              variableKeyToString(source as any),
-              callback as any
-            );
-          },
+          poll: registerPollCallback,
           logCallbackError: (message, operation, error) =>
             logError("Variables.get", message, { operation, error }),
         }
@@ -356,6 +368,10 @@ export const createVariableStorage = (
               const value = setter.patch
                 ? setter.patch(current?.value)
                 : setter.value;
+
+              if (current?.value != null && value === current?.value) {
+                return skip;
+              }
 
               let local: StateVariable | undefined =
                 value == null

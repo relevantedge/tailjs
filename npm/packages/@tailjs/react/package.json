@@ -66,16 +66,6 @@
     },
     "./jsx": "./dist/jsx/index.js",
     "./jsx/jsx-runtime": "./dist/jsx/jsx-runtime.js",
-    "./jsx/jsx-dev-runtime": "./dist/jsx/jsx-dev-runtime.js",
-    "./jsx/react-dom/server": "./dist/jsx/react-dom/server.js",
-    "./jsx/react-dom/server.browser": "./dist/jsx/react-dom/server.browser.js",
-    "./jsx/react-dom/server.edge": "./dist/jsx/react-dom/server.edge.js",
-    "./jsx/react-dom/server.node": "./dist/jsx/react-dom/server.node.js",
-    "./jsx/react-dom/server.bun": "./dist/jsx/react-dom/server.bun.js",
-    "./jsx/react-server-dom-webpack/server": "./dist/jsx/react-server-dom-webpack/server.js",
-    "./jsx/react-server-dom-webpack/server.browser": "./dist/jsx/react-server-dom-webpack/server.browser.js",
-    "./jsx/react-server-dom-webpack/server.edge": "./dist/jsx/react-server-dom-webpack/server.edge.js",
-    "./jsx/react-server-dom-webpack/server.node": "./dist/jsx/react-server-dom-webpack/server.node.js",
-    "./jsx/react-server-dom-webpack/server.bun": "./dist/jsx/react-server-dom-webpack/server.bun.js"
+    "./jsx/jsx-dev-runtime": "./dist/jsx/jsx-dev-runtime.js"
   }
 }

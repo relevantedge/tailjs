@@ -417,6 +417,34 @@ const hasPollCallback = (op: any): op is { poll: VariablePollCallback } =>
 
 const sourceOperation = Symbol();
 
+export const createPollCallback = <T extends {} = any>(
+  op: {
+    poll: VariablePollCallback<T>;
+  },
+  initialResult?: any
+): ((
+  value: VariableResult
+) => MaybePromiseLike<boolean | undefined | void>) => {
+  let previous: any;
+  return (result) => {
+    if (!isVariableResult(result, false)) {
+      return true;
+    }
+    const poll = isVariableResult(result, false)
+      ? op.poll(
+          result.value,
+          initialResult
+            ? result === initialResult
+            : result[sourceOperation] === op,
+          previous
+        )
+      : true;
+
+    previous = result.value;
+    return poll;
+  };
+};
+
 export const toVariableResultPromise = <
   OperationType extends "get" | "set",
   Operations,
@@ -480,23 +508,8 @@ export const toVariableResultPromise = <
         callbacks.push([op, result, (result) => op.callback(result) === true]);
       }
       if (hasPollCallback(op)) {
-        let previous: any;
         // This is only defined for get operations.
-        callbacks.push([
-          op,
-          result,
-          (result) => {
-            if (!isVariableResult(result, false)) {
-              return true;
-            }
-            const poll = isVariableResult(result, false)
-              ? op.poll(result.value, result[sourceOperation] === op, previous)
-              : true;
-
-            previous = result.value;
-            return poll;
-          },
-        ]);
+        callbacks.push([op, result, createPollCallback(op)]);
       }
     }
     for (const [op, initialResult, callback] of callbacks) {

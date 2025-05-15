@@ -1,5 +1,3 @@
-import React from "react";
-
 export const Tracker = (props: any) => {
   console.warn(
     "The `Tracker~ component is obsolete. Use the `TailJsPlugin` from `@tailjs/react/webpack` instead."

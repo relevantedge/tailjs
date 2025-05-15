@@ -106,7 +106,7 @@ export class TrackerCoreEvents implements TrackerExtension {
             return current;
           },
         },
-        tracker.device && {
+        tracker.device?.id && {
           scope: "device",
           key: SCOPE_INFO_KEY,
           patch: (current: DeviceInfo) => {

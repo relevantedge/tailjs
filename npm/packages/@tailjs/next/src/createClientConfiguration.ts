@@ -1,28 +1,32 @@
 import type { JsxConfiguration } from "@tailjs/react";
-import type { ScriptProps } from "next/script.js";
 
-import Head from "next/head";
-
-export type TrackerScriptStrategy = ScriptProps["strategy"] | "html";
-export type TrackerScriptStrategyContainer = {
-  /**
-   * The same options as {@link ScriptProps.strategy} or `html` than renders an HTML `<script>` tag inline.
-   * @default afterInteractive
-   */
-  strategy?: TrackerScriptStrategy;
-};
+export type NextJsxConfiguration =
+  | Omit<JsxConfiguration, "tracker"> & {
+      tracker: {
+        script?: boolean;
+      };
+    };
 export const createClientConfiguration = (
-  config: JsxConfiguration
+  config: NextJsxConfiguration
 ): JsxConfiguration => {
-  if (!config.tracker) {
-    config.tracker = {};
+  config.tracker ??= {};
+
+  const script = config.tracker.script;
+  if (script !== false) {
+    (config.tracker as JsxConfiguration["tracker"]).script = {
+      src: "/api/tailjs",
+    };
+    // (config as JsxConfiguration).tracker.script = () => ({
+    //   type: import("next/script.js") as any,
+    //   props: {
+    //     src: "/api/tailjs",
+    //     strategy: "beforeInteractive",
+    //     async: true,
+
+    //     ...(typeof script === "object" ? script : {}),
+    //   } satisfies ScriptProps,
+    // });
   }
 
-  let script = config.tracker.script;
-  if (script == null || typeof script === "object") {
-    script ??= {};
-    script.src ??= "/api/tailjs";
-    config.tracker.script = script;
-  }
-  return config;
+  return config as JsxConfiguration;
 };
