@@ -2,6 +2,7 @@ import { Variable, VariableKey, VariableServerScope } from "@tailjs/types";
 import { MaybeNullish, Nullish, createEnumParser } from "@tailjs/util";
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
 import type {
+  DeviceInfo,
   LocalID,
   RestrictScopes,
   ServerScoped,
@@ -38,6 +39,9 @@ export type ReservedTrackerVariables = {
   session: {
     [SCOPE_INFO_KEY]: SessionInfo;
     [CONSENT_INFO_KEY]: UserConsent;
+  };
+  device: {
+    [SCOPE_INFO_KEY]: DeviceInfo;
   };
   view: {
     view: CurrentView;

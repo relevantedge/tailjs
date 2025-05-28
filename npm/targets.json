@@ -1,5 +1,6 @@
 {
   "dotnet": {
+    "enabled": false,
     "path": "../hosts/dotnet/core/TailJs/js",
     "libs": [
       "engine",
@@ -12,6 +13,7 @@
     ]
   },
   "lt": {
+    "enabled": true,
     "npm": true,
     "path": "D:/projects/rlvedge/customers/liontrust/github/src/liontrust/_tailjs",
     "libs": [

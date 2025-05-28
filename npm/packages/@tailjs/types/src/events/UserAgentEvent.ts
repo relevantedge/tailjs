@@ -1,4 +1,4 @@
-import type { Float, Integer, SessionScoped, TrackedEvent } from "..";
+import type { Float, Integer, SessionEvent, TrackedEvent } from "..";
 import { typeTest } from "../util/type-test";
 
 export interface UserAgentLanguage {
@@ -28,7 +28,7 @@ export interface UserAgentLanguage {
   preference: Integer;
 }
 
-export interface UserAgentEvent extends TrackedEvent, SessionScoped {
+export interface UserAgentEvent extends TrackedEvent, SessionEvent {
   type: "user_agent";
 
   /**

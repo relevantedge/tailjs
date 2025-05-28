@@ -1,6 +1,6 @@
 import fg from "fast-glob";
 import * as fs from "fs";
-import { join, basename } from "path";
+import { basename, join } from "path";
 
 import alias from "@rollup/plugin-alias";
 import { dts } from "rollup-plugin-dts";
@@ -14,7 +14,6 @@ import {
   arg,
   compilePlugin,
   env,
-  ExternalScriptTarget,
   getPackageReferenceString,
   getPackageVersion,
   packageJsonPlugin,
@@ -40,21 +39,28 @@ const BIN_SCRIPT_POSTFIX = ".bin.ts";
 // This is useful for local development from other projects.
 const usePathReferences = !!arg("--paths");
 
+/** The optional file that contains type definitions for index.js based packages. */
+const CJS_TYPES_FILE = "_types.ts";
+
+const isTsFile = (name: string) => name.match(/\.tsx?$/gi);
+
 export const getDistBundles = async ({
   variables = {},
-  subPackages = {},
   watchFiles,
-  jsPackages,
 }: {
   variables?: Record<string, any>;
   subPackages?: Record<string, string>;
   watchFiles?: (input: string) => string[] | void;
   /** Packages that will be copied directly to the output. */
-  jsPackages?: Record<
-    string,
-    { path: string; entries: string[]; exports?: (root: string) => any }
-  >;
 } = {}): Promise<RollupOptions[]> => {
+  const subPackages: Record<string, { path: string; cjs: boolean }> = {};
+  let jsPackages:
+    | Record<
+        string,
+        { path: string; entries: string[]; exports?: (root: string) => any }
+      >
+    | undefined;
+
   const pkg = await env();
   // Bundle these scripts separately.
 
@@ -74,8 +80,19 @@ export const getDistBundles = async ({
             path.substring(basePath.length + 1),
             subPackageName
           );
+          let pkgJson: any = undefined;
+          if (fs.existsSync(join(subPath, "package.json"))) {
+            pkgJson = JSON.parse(
+              await fs.promises.readFile(join(subPath, "package.json"), "utf-8")
+            );
+          }
+          let cjs = !!pkgJson?.["cjs"];
+          if (cjs) {
+            delete pkgJson["cjs"];
+          }
+
           if (!fs.existsSync(join(subPath, "index.ts"))) {
-            if (!fs.existsSync(join(subPath, "package.json"))) {
+            if (!pkgJson) {
               throw new Error(
                 "Packages without an index.ts must have their own package.json (they are copied directly to the output directory)."
               );
@@ -93,20 +110,18 @@ export const getDistBundles = async ({
               }
               return obj;
             };
-            const exports = JSON.parse(
-              await fs.promises.readFile(join(subPath, "package.json"), "utf-8")
-            ).exports;
+            const exports = pkgJson.exports;
 
             (jsPackages ??= {})[subPath] = {
               path: distPath,
               entries: (await fs.promises.readdir(subPath))
-                .filter((name) => name.endsWith(".ts"))
+                .filter((name) => isTsFile(name))
                 .map((name) => join(subPath, name)),
               exports: (root) =>
                 prependPackagePath(exports, root + subPackageName),
             };
           } else {
-            subPackages[join(subPath, "index.ts")] = distPath;
+            subPackages[join(subPath, "index.ts")] = { path: distPath, cjs };
           }
         }
         applyFileConventions(subPath, basePath);
@@ -130,12 +145,14 @@ export const getDistBundles = async ({
     input: string;
     target: string;
     isFile?: boolean;
+    cjsOnly?: boolean;
   }[] = [
     { input: "src/index.ts", target: "" },
     ...binScripts.map((script) => ({ input: script.src, target: "cli" })),
     ...Object.entries(subPackages).map(([input, target]) => ({
       input,
-      target,
+      target: target.path,
+      cjsOnly: target.cjs,
     })),
     ...Object.values(jsPackages ?? {}).flatMap((subPkg) =>
       subPkg.entries.map((input) => ({
@@ -147,7 +164,7 @@ export const getDistBundles = async ({
   ];
 
   const bundles = [
-    ...entries.flatMap(({ input, target, isFile }, i) => {
+    ...entries.flatMap(({ input, target, isFile, cjsOnly }, i) => {
       const preserveModules = PRESERVE_MODULES && !i;
       return [
         applyDefaultConfiguration({
@@ -175,45 +192,36 @@ export const getDistBundles = async ({
                 ? [
                     {
                       name: "copy-js-packages",
-                      async buildEnd() {
+                      buildEnd() {
                         for (const [src, target] of Object.entries(
                           jsPackages!
                         )) {
-                          const targets = destinations.flatMap((path) =>
+                          const targets = destinations.map((path) =>
                             join(path, target.path)
                           );
                           for (const target of targets) {
-                            const cpf = async (src: string, target: string) => {
+                            const cpf = (src: string, target: string) => {
                               if (!fs.existsSync(target)) {
-                                await fs.promises.mkdir(target, {
+                                fs.mkdirSync(target, {
                                   recursive: true,
                                 });
                               }
-                              for (const file of await fs.promises.readdir(
-                                src
-                              )) {
-                                if (file.endsWith(".ts")) {
+                              for (const file of fs.readdirSync(src)) {
+                                if (isTsFile(file)) {
                                   continue;
                                 }
                                 if (
                                   fs.statSync(join(src, file)).isDirectory()
                                 ) {
-                                  await cpf(
-                                    join(src, file),
-                                    join(target, file)
-                                  );
+                                  cpf(join(src, file), join(target, file));
                                   continue;
                                 }
-                                await fs.promises.cp(
-                                  join(src, file),
-                                  join(target, file),
-                                  {
-                                    recursive: true,
-                                  }
-                                );
+                                fs.cpSync(join(src, file), join(target, file), {
+                                  recursive: true,
+                                });
                               }
                             };
-                            await cpf(src, target);
+                            cpf(src, target);
                           }
                         }
                       },
@@ -279,38 +287,49 @@ export const getDistBundles = async ({
 
                       const getExports = (root = "./") => ({
                         main: root + "index.cjs",
-                        module: root + "index.mjs",
+                        ...(!cjsOnly ? { module: root + "index.mjs" } : {}),
                         types: root + "index.d.ts",
                         exports: {
                           ".": {
-                            import: {
-                              types: root + "index.d.ts",
-                              default: root + "index.mjs",
-                            },
+                            ...(!cjsOnly
+                              ? {
+                                  import: {
+                                    types: root + "index.d.ts",
+                                    default: root + "index.mjs",
+                                  },
+                                }
+                              : {}),
                             require: {
                               types: root + "index.d.ts",
                               default: root + "index.cjs",
                             },
                           },
                           ...Object.fromEntries(
-                            Object.entries(subPackages).map(([entry, name]) => {
-                              const types = entry.endsWith(".ts")
-                                ? { types: root + name + "/index.d.ts" }
-                                : {};
-                              return [
-                                "./" + name,
-                                {
-                                  import: {
-                                    ...types,
-                                    default: root + name + "/index.mjs",
-                                  },
-                                  require: {
-                                    ...types,
-                                    default: root + name + "/index.cjs",
-                                  },
-                                },
-                              ];
-                            })
+                            Object.entries(subPackages).map(
+                              ([entry, { path, cjs }]) => {
+                                const types = isTsFile(entry)
+                                  ? { types: root + path + "/index.d.ts" }
+                                  : {};
+                                return [
+                                  "./" + path,
+                                  cjs
+                                    ? {
+                                        ...types,
+                                        default: root + path + "/index.cjs",
+                                      }
+                                    : {
+                                        import: {
+                                          ...types,
+                                          default: root + path + "/index.mjs",
+                                        },
+                                        require: {
+                                          ...types,
+                                          default: root + path + "/index.cjs",
+                                        },
+                                      },
+                                ];
+                              }
+                            )
                           ),
                           ...Object.assign(
                             {},
@@ -352,7 +371,7 @@ export const getDistBundles = async ({
                       return {
                         private: true,
                         main: "index.cjs",
-                        module: "index.mjs",
+                        ...(!cjsOnly ? { module: "index.mjs" } : {}),
                         types: "index.d.ts",
                       };
                     }
@@ -384,14 +403,14 @@ export const getDistBundles = async ({
           // },
           output: destinations.flatMap((path) => {
             const dir = join(path, target);
+            if (target === CJS_TYPES_FILE) {
+              return [];
+            }
 
             return (
               isFile
                 ? [["cjs", ".js"]]
-                : [
-                    ["es", ".mjs"],
-                    ["cjs", ".cjs"],
-                  ]
+                : [...(!cjsOnly ? [["es", ".mjs"]] : []), ["cjs", ".cjs"]]
             ).map(([format, extension]: [ModuleFormat, string]) => ({
               sourcemap: false,
               // preserveModules,
@@ -402,6 +421,7 @@ export const getDistBundles = async ({
               manualChunks: (id, { getModuleInfo }) => {
                 const module = getModuleInfo(id);
                 if (
+                  !isFile &&
                   module?.meta?.preserveDirectives?.directives?.includes(
                     "use client"
                   )
@@ -415,7 +435,9 @@ export const getDistBundles = async ({
             }));
           }),
         }),
-        ...(target === "cli" || !input.endsWith(".ts") || isFile
+        ...(target === "cli" ||
+        !isTsFile(input) ||
+        (isFile && input !== CJS_TYPES_FILE)
           ? [] // No typings for CLI scripts.
           : (Array.isArray(input) ? input : [input]).map((input) => {
               return applyDefaultConfiguration({
@@ -430,7 +452,10 @@ export const getDistBundles = async ({
                   const dir = join(path, target);
                   return {
                     dir,
-                    ...applyChunkNames(".d.ts"),
+                    ...applyChunkNames(
+                      ".d.ts",
+                      input === "_types.ts" ? "index" : undefined
+                    ),
                   };
                 }),
               });

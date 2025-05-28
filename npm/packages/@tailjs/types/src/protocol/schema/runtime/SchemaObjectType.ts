@@ -5,7 +5,6 @@ import {
   SchemaObjectTypeDefinition,
   SchemaProperty,
   SchemaPropertyType,
-  SchemaSystemTypeDefinition,
   SchemaTypeDefinition,
   SchemaTypeSystemRole,
   ValidatableSchemaEntity,

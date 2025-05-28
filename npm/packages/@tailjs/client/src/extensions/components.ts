@@ -1,14 +1,16 @@
 import {
-  ComponentClickIntentEvent,
   type ActivatedComponent,
   type ActivatedContent,
+  type ComponentClickIntentEvent,
   type ConfiguredComponent,
   type Rectangle,
+  type TrackingBoundaryData,
   type UserInteractionEvent,
+  normalizeTrackingData,
+  updateTrackingData,
 } from "@tailjs/types";
 import {
   F,
-  MaybeUndefined,
   Nullish,
   T,
   array,
@@ -25,21 +27,23 @@ import {
   update,
 } from "@tailjs/util";
 import {
-  BoundaryCommand,
-  BoundaryData,
   TrackerExtensionFactory,
-  isDataBoundaryCommand,
+  TrackingBoundaryDataCommand,
   isScanComponentsCommand,
+  isTrackingDataCommand,
 } from "..";
 import {
   NodeWithParentElement,
   boundaryData,
   createImpressionObserver,
   forAncestorsOrSelf,
+  getBoundaryData,
   getRect,
   parseTags,
   scanAttributes,
+  trackerFlag,
   trackerProperty,
+  uniqueTags,
 } from "../lib";
 export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 
@@ -48,12 +52,12 @@ export const componentDomConfiguration = Symbol("DOM configuration");
 export const parseActivationTags = (el: Element) =>
   parseTags(el, undefined, (el) => filter(array(boundaryData.get(el)?.tags)));
 
-const hasComponentOrContent = (boundary?: BoundaryData<true> | null) =>
+const hasComponentOrContent = (boundary?: TrackingBoundaryData<true> | null) =>
   boundary?.component || boundary?.content;
 
-let entry: BoundaryData<true> | undefined;
-export const parseBoundaryTags = (el: Element) => {
-  return parseTags(
+let entry: TrackingBoundaryData<true> | undefined;
+export const parseBoundaryTags = (el: Element, unique = true) => {
+  const parsed = parseTags(
     el,
     (ancestor) =>
       ancestor !== el && !!hasComponentOrContent(boundaryData.get(ancestor)),
@@ -69,6 +73,11 @@ export const parseBoundaryTags = (el: Element) => {
       );
     }
   );
+  if (unique && parsed.tags) {
+    parsed.tags = uniqueTags(parsed.tags);
+  }
+
+  return parsed;
 };
 
 let content: ActivatedContent[] | undefined;
@@ -92,11 +101,26 @@ const enum IncludeState {
   Promoted = 2,
 }
 
+export const checkTrackingEnabled = (el: NodeWithParentElement | Nullish) =>
+  forAncestorsOrSelf(el, (el, returnValue) => {
+    let disabledSetting =
+      getBoundaryData(el)?.tracking?.disable || trackerFlag(el, "disable");
+    if (disabledSetting != null) {
+      returnValue(disabledSetting);
+    }
+  }) !== true;
+
 export const getComponentContext = (
   el: NodeWithParentElement,
   directOnly = F,
   includeRegion?: boolean | Nullish
-) => {
+):
+  | {
+      components?: ActivatedComponent[];
+      content?: ActivatedContent[];
+      area?: string;
+    }
+  | undefined => {
   let collectedContent: ActivatedContent[] = [];
 
   type Area = {} & string; // For clarity.
@@ -105,8 +129,19 @@ export const getComponentContext = (
   let includeState = IncludeState.Secondary;
   let rect: Rectangle | undefined;
 
+  const uniqueContent = (content: ActivatedContent[]) => {
+    if (content.length <= 1) {
+      return content;
+    }
+    const seen = new Set<string>();
+    return content.filter((item) => {
+      const key = item.id + item.name;
+      return seen.has(key) ? false : seen.add(key);
+    });
+  };
+
   forAncestorsOrSelf(el, (el) => {
-    const entry = boundaryData.get(el);
+    const entry = getBoundaryData(el);
     if (!entry) {
       return;
     }
@@ -118,13 +153,13 @@ export const getComponentContext = (
             includeState === IncludeState.Secondary ||
             (!directOnly &&
               ((includeState === IncludeState.Primary &&
-                entry.track?.secondary !== T) ||
-                entry.track?.promote))
+                entry.tracking?.secondary !== T) ||
+                entry.tracking?.promote))
           );
         }) ?? [];
 
       rect =
-        ((includeRegion ?? some(components, (item) => item.track?.region)) &&
+        ((includeRegion ?? some(components, (item) => item.tracking?.region)) &&
           getRect(el)) ||
         undefined;
       const tags = parseBoundaryTags(el);
@@ -144,7 +179,7 @@ export const getComponentContext = (
             (item) => (
               (includeState = max([
                 includeState,
-                item.track?.secondary // INV: Secondary components are only included here if we did not have any components from a child element.
+                item.tracking?.secondary // INV: Secondary components are only included here if we did not have any components from a child element.
                   ? IncludeState.Primary
                   : IncludeState.Promoted,
               ])),
@@ -152,7 +187,7 @@ export const getComponentContext = (
                 {
                   ...item,
                   content: collectedContent.length
-                    ? collectedContent
+                    ? uniqueContent(collectedContent)
                     : undefined,
                   rect,
                   ...tags,
@@ -172,11 +207,6 @@ export const getComponentContext = (
   let areaPath: string[] | undefined;
   let components: ActivatedComponent[] | undefined;
 
-  if (collectedContent.length) {
-    // Content without a containing component is gathered in an ID-less component.
-    collected.push(stripRects({ id: "", rect, content: collectedContent }));
-  }
-
   forEach(collected, (item) => {
     if (isString(item)) {
       (areaPath ??= []).push(item);
@@ -186,8 +216,15 @@ export const getComponentContext = (
     }
   });
 
-  return components || areaPath
-    ? { components: components, area: join(areaPath, "/") }
+  return components || areaPath || collectedContent.length
+    ? {
+        components: components,
+        area: join(areaPath, "/"),
+        content:
+          collectedContent.length > 0
+            ? uniqueContent(collectedContent)
+            : undefined,
+      }
     : undefined;
 };
 
@@ -196,34 +233,14 @@ export const components: TrackerExtensionFactory = {
   setup(tracker) {
     const impressions = createImpressionObserver(tracker);
 
-    const normalizeBoundaryData = <T extends BoundaryData | Nullish>(
-      data: T
-    ): MaybeUndefined<T, BoundaryData<true>> =>
-      data == null
-        ? (undefined as any)
-        : ({
-            ...data,
-            component: array(data.component),
-            content: array(data.content),
-            tags: array(data.tags),
-          } as BoundaryData<true>);
-
     const registerComponent = ({
       boundary: el,
       ...command
-    }: BoundaryCommand) => {
+    }: TrackingBoundaryDataCommand) => {
       update(boundaryData, el, (current) => {
-        return normalizeBoundaryData(
+        return normalizeTrackingData(
           "add" in command
-            ? {
-                ...current,
-                component: concat(current?.component, command.component),
-                content: concat(current?.content, command.content),
-                area: command?.area ?? current?.area,
-                tags: concat(current?.tags, command.tags),
-                cart: command.cart ?? current?.cart,
-                track: { ...current?.track, ...command.track },
-              }
+            ? updateTrackingData(current, boundaryData)
             : "update" in command
             ? command.update(current)
             : command
@@ -245,7 +262,7 @@ export const components: TrackerExtensionFactory = {
         });
       },
       processCommand(cmd) {
-        return isDataBoundaryCommand(cmd)
+        return isTrackingDataCommand(cmd)
           ? (registerComponent(cmd), T)
           : isScanComponentsCommand(cmd)
           ? (forEach(

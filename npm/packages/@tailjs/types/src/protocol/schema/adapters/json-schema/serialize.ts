@@ -96,6 +96,10 @@ const serializeType = (type: SchemaObjectType) => {
     properties: {},
   } as any;
 
+  if (type.system) {
+    jsonType["x-system-type"] = type.system;
+  }
+
   forEach(type.ownProperties, ([name, property]) => {
     jsonType.properties[name] = serializeProperty(property.type);
     if (property.required) {
@@ -114,10 +118,12 @@ const serializeType = (type: SchemaObjectType) => {
     };
   }
 
-  return {
-    $anchor: type.name,
-    ...jsonType,
-  };
+  return type.embedded
+    ? jsonType
+    : {
+        $anchor: type.name,
+        ...jsonType,
+      };
 };
 
 export const serializeSchema = (
@@ -136,6 +142,9 @@ export const serializeSchema = (
     const defs = (jsonSchema.$defs = {});
 
     for (const [name, type] of schema.types) {
+      if (type.embedded) {
+        continue;
+      }
       defs[name] = {
         $anchor: getJsonRef(type),
         ...serializeType(type),
@@ -150,6 +159,6 @@ export const serializeSchema = (
       );
     }
 
-    return JSON.stringify(jsonSchema, null, 2);
+    return jsonSchema;
   }
 };

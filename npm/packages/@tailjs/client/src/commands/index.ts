@@ -2,9 +2,9 @@ export * from "./TrackerCommand";
 
 export * from "./CartCommand";
 export * from "./ChangeUserCommand";
-export * from "./ConfigCommand";
+export * from "./TagAttributesCommand";
 export * from "./ToggleCommand";
-export * from "./BoundaryCommand";
+export * from "./TrackingBoundaryDataCommand";
 export * from "./ExtensionCommand";
 export * from "./FlushCommand";
 export * from "./FormCommand";
@@ -16,3 +16,4 @@ export * from "./SetCommand";
 export * from "./TrackerAvailableCommand";
 export * from "./ViewCommand";
 export * from "./ConsentCommand";
+export * from "./ConfigurationCommand";

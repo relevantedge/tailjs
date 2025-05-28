@@ -6,13 +6,14 @@ export const CLIENT_SCRIPT_QUERY = "opt";
 export const EVENT_HUB_QUERY = "var";
 export const VARIABLES_QUERY = "usr";
 export const CONTEXT_NAV_QUERY = "mnt";
-export const SCHEMA_QUERY = "$types";
+export const SCHEMA_TYPES_QUERY = "$types";
 export const BUILD_REVISION_QUERY = globalThis.REVISION
   ? "rev=" + globalThis.REVISION
   : "";
 
 export const SCOPE_INFO_KEY = "@info";
 export const CONSENT_INFO_KEY = "@consent";
+export const SESSION_DEVICE_INFO_KEY = "@device_info";
 export const SESSION_REFERENCE_KEY = "@session_reference";
 
 export const PATCH_EVENT_POSTFIX = "_patch";

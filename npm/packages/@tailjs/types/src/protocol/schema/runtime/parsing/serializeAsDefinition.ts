@@ -68,23 +68,9 @@ export const serializeAsDefinitions = (
     };
     definitions.push(definition);
     forEach(schema.types, ([typeName, type]) => {
-      (definition.types ??= {})[typeName] = {
-        version: type.version,
-        description: type.description,
-        abstract: type.abstract,
-        ...type.usage,
-        extends: type.extends.map((type) => formatQualifiedTypeName(type)),
-        system: (type.source as SchemaSystemTypeDefinition).system,
-        properties: obj(type.ownProperties, ([key, property]) => [
-          key,
-          {
-            ...serializePropertyType(property.type),
-            description: property.description,
-            ...property.usage,
-            required: property.required,
-          } satisfies SchemaPropertyDefinition,
-        ]),
-      } as SchemaSystemTypeDefinition;
+      if (!type.embedded) {
+        (definition.types ??= {})[typeName] = serializeObjectType(type);
+      }
     });
 
     forEach(schema.variables, ([scope, variables]) => {
@@ -104,10 +90,32 @@ export const serializeAsDefinitions = (
   return definitions;
 };
 
+const serializeObjectType = (type: SchemaObjectType) =>
+  ({
+    version: type.version,
+    description: type.description,
+    abstract: type.abstract,
+    ...type.usage,
+    extends: type.extends.map((type) => formatQualifiedTypeName(type)),
+    system: (type.source as SchemaSystemTypeDefinition).system,
+    properties: obj(type.ownProperties, ([key, property]) => [
+      key,
+      {
+        ...serializePropertyType(property.type),
+        description: property.description,
+        ...property.usage,
+        required: property.required,
+      } satisfies SchemaPropertyDefinition,
+    ]),
+  } as SchemaSystemTypeDefinition);
+
 const serializePropertyType = (
   type: SchemaPropertyType
 ): AnySchemaTypeDefinition => {
   if (isSchemaObjectType(type)) {
+    if (type.embedded) {
+      return serializeObjectType(type);
+    }
     return {
       reference: formatQualifiedTypeName(type),
     };

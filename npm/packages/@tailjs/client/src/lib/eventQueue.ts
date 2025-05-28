@@ -143,10 +143,7 @@ export const createEventQueue = (
       } else {
         const snapshot = snapshots.get(sourceEvent);
         const patched = source(snapshot, unbind);
-        debug(
-          { diff: { snapshot, patched }, stack: new Error().stack },
-          "Patch " + snapshot.type
-        );
+        //debug({ diff: { snapshot, patched } }, "Patch " + snapshot.type);
 
         let [delta, current] = diff(patched, snapshot) ?? [];
 

@@ -67,8 +67,8 @@ export const forms: TrackerExtensionFactory = {
     const formEvents = new Map<HTMLFormElement, FormState>();
 
     const getFormFieldValue = (element: any, tracked = false): string => {
-      let include =
-        !tracked || scopeAttribute(element, trackerPropertyName("form-value"));
+      let include = true as any;
+      //!tracked || scopeAttribute(element, trackerPropertyName("form-value"));
 
       tracked &&
         (include = include
@@ -350,6 +350,7 @@ export const forms: TrackerExtensionFactory = {
           ([name, value]) => (value.lastField = name === field.name)
         );
       }
+
       field.value = getFormFieldValue(el, true);
 
       field.activeTime! += active;

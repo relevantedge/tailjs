@@ -2,7 +2,10 @@
 import { motion } from "framer-motion";
 import React, { createContext, lazy, Suspense, useState } from "react";
 
-const ThemeContext = createContext("light");
+const ThemeContext = createContext({
+  name: "light",
+  componentId: "provider-component",
+});
 
 export function InputTest() {
   return <input type="text" />;
@@ -62,7 +65,7 @@ export function MotionContextComponent({
           {nest && (
             <MotionContextComponent isVisible={isVisible} nest={false} />
           )}
-          {value}
+          {value.name}
         </motion.div>
       )}
     </ThemeContext.Consumer>
@@ -70,6 +73,10 @@ export function MotionContextComponent({
 }
 
 export const Gazonk = lazy(() => import("./Deferred"));
+
+export function SimpleTest2({ text }: { text: string; componentId?: string }) {
+  return <div>{text}</div>;
+}
 
 export function SimpleTest({ text }: { text: string }) {
   return text;
@@ -104,7 +111,12 @@ export function MotionTest() {
       >
         One more
       </button>
-      <ThemeContext.Provider value={`There are ${state.n} items.`}>
+      <ThemeContext.Provider
+        value={{
+          name: `There are ${state.n} items.`,
+          componentId: "provider-component",
+        }}
+      >
         {[...Array(state.n).keys()].map((i) => (
           <MotionComponent
             key={i}
@@ -113,6 +125,7 @@ export function MotionTest() {
           />
         ))}
       </ThemeContext.Provider>
+      <SimpleTest2 text="Hello" componentId="123" />
       <div>
         Lazies:
         <Gazonk />

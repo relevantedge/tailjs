@@ -24,8 +24,10 @@ import {
   parseUri,
   replace,
   skip,
+  structuralEquals,
 } from "@tailjs/util";
 import {
+  CurrentView,
   TrackerExtensionFactory,
   isChangeUserCommand,
   isViewCommand,
@@ -129,7 +131,7 @@ export const context: TrackerExtensionFactory = {
       () =>
         forEach(
           frames,
-          (frame) => add(knownFrames, frame) && callOnFrame(frame)
+          (frame: any) => add(knownFrames, frame) && callOnFrame(frame)
         ),
       500
     ).trigger();
@@ -145,16 +147,19 @@ export const context: TrackerExtensionFactory = {
     tracker.variables.get({
       scope: "view",
       key: "view",
-      poll: (definition) => {
+      poll: (definition: CurrentView | undefined) => {
         if (
           currentViewEvent == null ||
           !definition ||
           currentViewEvent?.definition
         ) {
-          // Buffer for next navigation.
-          pendingViewDefinition = definition;
+          if (!structuralEquals(currentViewEvent?.definition, definition)) {
+            // Buffer for next navigation if different from the current.
+            // Otherwise, it is most likely just from a component re-render (if not `navigation` must be used).
+            pendingViewDefinition = definition;
+          }
           if (definition?.navigation) {
-            // Post view registered. This was custom navigation that we are not normally intercepting.
+            // Post the current view, and start a new one. This was custom navigation that we are not normally intercepting.
             postView(true);
           }
         } else {

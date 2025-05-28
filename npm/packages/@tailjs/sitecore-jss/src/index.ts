@@ -1,1 +1,1 @@
-export * from "./state-mapper";
+export * from "./sitecore-state-mapper";

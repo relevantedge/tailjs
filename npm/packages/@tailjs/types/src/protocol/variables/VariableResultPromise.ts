@@ -288,7 +288,7 @@ type MapVariableResult<
           : Operation extends { value?: null | undefined }
           ? Type extends "value"
             ? undefined
-            : Result & { value?: undefined }
+            : Result & { version?: undefined; value?: undefined }
           : Type extends "value"
           ? Result["value"] & Operation[keyof Operation & "value"]
           : Result & Pick<Operation, keyof Operation & "value">
@@ -334,7 +334,7 @@ export type VariableResultPromise<
           ScopeTemplate
         >
       >;
-      require<T extends {} = {}>(): Promise<
+      successOnly<T extends {} = {}>(): Promise<
         MatchScopes<
           MapVariableResult<Operations, "success", true, KnownTypes, T>,
           ScopeTemplate
@@ -598,7 +598,7 @@ export const toVariableResultPromise = <
     {
       as: () => mapResults(1, false),
       all: () => mapResults(0, false),
-      require: () => mapResults(1, true),
+      successOnly: () => mapResults(1, true),
       value: (require = false) => mapResults(2, require),
       values: (require = false) => mapResults(2, require),
     }

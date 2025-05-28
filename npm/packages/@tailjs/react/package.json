@@ -15,7 +15,9 @@
   "dependencies": {
     "@tailjs/client": "workspace:*",
     "@tailjs/types": "workspace:*",
-    "@tailjs/util": "workspace:*"
+    "@tailjs/util": "workspace:*",
+    "enhanced-resolve": "^5.18.1",
+    "resolve-from": "^5.0.0"
   },
   "peerDependencies": {
     "react": ">=18.3.1",
@@ -55,17 +57,12 @@
       }
     },
     "./webpack": {
-      "import": {
-        "types": "./dist/webpack/index.d.ts",
-        "default": "./dist/webpack/index.mjs"
-      },
-      "require": {
-        "types": "./dist/webpack/index.d.ts",
-        "default": "./dist/webpack/index.cjs"
-      }
+      "types": "./dist/webpack/index.d.ts",
+      "default": "./dist/webpack/index.cjs"
     },
     "./jsx": "./dist/jsx/index.js",
     "./jsx/jsx-runtime": "./dist/jsx/jsx-runtime.js",
-    "./jsx/jsx-dev-runtime": "./dist/jsx/jsx-dev-runtime.js"
+    "./jsx/jsx-dev-runtime": "./dist/jsx/jsx-dev-runtime.js",
+    "./jsx/react-dom": "./dist/jsx/react-dom.js"
   }
 }

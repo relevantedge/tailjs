@@ -245,7 +245,13 @@ export const parsePropertyType = (
           "Object-typed properties can only be parsed in the context of a named property (none was provided)."
         );
       }
-      return parseType(definition, parseContext, property, typeNamePostfix);
+      const type = parseType(
+        definition,
+        parseContext,
+        property,
+        typeNamePostfix
+      );
+      return type;
     }
 
     if (!("union" in definition)) {

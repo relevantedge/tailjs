@@ -4,14 +4,18 @@ import { createClientConfiguration } from "@tailjs/next";
 export default createClientConfiguration({
   tracker: {
     map: (state, type, props) => {
+      console.log(type);
+      if (props.value?.name) {
+        return { content: { id: props.value.name } };
+      }
+      if (props?.componentId) {
+        return { component: { id: props?.componentId } };
+      }
       if (props?.component) {
         // When using a headless CMS, you typically get the page and component data, and the layout is rendered dynamically.
         // Use the properties passed to the components handling this to map to tail.js component and content data.
         return { component: { id: props.component.id ?? "unknown component" } };
       }
-      if (type === "a" && props?.href) {
-        return { tags: [{ name: "link", value: props?.href }] };
-      }
     },
   },
-});      
+});

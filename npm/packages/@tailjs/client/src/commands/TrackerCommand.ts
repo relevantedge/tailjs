@@ -1,6 +1,6 @@
 import { TrackedEvent } from "@tailjs/types";
 import type {
-  BoundaryCommand,
+  TrackingBoundaryDataCommand,
   CartCommand,
   ChangeUserCommand,
   ConsentCommand,
@@ -15,6 +15,7 @@ import type {
   ToggleCommand,
   UseTrackerCommand,
   ViewCommand,
+  ConfigurationCommand,
 } from "..";
 import { Nullish } from "@tailjs/util";
 
@@ -33,13 +34,14 @@ export type TrackerCommand =
       | TagAttributesCommand
       | ToggleCommand
       | ViewCommand
-      | BoundaryCommand
+      | TrackingBoundaryDataCommand
       | ChangeUserCommand
       | CartCommand
       | OrderCommand
       | FormCommand
       | ConsentCommand
       | UseTrackerCommand
+      | ConfigurationCommand
     ) &
       UnlockApiCommand;
 

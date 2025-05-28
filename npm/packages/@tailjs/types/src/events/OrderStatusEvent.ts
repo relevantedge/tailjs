@@ -19,14 +19,14 @@ export interface OrderStatusEvent extends TrackedEvent {
  *
  * This event should also imply that the user got a confirmation.
  */
-export interface OrderConfirmedEvent extends TrackedEvent {
+export interface OrderConfirmedEvent extends OrderStatusEvent {
   type: "order_confirmed";
 }
 
 /**
  * An order was cancelled.
  */
-export interface OrderCancelledEvent extends TrackedEvent {
+export interface OrderCancelledEvent extends OrderStatusEvent {
   type: "order_cancelled";
 
   /**
@@ -40,7 +40,7 @@ export interface OrderCancelledEvent extends TrackedEvent {
 /**
  * An order was cancelled.
  */
-export interface OrderCompletedEvent extends TrackedEvent {
+export interface OrderCompletedEvent extends OrderStatusEvent {
   type: "order_completed";
 }
 export const isOrderCancelledEvent =

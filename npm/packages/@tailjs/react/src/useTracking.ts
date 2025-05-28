@@ -1,11 +1,9 @@
-import type { BoundaryData } from "@tailjs/client/external";
-
-export type UseTrackingOptions = BoundaryData;
+import type { TrackingBoundaryData } from "@tailjs/types";
 
 export function useTracking(
-  update: (current: UseTrackingOptions | null) => UseTrackingOptions
+  update: (current: TrackingBoundaryData | null) => TrackingBoundaryData
 ): void;
-export function useTracking(data: UseTrackingOptions): void;
+export function useTracking(data: TrackingBoundaryData): void;
 export function useTracking(data: any) {
   // TODO: Add a tracker component.
   console.warn(

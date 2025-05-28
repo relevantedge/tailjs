@@ -255,7 +255,9 @@ export type DenyExtraProperties<T, Template> = unknown extends Template
  * Picks the specified keys from each type in a union.
  */
 export type PickUnion<T, K extends keyof any> = T extends infer T
-  ? Pick<T, K & keyof T>
+  ? Pick<T, K & keyof T> extends infer T
+    ? { [P in keyof T]: T[P] }
+    : never
   : never;
 
 /**

@@ -1,17 +1,22 @@
 const original = require("react");
-const { updateConfig, TrackerBoundary } = require("./visit.js");
+const { updateConfig } = require("./visit.js");
 const { createElement } = original;
 const { visit } = require("./bootstrap.js");
+const { TrackingBoundary } = require("./TrackingBoundary.js");
+
+const factory = (type, props, key) =>
+  createElement(type, key != null ? { ...props, key } : props);
 
 module.exports = {
   ...original,
   createElement(type, props, ...children) {
-    const updated = visit("createElement", type, props, children);
+    const updated = visit(factory, type, props, children);
 
     return updated
       ? createElement(updated.type, updated.props)
       : createElement(type, props, ...children);
   },
   updateConfig,
-  TrackerBoundary,
+  TrackingBoundary,
+  __original: original,
 };

@@ -28,6 +28,12 @@ export type KeyValueProjection<K, V, R> = (
   index: number
 ) => R;
 
+export type NotIterable = {
+  [Symbol.iterator]?: never;
+};
+
+export type AnyRecordType = { [P in keyof any]?: any };
+
 /**
  * Anything but a promise.
  */
@@ -345,9 +351,9 @@ export const parseBoolean = createTypeConverter(isBoolean, (value) =>
     ? false
     : value == 1
     ? true
-    : value === "false"
+    : value === "false" || value === "no"
     ? false
-    : value === "true"
+    : value === "true" || value === "yes"
     ? true
     : undefined
 );

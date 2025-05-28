@@ -1,7 +1,11 @@
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
 
 import { createTransport } from "@tailjs/transport";
-import { isTrackedEvent } from "@tailjs/types";
+import {
+  clearSchemaMetadata,
+  isTrackedEvent,
+  updateTrackingData,
+} from "@tailjs/types";
 import {
   F,
   FOREVER,
@@ -11,6 +15,8 @@ import {
   filter,
   flatMap,
   forEach,
+  formatDuration,
+  formatTimestamp,
   isArray,
   isJsonString,
   isString,
@@ -32,7 +38,9 @@ import {
   TrackerCommand,
   TrackerExtension,
   TrackerExtensionFactory,
+  checkTrackingEnabled,
   defaultExtensions,
+  isConfigurationCommand,
   isExtensionCommand,
   isFlushCommand,
   isGetCommand,
@@ -54,12 +62,15 @@ import {
   createVariableStorage,
   debug,
   errorLogger,
+  getBoundaryData,
   httpDecode,
   isTracker,
   logError,
   nextId,
+  setBoundaryData,
   setStorageKey,
   trackerConfig,
+  trackerFlag,
   window,
 } from "./lib";
 
@@ -149,6 +160,16 @@ export const initializeTracker = (
   // Main
   const events = createEventQueue(VAR_URL, trackerContext);
 
+  let boundaryDataDefaults = updateTrackingData(
+    getBoundaryData(document.documentElement),
+    getBoundaryData(document.body)
+  );
+
+  if (!checkTrackingEnabled(document.body)) {
+    ((boundaryDataDefaults ??= {}).tracking ??= {}).disable = true;
+    trackerConfig.disabled = true;
+  }
+
   let mainArgs: TrackerCommand[] | null = nil;
   let currentArg = 0;
   let insertArgs = F;
@@ -201,6 +222,15 @@ export const initializeTracker = (
         } else if (isToggleCommand(command)) {
           trackerConfig.disabled = command.disable;
           return F;
+        } else if (isConfigurationCommand(command)) {
+          boundaryDataDefaults = updateTrackingData(boundaryDataDefaults, {
+            tracking: command.tracking,
+          })?.tracking;
+
+          if (boundaryDataDefaults?.tracking?.disable != null) {
+            trackerConfig.disabled = boundaryDataDefaults.tracking.disable;
+          }
+          setBoundaryData(document.body, boundaryDataDefaults);
         } else if (isFlushCommand(command)) {
           flush = T;
           return F;
@@ -221,7 +251,7 @@ export const initializeTracker = (
       }
     );
 
-    if (!commands || (!commands.length && !flush)) {
+    if (!commands || (!commands.length && !flush) || trackerConfig.disabled) {
       return;
     }
 
@@ -337,7 +367,7 @@ export const initializeTracker = (
     // Make sure we have a session on the server before posting anything.
     // As part of this, we also get the device session ID.
     if (event === "ready") {
-      const [session, consent] = await variables
+      const [session, consent, deviceInfo] = await variables
         .get([
           {
             scope: "session",
@@ -352,8 +382,41 @@ export const initializeTracker = (
             refresh: true,
             cache: FOREVER,
           },
+          {
+            scope: "device",
+            key: SCOPE_INFO_KEY,
+            cache: true,
+          },
         ])
-        .values(true);
+        .values(false);
+
+      if (!session) {
+        console.warn("No session. Tracking is disabled;");
+        return;
+      }
+
+      debug(
+        {
+          consent: clearSchemaMetadata(consent),
+          session: {
+            firstSeenDate: formatTimestamp(session.firstSeen),
+            lastSeenDate: formatTimestamp(session.lastSeen),
+            duration: formatDuration(session.lastSeen - session.firstSeen),
+            ...clearSchemaMetadata(session),
+          },
+          device: deviceInfo
+            ? {
+                firstSeenDate: formatTimestamp(deviceInfo.firstSeen),
+                lastSeenDate: formatTimestamp(deviceInfo.lastSeen),
+                duration: formatDuration(
+                  deviceInfo.lastSeen - deviceInfo.firstSeen
+                ),
+                ...clearSchemaMetadata(deviceInfo),
+              }
+            : "(anonymous session)",
+        },
+        "Session and device info"
+      );
 
       trackerContext.deviceSessionId = session.deviceSessionId;
 

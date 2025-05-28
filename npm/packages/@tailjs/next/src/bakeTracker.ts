@@ -1,4 +1,3 @@
-import type { BoundaryData } from "@tailjs/client";
 import Script, { ScriptProps } from "next/script.js";
 import React, { FunctionComponent, PropsWithChildren } from "react";
 

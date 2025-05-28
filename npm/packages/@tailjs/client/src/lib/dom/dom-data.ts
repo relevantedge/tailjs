@@ -2,7 +2,9 @@ import {
   ParsableTags,
   TagCollection,
   collectTags,
+  normalizeTrackingData,
   type Tag,
+  type TrackingBoundaryData,
 } from "@tailjs/types";
 import {
   F,
@@ -10,18 +12,23 @@ import {
   concat,
   flatMap,
   forEach,
+  group,
   isFunction,
   isIterable,
   isPlainObject,
   isRegEx,
   isString,
   join,
+  map,
   matches,
   nil,
   parseBoolean,
+  parseJson,
   parseRegex,
   replace,
+  some,
   stop,
+  sum,
   testRegex,
   type Nullish,
 } from "@tailjs/util";
@@ -36,10 +43,37 @@ import {
   matchSelector,
   trackerConfig,
 } from "..";
-import type { BoundaryData, TagMappings } from "../..";
+import type { TagMappings } from "../..";
 
-export const boundaryData = new WeakMap<Node, BoundaryData<true>>();
-export const getBoundaryData = (el: Node) => boundaryData.get(el);
+export const boundaryData = new WeakMap<Node, TrackingBoundaryData<true>>();
+
+export const getBoundaryData = (
+  el: Node | Nullish
+): TrackingBoundaryData<true> | undefined => {
+  if (el == null) {
+    return undefined;
+  }
+
+  let data = boundaryData.get(el);
+  if (
+    !data &&
+    (data = parseJson((el as HTMLElement).getAttribute?.("tailjs")))
+  ) {
+    data = normalizeTrackingData(data as any);
+    boundaryData.set(el, data!);
+  }
+  return data;
+};
+
+export const setBoundaryData = (
+  el: Node | Nullish,
+  data: TrackingBoundaryData | Nullish
+) => {
+  if (el == null || data == null) {
+    return;
+  }
+  boundaryData.set(el, normalizeTrackingData(data));
+};
 
 export const trackerPropertyName = (name: string, css = F) =>
   (css ? "--track-" : "track-") + name;
@@ -171,7 +205,7 @@ const parseCssMappingRules = (
   collectTags(cssPropertyWithBase(el, "tags"), undefined, tags);
 };
 
-let currentBoundaryData: BoundaryData<true> | Nullish;
+let currentBoundaryData: TrackingBoundaryData<true> | Nullish;
 let boundaryDataValue: any;
 export const trackerProperty = (
   el: Element,
@@ -179,7 +213,7 @@ export const trackerProperty = (
   inherit:
     | boolean
     | ((el: NodeWithParentElement, distance: number) => boolean) = F,
-  boundaryData?: (el: BoundaryData<true>) => string | Nullish
+  boundaryData?: (el: TrackingBoundaryData<true>) => string | Nullish
 ): string | null =>
   boundaryData &&
   (currentBoundaryData = getBoundaryData(el)) &&
@@ -206,7 +240,7 @@ export const trackerFlag = (
   inherit:
     | boolean
     | ((el: NodeWithParentElement, distance: number) => boolean) = F,
-  boundaryData?: (data: BoundaryData) => boolean | Nullish
+  boundaryData?: (data: TrackingBoundaryData) => boolean | Nullish
 ) =>
   (propertyValue = trackerProperty(el, name, inherit, boundaryData as any)) ===
     "" || (propertyValue == nil ? propertyValue : parseBoolean(propertyValue));
@@ -244,4 +278,28 @@ export const injectCssDefaults = (document: Document) => {
     )}:; ${trackerPropertyName("attributes", T)}:;}`),
     styleElement)
   );
+};
+
+export const uniqueTags: {
+  (tags: Tag[]): Tag[];
+  (tags: Tag[] | undefined): Tag[] | undefined;
+} = (tags: Tag[]): Tag[] => {
+  if (!tags || tags.length < 2) {
+    return tags;
+  }
+  const unique = group(tags, (tag) => [tag.tag + tag.value, tag]);
+  return map(unique, ([, tags]) => {
+    const first = tags[0];
+    if (tags.length === 1) {
+      return first;
+    }
+    if (some(tags, (tag) => tag.score != null)) {
+      return {
+        tag: first.tag,
+        value: first.value,
+        score: sum(tags, (tag) => tag.score ?? 1) / tags.length,
+      };
+    }
+    return first;
+  });
 };

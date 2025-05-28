@@ -50,14 +50,13 @@ export const addTypeValidators = (type: SchemaObjectType) => {
         : prop.censor(targetValue, context);
 
       if (censoredValue != targetValue) {
-        (privacy ??= {}).censored = true;
+        ((privacy ??= {}).censored ??= []).push(prop.name);
         if (censoredValue === undefined && !context.patch && prop?.required) {
           if (!context.forResponse) {
             // When a required property gets completely censored away during write,
             // the entire object becomes censored (since it would be invalid if missing a required property).
             return undefined;
           }
-          privacy.invalid = true;
         }
         if (target === censored) {
           // Make a shallow clone if we are changing values.

@@ -1,4 +1,6 @@
 import path from "path";
+import resolveFrom from "resolve-from";
+
 import type { Compiler } from "webpack";
 
 export interface TailJsPluginConfiguration {
@@ -17,19 +19,14 @@ export interface TailJsPluginConfiguration {
   disable?: boolean;
 
   /**
-   * If you want to use a different "react" (such as preact),
-   * you can specify these mappings here.
+   * If the @tailjs packages are symlinked into node_modules, use this flag to resolve
+   * the 'react' package to the version in the project's node_modules.
    */
-  aliases?: {
-    react?: string;
-    "react/jsx-runtime"?: string;
-    "react/jsx-dev-runtime"?: string;
-    "react/react-dom"?: string;
-  };
+  resolveReactFromContext?: boolean;
 }
+
 export class TailJsPlugin {
   public readonly config: TailJsPluginConfiguration;
-
   constructor(config: TailJsPluginConfiguration = {}) {
     this.config = config as any;
   }
@@ -37,48 +34,38 @@ export class TailJsPlugin {
   apply(compiler: Compiler) {
     // const {  customReactPackage, originalReactPackage, packagePath } = this.options;
 
-    const packageName = "@tailjs/react/jsx";
+    const context = compiler.context;
+
+    const mappings = {
+      react: "@tailjs/react/jsx",
+      "react/jsx-runtime": "@tailjs/react/jsx/jsx-runtime",
+      "react/jsx-dev-runtime": "@tailjs/react/jsx/jsx-dev-runtime",
+    };
     // Everything in the @tailjs/react package.
     const packagePath = path.resolve(
       path.join(
         //@ts-ignore
-        typeof __dirname === "undefined" ? import.meta.dirname : __dirname,
+        __dirname,
         ".."
       )
     );
+
+    const isPackageContext = (context: string) =>
+      context === packagePath || path.dirname(context).startsWith(packagePath);
+
     const tryMapRequest = (
       request: string,
       context?: string
     ): string | undefined => {
-      let alias: string | undefined = undefined;
-
-      if (this.config.aliases) {
-        const aliasedPackage = request.replace(
-          /(?<=^|\s)([^\s]+)$/,
-          (name) => this.config.aliases?.[name] ?? name
-        );
-        if (aliasedPackage !== request) {
-          alias = aliasedPackage;
-        }
-      }
-      if (this.config.disable) {
-        return alias ?? request;
+      if (this.config.disable || (context && isPackageContext(context))) {
+        return undefined;
       }
 
-      if (
-        context &&
-        (context === packagePath ||
-          path.dirname(context).startsWith(packagePath))
-      ) {
-        return alias;
-      }
-
-      const updated = request?.replace?.(
-        /(^|\s+)react(\/(?:jsx-runtime|jsx-dev-runtime))?$/g,
-        `$1${packageName}$2`
+      const aliased = request.replace(
+        /(?<=^|\s)([^\s]+)$/,
+        (name) => mappings[name] ?? name
       );
-
-      return updated !== request ? updated : alias;
+      return aliased !== request ? aliased : undefined;
     };
 
     compiler.hooks.environment.tap("TailJsPlugin", () => {
@@ -88,56 +75,61 @@ export class TailJsPlugin {
         externals = [externals];
       }
       if (this.config.config) {
-        externals.push(async (data) => {
+        externals.push(async (data: any) => {
           if (data.request?.endsWith("/tailjs.client.config")) {
             return this.config.config;
           }
         });
       }
 
-      compiler.options.externals = externals?.map((external) => {
-        if (
-          typeof external === "function" ||
-          (typeof external === "string" && tryMapRequest(external))
-        ) {
-          return async (data) => {
-            let calledBack = false;
-            let callbackResult: any = undefined;
-            let result =
-              typeof external === "function"
-                ? await external(data, (err: any, result: any) => {
-                    calledBack = true;
-                    callbackResult = result;
-                  })
-                : external;
-            if (calledBack) {
-              result = callbackResult;
-            }
+      (compiler.options.externals =
+        externals?.map((external) => {
+          if (
+            typeof external === "function" ||
+            (typeof external === "string" && tryMapRequest(external))
+          ) {
+            return async (data) => {
+              let calledBack = false;
+              let callbackResult: any = undefined;
+              let result =
+                typeof external === "function"
+                  ? await external(data, (err: any, result: any) => {
+                      calledBack = true;
+                      callbackResult = result;
+                    })
+                  : external;
+              if (calledBack) {
+                result = callbackResult;
+              }
 
-            const mapped =
-              typeof result === "string" && tryMapRequest(result, data.context);
-            return mapped ? undefined : result;
-          };
-        }
-        return external;
-      });
+              const mapped =
+                typeof result === "string" &&
+                tryMapRequest(result, data.context);
+              return mapped ? undefined : result;
+            };
+          }
+          return external;
+        }) ?? []).push({ "@tailjs/react/webpack": "var {}" });
     });
 
     compiler.hooks.normalModuleFactory.tap("TailJsPlugin", (factory) => {
       factory.hooks.resolve.tapAsync(
         "TailJsPlugin",
         (resolveData, callback) => {
-          try {
+          if (!this.config.disable) {
             const { request, contextInfo } = resolveData;
 
             const issuer = contextInfo.issuer; // The module that is importing
-            const mapped = tryMapRequest(request, issuer);
+            let mapped = tryMapRequest(request, issuer);
             if (mapped) {
               resolveData.request = mapped;
+            } else if (isPackageContext(issuer) && mappings[request]) {
+              if (this.config.resolveReactFromContext) {
+                resolveData.request = resolveFrom(context, request);
+              }
             }
-          } catch (e) {
-            console.log(e.message);
           }
+
           callback();
         }
       );

@@ -16,6 +16,7 @@ const pkg = await env();
 
 let sourceSchema: any;
 let runtimeSchema: any;
+let serializedJsonSchema: any;
 let markdownSchema: string | undefined;
 
 var bundles = await getDistBundles({
@@ -42,6 +43,8 @@ await build(bundles, {
       parsed.map((definition) => ({ schema: definition }))
     );
     runtimeSchema = resolver.definitions[0];
+    serializedJsonSchema = parser.serialize(resolver.schemas);
+
     markdownSchema = new MarkdownSchemaAdapter().serialize(resolver.schemas);
   },
   async buildEnd() {
@@ -54,7 +57,7 @@ await build(bundles, {
       ]) {
         await fs.writeFile(
           join(target, "tailjs-schema.json"),
-          JSON.stringify(sourceSchema, null, 2),
+          JSON.stringify(serializedJsonSchema, null, 2),
           "utf-8"
         );
 

@@ -2,7 +2,7 @@ import type {
   Float,
   GeoEntity,
   Percentage,
-  SessionScoped,
+  SessionEvent,
   TrackedEvent,
 } from "..";
 import { typeTest } from "../util/type-test";
@@ -12,7 +12,7 @@ import { typeTest } from "../util/type-test";
  *
  * @privacy indirect, performance
  */
-export interface SessionLocationEvent extends TrackedEvent, SessionScoped {
+export interface SessionLocationEvent extends TrackedEvent, SessionEvent {
   type: "session_location";
 
   /**

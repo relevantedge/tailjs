@@ -1,5 +1,4 @@
 const { visit, updateConfig } = require("./visit.js");
-
 let configured = false;
 exports.visit = (source, type, props, children) => {
   if (!configured) {

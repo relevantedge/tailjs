@@ -2,7 +2,7 @@ import type { JsxConfiguration } from "@tailjs/react";
 
 export type NextJsxConfiguration =
   | Omit<JsxConfiguration, "tracker"> & {
-      tracker: {
+      tracker: Omit<JsxConfiguration["tracker"], "script"> & {
         script?: boolean;
       };
     };

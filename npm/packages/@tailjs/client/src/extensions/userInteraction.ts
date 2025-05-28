@@ -30,6 +30,7 @@ import {
 } from "@tailjs/util";
 import {
   TrackerExtensionFactory,
+  checkTrackingEnabled,
   getComponentContext,
   getViewTimeOffset,
   onFrame,
@@ -125,6 +126,10 @@ export const userInteraction: TrackerExtensionFactory = {
         document,
         ["click", "contextmenu", "auxclick"],
         (ev: MouseEvent) => {
+          if (!checkTrackingEnabled(ev.target)) {
+            return;
+          }
+
           let trackClicks: boolean | Nullish;
           let trackRegion: boolean | Nullish;
           let clickableElement: HTMLElement | undefined;
@@ -168,13 +173,13 @@ export const userInteraction: TrackerExtensionFactory = {
             }
 
             trackClicks ??=
-              trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
+              trackerFlag(el, "clicks", T, (data) => data.tracking?.clicks) ??
               (components &&
-                some(components, (cmp) => cmp.track?.clicks !== F));
+                some(components, (cmp) => cmp.tracking?.clicks !== F));
 
             trackRegion ??=
-              trackerFlag(el, "region", T, (data) => data.track?.region) ??
-              (components && some(components, (cmp) => cmp.track?.region));
+              trackerFlag(el, "region", T, (data) => data.tracking?.region) ??
+              (components && some(components, (cmp) => cmp.tracking?.region));
           });
 
           if (!(containerElement ??= clickableElement)) {
@@ -356,11 +361,6 @@ export const userInteraction: TrackerExtensionFactory = {
                 // No "real" navigation will happen if it is only the hash changing.
                 pushNavigationSource(navigationEvent.clientId);
               }
-
-              // // If it so happened that navigation happened we will send it on VIEW_END.
-              // pendingNavigationEvent = registerViewEndAction(() =>
-              //   tracker(navigationEvent)
-              // );
             }
             return;
           }

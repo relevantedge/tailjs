@@ -4,7 +4,7 @@ import {
   CONTEXT_NAV_QUERY,
   EVENT_HUB_QUERY,
   PLACEHOLDER_SCRIPT,
-  SCHEMA_QUERY,
+  SCHEMA_TYPES_QUERY,
   TRACKER_CONFIG_PLACEHOLDER,
 } from "@constants";
 
@@ -584,20 +584,6 @@ export class RequestHandler {
 
   private _clientKeys: CachedClientKey[] = [];
 
-  private async _getLegacyClientEncryptionKey(request: ClientRequest) {
-    return this._config.clientEncryptionKeySeed
-      ? this.environment.hash(
-          (this._config.clientEncryptionKeySeed || "") +
-            (await this._clientIdGenerator.generateClientId(
-              this.environment,
-              request,
-              true
-            )),
-          64
-        )
-      : undefined;
-  }
-
   private async _getClientEncryptionKey(request: ClientRequest) {
     const clientId = await this._clientIdGenerator.generateClientId(
       this.environment,
@@ -720,8 +706,6 @@ export class RequestHandler {
         transport: this._config.json
           ? defaultJsonTransport
           : createTransport(clientEncryptionKey.key),
-        legacyCookieTransport: async () =>
-          createTransport(await this._getLegacyClientEncryptionKey(request)), // Cookies are always encrypted.
       } as PickRequired<TrackerServerConfiguration, "transport"> & {
         clientEncryptionKey?: CachedClientKey;
       };
@@ -858,14 +842,18 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
+            if ((queryValue = join(query?.[SCHEMA_TYPES_QUERY])) != null) {
               let serialized: string;
               if (queryValue === "native") {
                 serialized = JSON.stringify(this._schema.definitions, null, 2);
               } else {
-                serialized = new JsonSchemaAdapter(
-                  CORE_SCHEMA_NS + ":runtime"
-                ).serialize(this._schema.schemas);
+                serialized = JSON.stringify(
+                  new JsonSchemaAdapter(CORE_SCHEMA_NS + ":runtime").serialize(
+                    this._schema.schemas
+                  ),
+                  null,
+                  2
+                );
               }
               return result({
                 status: 200,

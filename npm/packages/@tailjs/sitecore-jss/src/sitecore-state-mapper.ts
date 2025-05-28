@@ -3,17 +3,19 @@ import {
   LayoutServiceData,
   PlaceholdersData,
 } from "@sitecore-jss/sitecore-jss-nextjs";
+import { StateMapperConfiguration } from "@tailjs/react";
 import {
-  BoundaryDataWithView,
-  StateMapperConfiguration,
-  updateState,
-} from "@tailjs/react";
-import { Component, Content, parseTags } from "@tailjs/types";
+  Component,
+  Content,
+  ExtendedTrackingBoundaryData,
+  parseTags,
+} from "@tailjs/types";
 import {
   getComponentPersonalization,
   getPagePersonalization,
   traversePersonalization,
 } from "./lib";
+import { StateMapper } from "packages/@tailjs/react";
 
 const UUID_REGEX =
   /\{?([a-fA-F0-9]{8})\-?([a-fA-F0-9]{4})\-?([a-fA-F0-9]{4})\-?([a-fA-F0-9]{4})\-?([a-fA-F0-9]{12})\}?/g;
@@ -23,15 +25,13 @@ export interface SitecoreJssOptions {
 }
 export const sitecoreJss = ({
   debug = false,
-}: SitecoreJssOptions = {}): StateMapperConfiguration => {
-  let componentMap: Record<string, BoundaryDataWithView> = {};
+}: SitecoreJssOptions = {}): StateMapper => {
+  let componentMap: Record<string, ExtendedTrackingBoundaryData> = {};
   let componentTypeCounts: Record<string, number> = {};
 
   let layoutData: LayoutServiceData | undefined;
   return (currentState, type, props) => {
-    if (!props) {
-      return currentState;
-    }
+    let data: ExtendedTrackingBoundaryData[] | null = null;
 
     if (props.layoutData) {
       layoutData = props.layoutData as LayoutServiceData;
@@ -54,7 +54,7 @@ export const sitecoreJss = ({
       const mode = layoutData.sitecore?.context?.pageState;
 
       if (route?.itemId) {
-        currentState = updateState(currentState, {
+        currentState = (data ??= []).push({
           view: {
             id: route.itemId,
             name: route.name,
@@ -73,19 +73,19 @@ export const sitecoreJss = ({
       if (renderingUid) {
         const componentData = componentMap[renderingUid];
         if (componentData) {
-          currentState = updateState(currentState, componentData);
+          currentState = (data ??= []).push(componentData);
         }
       }
     }
 
     const matchedContent = content(props);
     if (matchedContent?.length) {
-      currentState = updateState(currentState, {
+      (data ??= []).push({
         content: matchedContent,
       });
     }
 
-    return currentState;
+    return data;
   };
 
   function content(props: Record<string, any>): Content[] {
@@ -126,15 +126,17 @@ export const sitecoreJss = ({
         if ("componentName" in rendering) {
           if (!rendering.uid) continue;
 
-          const component = mapComponent(layoutData, rendering);
-          const mapped = (componentMap[rendering.uid] = {
-            component: { ...component, track: { promote: true } },
+          const component = {
+            ...mapComponent(layoutData, rendering),
+            track: { promote: true },
+          };
+          componentMap[rendering.uid] = {
+            component: [component],
             area: placeholder,
-          });
+          };
 
-          mapped.component.instanceNumber = componentTypeCounts[
-            mapped.component.id
-          ] = (componentTypeCounts[mapped.component.id] ?? 0) + 1;
+          component.instanceNumber = componentTypeCounts[component.id] =
+            (componentTypeCounts[component.id] ?? 0) + 1;
 
           buildComponentMap(layoutData, rendering.placeholders);
         }

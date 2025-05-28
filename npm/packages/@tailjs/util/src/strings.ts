@@ -1,3 +1,4 @@
+import { TrackingBoundaryData } from "@tailjs/types";
 import {
   IterationProjection,
   IterationSource,
@@ -13,6 +14,7 @@ import {
   skip,
   stop,
   symbolIterator,
+  tryCatch,
   undefined,
 } from ".";
 
@@ -350,12 +352,18 @@ export const stringify: <T>(value: T) => T extends undefined ? T : string =
   JSON.stringify;
 
 export const parseJson = <Value = any>(
-  value: any
+  value: any,
+  undefinedIfInvalid = false
 ): Value extends Nullish | "" ? undefined : Value =>
   value == null || value === ""
     ? undefined
     : typeof value === "object"
     ? value
+    : undefinedIfInvalid
+    ? tryCatch(
+        () => JSON.parse(value + "") as TrackingBoundaryData,
+        () => {}
+      )
     : JSON.parse(value + "");
 
 /**

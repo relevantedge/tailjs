@@ -21,7 +21,7 @@ import {
  */
 export const sharedLock = (
   lockId: string,
-  { timeout = 1000, encrypt = true, retries: defaultRetries = 10 } = {}
+  { timeout = 1000, encrypt = true, retries: defaultRetries = 50 } = {}
 ): (<R, TO extends number | undefined = undefined>(
   action: () => PromiseLike<R>,
   timeout?: TO,

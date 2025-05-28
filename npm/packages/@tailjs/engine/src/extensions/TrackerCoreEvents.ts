@@ -183,6 +183,14 @@ export class TrackerCoreEvents implements TrackerExtension {
             tags: tracker.env.tags,
             timestamp: currentTime,
           } satisfies SessionStartedEvent as TrackedEvent);
+
+          devicePatches.push((current) => {
+            if (current) {
+              ++current.sessions;
+            }
+
+            return current;
+          });
         }
       }
 

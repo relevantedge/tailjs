@@ -4,8 +4,7 @@ import type {
   ConsentEvent,
   FormEvent,
 } from "@tailjs/types";
-import { ParsableTags } from "@tailjs/types";
-import { BoundaryData } from "..";
+import { ParsableTags, TrackingBoundaryData } from "@tailjs/types";
 
 /***
  * Attributes that can be added to HTML elements to extend tracking.
@@ -15,17 +14,17 @@ export interface TrackerAttributes {
   /**
    * The DOM element represents a layout area where components are inserted.
    */
-  ["track-area"]?: BoundaryData["area"];
+  ["track-area"]?: TrackingBoundaryData["area"];
 
   /**
    * The DOM element represents a component
    */
-  ["track-component"]?: string | BoundaryData["component"];
+  ["track-component"]?: string | TrackingBoundaryData["component"];
 
   /**
    * The DOM element represents a container for content.
    */
-  ["track-content"]?: BoundaryData["content"];
+  ["track-content"]?: TrackingBoundaryData["content"];
 
   /**
    * These tags will be added to user activations with this DOM element or any of its descendants.

@@ -1,7 +1,7 @@
 "use client";
 import { tail } from "@tailjs/client/external";
 import { UserConsent } from "@tailjs/types";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ConsentPatcher = (current: UserConsent) => UserConsent;
 const updateConsent = (consent: UserConsent, callback: () => void) =>
@@ -23,14 +23,13 @@ export function useConsent(): [
   const state = (useRef<
     | {
         current?: [any];
-        wired?: boolean;
-        updating: boolean;
+        updating?: boolean;
         pendingPatch?: (consent: UserConsent) => void;
       }
     | undefined
-  >().current ??= { updating: false });
+  >(null!).current ??= { updating: false });
 
-  if (!state.wired) {
+  useEffect(() => {
     tail({
       consent: {
         get: (consent) => {
@@ -46,8 +45,7 @@ export function useConsent(): [
         },
       },
     });
-    state.wired = true;
-  }
+  }, []);
 
   return [
     consent,

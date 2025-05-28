@@ -21,15 +21,14 @@
     "@tailjs/types": "workspace:*",
     "framer-motion": "11.2.10",
     "next": "^14.2.24",
-    "largo": "./src/hax0r",
-    "react": ">=18.3.0",
-    "react-dom": ">=18.3.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.1",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "18.3.0",
-    "@types/react-dom": "18.3.1",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.6",
     "typescript": "^5.7.3"

@@ -1,8 +1,3 @@
 {
-  "private": true,
-  "name": "@tailjs/webpack",
-  "main": "index.js",
-  "exports": {
-    ".": "./index.js"
-  }
+  "cjs": true
 }

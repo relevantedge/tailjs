@@ -18,11 +18,13 @@ if (process.env.COSMOS_ENDPOINT) {
 export default createApi({
   debugScript: true,
   json: true,
-  extensions: [],
+  extensions: [cosmosDb],
 
   logger: new DefaultLogger({
     basePath: false,
     console: "error",
   }),
+
+  sessionTimeout: 30,
   resourcesPath: "./tmp",
 });

@@ -3,6 +3,7 @@ import {
   ImpressionEvent,
   ImpressionRegionStats,
   ImpressionTextStats,
+  TrackingBoundaryData,
 } from "@tailjs/types";
 import {
   F,
@@ -32,7 +33,6 @@ import {
   trackerFlag,
 } from ".";
 import {
-  BoundaryData,
   Tracker,
   createViewDurationTimer,
   getComponentContext,
@@ -76,17 +76,20 @@ export const createImpressionObserver = (tracker: Tracker) => {
 
   const probeRange = document.createRange();
 
-  return (el: Element, boundaryData: BoundaryData<true> | undefined) => {
-    if (!boundaryData) return;
+  return (
+    el: Element,
+    trackingData: TrackingBoundaryData<true> | undefined
+  ) => {
+    if (!trackingData) return;
 
     let components: ConfiguredComponent[] | Nullish;
     if (
       (components = filter(
-        boundaryData?.component,
+        trackingData?.component,
         (cmp) =>
           // Impression settings from the DOM/CSS are ignored for secondary and inferred components (performance thing)
-          cmp!.track?.impressions ||
-          (cmp.track?.secondary ?? cmp.inferred) !== T
+          cmp!.tracking?.impressions ||
+          (cmp.tracking?.secondary ?? cmp.inferred) !== T
       ))
     ) {
       if (!components.length) return;
@@ -202,12 +205,12 @@ export const createImpressionObserver = (tracker: Tracker) => {
             impressionEvents = map(
               components!,
               (cmp) =>
-                ((cmp!.track?.impressions ||
+                ((cmp!.tracking?.impressions ||
                   trackerFlag(
                     el,
                     "impressions",
                     T,
-                    (data) => data.track?.impressions
+                    (data) => data.tracking?.impressions
                   )) &&
                   restrict<ImpressionEvent>({
                     type: "impression",

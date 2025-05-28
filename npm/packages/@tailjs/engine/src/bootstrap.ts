@@ -18,6 +18,8 @@ export interface BootstrapSettings
     | "storage"
     | "schemas"
     | "environment"
+    | "sessionTimeout"
+    | "additionalPurposes"
   > {
   /** The host implementation to use.  */
   host: EngineHost;
@@ -71,37 +73,17 @@ export interface BootstrapSettings
   client?: TrackerClientConfiguration;
 }
 
-export function bootstrap({
-  host,
-  endpoint = "./_t.js",
-  schemas,
-  cookies,
-  extensions,
-  storage,
-  json,
-  encryptionKeys,
-  debugScript,
-  environment,
-  defaultConsent,
-}: BootstrapSettings) {
+export function bootstrap(settings: BootstrapSettings) {
   return new RequestHandler({
-    host,
-    schemas,
-    endpoint,
-    cookies,
+    ...settings,
+    endpoint: settings.endpoint ?? "./_t.js",
     extensions:
-      map(extensions, (extension) =>
+      map(settings.extensions, (extension) =>
         !extension
           ? skip
           : typeof extension === "function"
           ? extension
           : async () => extension as any
       ) ?? [],
-    storage,
-    json,
-    encryptionKeys,
-    debugScript,
-    environment,
-    defaultConsent,
   });
 }

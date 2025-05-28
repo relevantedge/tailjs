@@ -21,16 +21,10 @@ export interface ScopeInfo {
   userAgent?: string;
 }
 
+/** @access trusted-write */
 export interface SessionInfo extends ScopeInfo {
-  /** @access trusted-only */
   id: string;
 
-  /**
-   * Used to handle race conditions.
-   * When multiple session are created from concurrent requests, the winning session contains the device ID.
-   *
-   * @access trusted-only
-   */
   deviceId?: string;
 
   deviceSessionId?: string;
@@ -55,8 +49,8 @@ export interface SessionInfo extends ScopeInfo {
   tabs?: number;
 }
 
+/** @access trusted-write */
 export interface DeviceInfo extends ScopeInfo {
-  /** @access trusted-write */
   id: string;
   sessions: number;
 }

@@ -1,4 +1,4 @@
-import type { JsxConfiguration as TrackerConfiguration } from "./jsx.pkg/visit";
+import type { JsxConfiguration as TrackerConfiguration } from "./shared";
 
 export { TrackerConfiguration };
 

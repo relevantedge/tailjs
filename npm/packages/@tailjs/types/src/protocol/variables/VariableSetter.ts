@@ -4,6 +4,7 @@ import {
   VariableErrorResult,
   VariableKey,
   VariableNotFoundResult,
+  VariableNotModifiedResult,
   VariableResult,
   VariableResultStatus,
   VariableSuccessResult,
@@ -77,11 +78,3 @@ export type VariableSetResult<T extends {} = any> =
   | VariableValueErrorResult
   | VariableDeleteResult
   | VariableSuccessResult<T>;
-
-const mufti = (value: any): value is VariableDeleteResult => true;
-
-const laks: VariableSetResult<{}> = null! as any;
-
-if (mufti(laks)) {
-  const x = laks;
-}

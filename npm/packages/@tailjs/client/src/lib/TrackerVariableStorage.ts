@@ -284,9 +284,12 @@ export const createVariableStorage = (
             setter: ClientVariableSetter
           ][] = [];
           forEach(response, (result, i) => {
-            if (result?.status === VariableResultStatus.NotFound) {
-              const getter = requestGetters[i][1];
-              const initValue = getter.init?.();
+            const getter = requestGetters[i][1];
+            if (
+              result?.status === VariableResultStatus.NotFound &&
+              getter.init
+            ) {
+              const initValue = getter.init();
               if (initValue != null) {
                 initSetters.push([
                   getter,

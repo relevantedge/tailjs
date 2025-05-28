@@ -2,6 +2,7 @@ import {
   F,
   MAX_SAFE_INTEGER,
   MaybePromiseLike,
+  Nullish,
   T,
   isBoolean,
   isFunction,
@@ -47,6 +48,29 @@ export const createTimer = (
 
     return capturedElapsed;
   };
+};
+
+export const formatTimestamp = <T extends number | Date | Nullish>(
+  value: T,
+  formatOptions?: Intl.DateTimeFormatOptions,
+  locale?: string | string[]
+): T extends Nullish ? T : string =>
+  value == null
+    ? (value as any)
+    : formatOptions
+    ? new Date(value.valueOf()).toLocaleString(locale, formatOptions)
+    : new Date(value.valueOf()).toISOString();
+
+export const formatDuration = <T extends number | Nullish>(
+  ms: number
+): T extends Nullish ? T : string => {
+  if (ms == null) {
+    return ms;
+  }
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  return h ? `${h}h ${m}m ${s}s` : m ? `${m}m ${s}s` : (`${s}s` as any);
 };
 
 /**
