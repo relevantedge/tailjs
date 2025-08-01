@@ -1,10 +1,9 @@
-import { MaybePromiseLike, Nullish } from "@tailjs/util";
+import { MaybePromiseLike } from "@tailjs/util";
 import {
   VariableConflictResult,
   VariableErrorResult,
   VariableKey,
   VariableNotFoundResult,
-  VariableNotModifiedResult,
   VariableResult,
   VariableResultStatus,
   VariableSuccessResult,

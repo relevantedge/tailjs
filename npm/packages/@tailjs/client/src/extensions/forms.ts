@@ -19,6 +19,7 @@ import {
   getComponentContext,
   getViewTimeOffset,
   getVisibleDuration,
+  isFormCommand,
   onFrame,
 } from "..";
 import {
@@ -26,10 +27,13 @@ import {
   addPageLoadedListener,
   attr,
   debug,
+  forAncestorsOrSelf,
   getRect,
   isVisible,
   listen,
+  logError,
   scopeAttribute,
+  tagName,
   trackerFlag,
   trackerPropertyName,
   uuidv4,
@@ -44,13 +48,20 @@ const enum FormFillState {
   Submitting = 3,
 }
 
+type FormSubmitState = {
+  formElement: Element;
+  cancel(explicit: boolean): boolean;
+  complete(explicit: boolean): boolean;
+};
 type FormState = [
   event: FormEvent,
   fields: WeakMap<Element, FormFieldState>,
   element: HTMLFormElement,
   fillState: FormFillState,
   started: Timestamp,
-  nextFillOrder: number
+  nextFillOrder: number,
+  submit: (explicit?: boolean) => boolean,
+  cancelSubmit: () => boolean
 ];
 
 const currentValue = Symbol();
@@ -58,13 +69,16 @@ type FormFieldState = FormField & {
   [currentValue]: string;
 };
 
+const VALIDATION_POLL_INTERVAL = 1000;
 /** The time waited after a form submit event to test if it still there, which is assumed to indicate that there are validation errors. */
-const VALIDATION_ERROR_TIMEOUT = 1750;
+const VALIDATION_ERROR_TIMEOUT = 8000;
 
 export const forms: TrackerExtensionFactory = {
   id: "forms",
   setup(tracker) {
     const formEvents = new Map<HTMLFormElement, FormState>();
+
+    const pendingFormSubmits: FormSubmitState[] = [];
 
     const getFormFieldValue = (element: any, tracked = false): string => {
       let include = true as any;
@@ -153,6 +167,7 @@ export const forms: TrackerExtensionFactory = {
             attr(formElement, "name") ||
             formElement.id ||
             undefined,
+          ...getComponentContext(formElement, { eventType: "form" }),
           activeTime: 0,
           totalTime: 0,
           fields: {},
@@ -162,30 +177,45 @@ export const forms: TrackerExtensionFactory = {
 
         tracker.events.registerEventPatchSource(
           ev,
-          () => ({ ...ev, timeOffset: getViewTimeOffset() } as any)
+          (previous) =>
+            ({
+              ...ev,
+              ...getComponentContext(formElement, {
+                eventType: "form",
+                previous,
+              }),
+              timeOffset: getViewTimeOffset(),
+            } as any)
         );
 
         let state: FormState;
-        const commitEvent = () => {
-          if (state[3] === FormFillState.Submitted) {
+        const commitEvent = (explicit = false) => {
+          if (!explicit && state[3] === FormFillState.Submitted) {
             // The final form event has already been submitted.
-            return;
+            return false;
           }
-          handleLostFocus(); // focusout or change events may not be called when the user leaves the page while a field has focus.
+          handleChange(); // focusout or change events may not be called when the user leaves the page while a field has focus.
 
           // If the form has disappeared it is heuristically assumed it was submitted successfully.
-          if (state[3] >= FormFillState.Pending) {
+          if (state[3] >= FormFillState.Pending || explicit) {
             ev.completed =
-              state[3] === FormFillState.Submitting || !isFormVisible();
+              explicit ||
+              state[3] === FormFillState.Submitting ||
+              !isFormVisible();
           }
 
           tracker.events.postPatch(ev, {
-            ...capturedContext,
+            ...(capturedContext ??
+              getComponentContext(formElement, {
+                eventType: "form",
+              })),
             completed: ev.completed,
             totalTime: now(T) - state[4],
           });
+          capturedContext = undefined;
 
           state[3] = FormFillState.Submitted;
+          return true;
         };
 
         const commitTimeout = createTimeout();
@@ -216,49 +246,114 @@ export const forms: TrackerExtensionFactory = {
           return false;
         };
 
-        listen(
-          formElement.ownerDocument.body,
-          "submit",
-          (submitEvent) => {
-            capturedContext = getComponentContext(formElement);
-            state[3] = FormFillState.Submitting;
+        let unbindNavigationListener: (() => void) | undefined;
 
+        let pendingFormSubmit: (typeof pendingFormSubmits)[number] | null =
+          null;
+
+        listen(formElement.ownerDocument.body, "submit", (submitEvent) => {
+          capturedContext = getComponentContext(formElement, {
+            eventType: "form",
+          });
+
+          state[3] = FormFillState.Submitting;
+          const clearPendingSubmit = () => {
+            if (!pendingFormSubmit) {
+              return false;
+            }
+            const index = pendingFormSubmits.indexOf(pendingFormSubmit);
+            if (index > -1) {
+              pendingFormSubmits.splice(index, 1);
+            }
+            pendingFormSubmit = null;
+            unbindNavigationListener?.();
+            commitTimeout(false);
+            return true;
+          };
+
+          clearPendingSubmit();
+          pendingFormSubmit = {
+            formElement: formElement,
+            cancel(explicit) {
+              if (!clearPendingSubmit()) {
+                return false;
+              }
+              state[3] = FormFillState.Pending;
+              if (explicit) {
+                debug(
+                  `Form submit explicitly cancelled. ${ansi(
+                    "Form not submitted",
+                    1
+                  )}`
+                );
+              }
+              return true;
+            },
+            complete(explicit) {
+              if (!clearPendingSubmit()) {
+                return false;
+              }
+
+              if (explicit) {
+                debug(
+                  `Form explicitly submitted. ${ansi("Form submitted", 1)}`
+                );
+                if (state[3] === FormFillState.Pending) {
+                  state[3] = FormFillState.Submitting;
+                }
+              }
+              commitEvent();
+
+              return true;
+            },
+          };
+
+          pendingFormSubmits.push(pendingFormSubmit);
+
+          // Add a short timeout make sure we get the correct value of event.defaultPrevent if we are not the last event handler.
+          setTimeout(() => {
             if (submitEvent.defaultPrevented) {
               // Might be XHR. If so, the default would have been prevented.
               // However, we must wait and see if the form disappears, otherwise, it could also be validation errors.
-              const [unbindNavigationListener] = addPageLoadedListener(
-                (loaded) => {
-                  if (loaded) return;
+              [unbindNavigationListener] = addPageLoadedListener((loaded) => {
+                if (loaded) return;
 
-                  // If the browser navigates while waiting, this is also considered a submit.
-                  if (recaptcha) {
+                // If the browser navigates while waiting, this is also considered a submit.
+                if (recaptcha) {
+                  if (pendingFormSubmit?.cancel(false)) {
                     debug(
                       `The browser is navigating to another page after submit leaving a reCAPTCHA challenge. ${ansi(
                         "Form not submitted",
                         1
                       )}`
                     );
-                  } else if (state[3] === FormFillState.Submitting) {
+                  }
+                } else if (state[3] === FormFillState.Submitting) {
+                  if (pendingFormSubmit?.complete(false)) {
                     debug(
                       `The browser is navigating to another page after submit. ${ansi(
                         "Form submitted",
                         1
                       )}`
                     );
-                    commitEvent();
-                  } else {
+                  }
+                } else if (state[3] !== FormFillState.Submitted) {
+                  if (pendingFormSubmit?.cancel(false)) {
                     debug(
-                      `The browser is navigating to another page after submit, but submit was earlier cancelled because of validation errors. ${ansi(
+                      `The browser is navigating to another page after submit, but submit was cancelled earlier because of validation errors. ${ansi(
                         "Form not submitted.",
                         1
                       )}`
                     );
                   }
-                  unbindNavigationListener();
                 }
-              );
+              });
+
               let recaptcha = false;
+              let started = now();
               commitTimeout(() => {
+                const elapsed = now() - started;
+
                 if (isReCaptchaActive()) {
                   state[3] = FormFillState.Pending;
                   debug("reCAPTCHA challenge is active.");
@@ -271,38 +366,43 @@ export const forms: TrackerExtensionFactory = {
                   state[3] = FormFillState.Submitting;
                 }
                 if (formElement.isConnected && getRect(formElement).width > 0) {
-                  state[3] = FormFillState.Pending;
-                  debug(
-                    `Form is still visible after ${VALIDATION_ERROR_TIMEOUT} ms, validation errors assumed. ${ansi(
-                      "Form not submitted",
-                      1
-                    )}`
-                  );
-                  unbindNavigationListener();
+                  if (elapsed >= VALIDATION_ERROR_TIMEOUT) {
+                    //if (pendingFormSubmit?.cancel(false)) {
+                    state[3] = FormFillState.Pending;
+                    debug(
+                      `Form is still visible after ${elapsed} ms, validation errors assumed. Logic for auto-detecting submit is suspended. ${ansi(
+                        "Form not submitted",
+                        1
+                      )}`
+                    );
+                    return false;
+                  }
                 } else {
-                  debug(
-                    `Form is no longer visible ${VALIDATION_ERROR_TIMEOUT} ms after submit. ${ansi(
-                      "Form submitted",
-                      1
-                    )}`
-                  );
-                  commitEvent();
-                  unbindNavigationListener();
+                  if (pendingFormSubmit?.complete(false)) {
+                    debug(
+                      `Form is no longer visible ${elapsed} ms after submit. ${ansi(
+                        "Form submitted",
+                        1
+                      )}`
+                    );
+                  }
                 }
-              }, VALIDATION_ERROR_TIMEOUT);
+                // Check again until elapsed < error timeout.
+                return true;
+              }, VALIDATION_POLL_INTERVAL);
               return;
             } else {
-              debug(
-                `Submit event triggered and default not prevented. ${ansi(
-                  "Form submitted",
-                  1
-                )}`
-              );
-              commitEvent();
+              if (pendingFormSubmit?.complete(false)) {
+                debug(
+                  `Submit event triggered and default not prevented. ${ansi(
+                    "Form submitted",
+                    1
+                  )}`
+                );
+              }
             }
-          },
-          { capture: false }
-        );
+          }, 1);
+        });
 
         return (state = [
           ev,
@@ -311,6 +411,8 @@ export const forms: TrackerExtensionFactory = {
           FormFillState.None,
           now(T),
           1,
+          commitEvent,
+          () => pendingFormSubmit?.cancel(false) ?? false,
         ]);
       });
       if (!state[1].get(el)) {
@@ -327,7 +429,7 @@ export const forms: TrackerExtensionFactory = {
     ) => field && ([state![0], field, formElement!, state!] as const);
 
     let currentField: ReturnType<typeof getFieldInfo> | null = nil;
-    const handleLostFocus = () => {
+    const handleChange = () => {
       if (!currentField) return;
 
       const [form, field, el, state] = currentField;
@@ -338,6 +440,16 @@ export const forms: TrackerExtensionFactory = {
       const newValue = (field[currentValue] = getFormFieldValue(el));
 
       if (newValue !== previousValue) {
+        // If a submit is in progress, we cancel it.
+        if (state[7]()) {
+          debug(
+            `Field got changed, assuming validation error correction. ${ansi(
+              "Form not submitted",
+              1
+            )}`
+          );
+        }
+
         field.fillOrder ??= state[5]++;
         if (field.filled) {
           field.corrections = (field.corrections ?? 0) + 1;
@@ -367,12 +479,16 @@ export const forms: TrackerExtensionFactory = {
       listen(
         document,
         ["focusin", "focusout", "change"],
-        (ev, _, current = ev.target && getFieldInfo(ev.target)) =>
-          current &&
-          ((currentField = current),
-          ev.type === "focusin"
-            ? ((t0 = now(T)), (tv0 = getVisibleDuration()))
-            : handleLostFocus())
+        (ev, _, current = ev.target && getFieldInfo(ev.target)) => {
+          if (current) {
+            currentField = current;
+            if (ev.type === "focusin") {
+              (t0 = now(T)), (tv0 = getVisibleDuration());
+            } else {
+              handleChange();
+            }
+          }
+        }
       );
 
     wireFormFields(document);
@@ -380,5 +496,56 @@ export const forms: TrackerExtensionFactory = {
       (frame) => frame.contentDocument && wireFormFields(frame.contentDocument),
       true
     );
+
+    return {
+      processCommand: (command) => {
+        if (isFormCommand(command)) {
+          let { ref, form: action } = command;
+
+          if (ref) {
+            ref = forAncestorsOrSelf(
+              typeof ref["nodeType"] === "number"
+                ? (ref as HTMLElement)
+                : (ref.target as HTMLElement),
+              (el, r) => {
+                tagName(el) === "FORM" && r(el as HTMLFormElement);
+              }
+            );
+            if (!ref) {
+              logError(
+                command,
+                "Neither the reference or its ancestors is a `<form>` element."
+              );
+              return true;
+            }
+          }
+
+          const pendingFormSubmit = ref
+            ? pendingFormSubmits.find((submit) => submit.formElement === ref)
+            : pendingFormSubmits.pop();
+
+          if (!pendingFormSubmit) {
+            if (ref && action === "submit") {
+              let manualSubmit = formEvents.get(ref as HTMLFormElement)?.[6];
+              if (manualSubmit) {
+                manualSubmit(true);
+                return true;
+              }
+            }
+            debug(
+              `No pending submit for the form command '${command.form}'${
+                ref ? " with the specified element reference" : ""
+              }.`
+            );
+          } else if (action === "validation-error") {
+            pendingFormSubmit.cancel(true);
+          } else if (action === "submit") {
+            pendingFormSubmit.complete(true);
+          }
+          return true;
+        }
+        return false;
+      },
+    };
   },
 };

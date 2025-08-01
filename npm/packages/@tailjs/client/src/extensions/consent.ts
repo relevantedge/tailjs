@@ -8,7 +8,7 @@ import {
   UserConsent,
   VariablePollCallback,
 } from "@tailjs/types";
-import { Clock, F, Nullish, T, clock, map, restrict } from "@tailjs/util";
+import { Clock, F, Nullish, T, clock, map } from "@tailjs/util";
 import {
   ConsentCommand,
   TrackerExtensionFactory,
@@ -49,10 +49,10 @@ export const consent: TrackerExtensionFactory = {
       }
 
       await tracker.events.post(
-        restrict<ConsentEvent>({
+        {
           type: "consent",
           consent,
-        }),
+        } satisfies ConsentEvent,
         {
           async: false,
           variables: {

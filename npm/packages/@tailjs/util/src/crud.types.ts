@@ -22,7 +22,7 @@ export type ObjectSource<K extends keyof any = keyof any, V = any> =
 export type AssignSource<Source> = Source extends Nullish
   ? never
   :
-      | ({ [P in keyof any & KeyTypeOf<Source>]: ValueTypeOf<Source, P> } & {
+      | ({ [P in keyof any & KeyTypeOf<Source>]?: ValueTypeOf<Source, P> } & {
           [Symbol.iterator]?: undefined;
         })
       | Iterable<AllowAdditionalElements<EntryTypeOf<Source>> | Falsish>

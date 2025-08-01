@@ -7,7 +7,6 @@ import {
   type TrackerExtension,
 } from "@tailjs/engine";
 import { SessionLocationEvent, TrackedEvent } from "@tailjs/types";
-import { restrict } from "@tailjs/util";
 import { Reader } from "maxmind";
 import type { CityResponse } from "mmdb-lib";
 
@@ -76,7 +75,7 @@ export class ClientLocation implements TrackerExtension {
         if (location) {
           events = [
             ...events,
-            restrict<SessionLocationEvent>({
+            {
               type: "session_location",
               accuracy: location.location?.accuracy_radius,
               city: location.city
@@ -120,7 +119,7 @@ export class ClientLocation implements TrackerExtension {
                     "(unknown)",
                 },
               ],
-            }),
+            } satisfies SessionLocationEvent,
           ] as TrackedEvent[] as any;
         }
         country = location?.country?.names[this._language] ?? "NA";

@@ -401,10 +401,3 @@ export const withRetry = async <T, ErrorResult = never>(
   }
   return void 0 as never;
 };
-
-/**
- *  No-op function to validate types in TypeScript. Because function parameters are contravariant, passing an event that does not match on all properties will get red wiggly lines)
- */
-export const restrict: {
-  <T>(item: T): T;
-} = (item: any) => item as any;

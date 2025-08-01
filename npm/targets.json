@@ -1,17 +1,17 @@
 {
-  "dotnet": {
-    "enabled": false,
-    "path": "../hosts/dotnet/core/TailJs/js",
-    "libs": [
-      "engine",
-      "maxmind",
-      "client",
-      "ravendb",
-      "types",
-      "json-schema",
-      "transport"
-    ]
-  },
+  // "dotnet": {
+  //   "enabled": false,
+  //   "path": "../hosts/dotnet/core/TailJs/js",
+  //   "libs": [
+  //     "engine",
+  //     "maxmind",
+  //     "client",
+  //     "ravendb",
+  //     "types",
+  //     "json-schema",
+  //     "transport"
+  //   ]
+  // },
   "lt": {
     "enabled": true,
     "npm": true,

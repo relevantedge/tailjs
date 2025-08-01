@@ -20,7 +20,7 @@ export interface ComponentClickIntentEvent extends UserInteractionEvent {
 
   clicks?: Position[];
 
-  clickables?: ComponentElementInfo[];
+  elements?: ComponentElementInfo[];
 }
 
 export const isComponentClickIntentEvent = typeTest<ComponentClickIntentEvent>(

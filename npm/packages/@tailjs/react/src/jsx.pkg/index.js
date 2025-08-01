@@ -13,7 +13,12 @@ module.exports = {
     const updated = visit(factory, type, props, children);
 
     return updated
-      ? createElement(updated.type, updated.props)
+      ? createElement(
+          updated.type,
+          props?.key && !updated.props?.key
+            ? { ...updated.props, key: props.key }
+            : updated.props
+        )
       : createElement(type, props, ...children);
   },
   updateConfig,

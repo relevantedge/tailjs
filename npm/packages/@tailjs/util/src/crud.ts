@@ -360,28 +360,89 @@ export const obj: {
   return target;
 };
 
-export let assign: {
-  <Target, Its extends readonly AssignSource<Target>[]>(
-    target: Target,
-    ...sources: Its
-  ): Target;
-} = (target, ...sources) => {
+const assignSingle = (target: any, source: any, clone = false) => {
   try {
-    if (target?.constructor === Object) {
-      forEach(sources, (source) =>
-        forEach(source!, (kv) => kv && (target[kv[0]] = kv[1]))
-      );
+    if (target.constructor === Object) {
+      if (clone) {
+        const originalTarget = target;
+        // Clone target if any property differs.
+
+        forEach(source!, (kv) => {
+          if (
+            !kv ||
+            (kv[1] === undefined ? !(kv[0] in target) : target[kv[0]] === kv[1])
+          ) {
+            return;
+          }
+
+          if (originalTarget === target) {
+            target = { ...originalTarget };
+          }
+          if (kv[1] === undefined) {
+            delete target[kv[0]];
+          } else {
+            target[kv[0]] = kv[1];
+          }
+        });
+      } else {
+        forEach(
+          source!,
+          (kv) =>
+            kv &&
+            (kv[1] === undefined
+              ? delete target[kv[0]]
+              : (target[kv[0]] = kv[1]))
+        );
+      }
     } else {
-      forEach(sources, (source) =>
-        forEach(source, (kv) => kv && target[setSymbol](kv[0], kv[1]))
-      );
+      forEach(source, (kv) => kv && target[setSymbol](kv[0], kv[1]));
     }
     return target;
   } catch (e) {
     return ensureAssignImplementations(target, e, () =>
-      assign(target, ...sources)
+      assignSingle(target, source, clone)
     );
   }
+};
+
+export let assign: {
+  <Target extends SimpleObject, Its extends readonly AssignSource<Target>[]>(
+    target: Target,
+    clone: boolean,
+    ...sources: Its
+  ): Target;
+  <Target, Its extends readonly AssignSource<Target>[]>(
+    target: Target,
+    ...sources: Its
+  ): Target;
+} = (target: any, ...sources: any[]) => {
+  if (!target || !sources.length) {
+    return target;
+  }
+  if (typeof sources[0] === "boolean") {
+    if (sources.length > 1) {
+      const originalTarget = target;
+      let clone = sources[0];
+      sources.length > 2
+        ? forEach(
+            sources,
+            (source, ix) =>
+              ix > 0 &&
+              (target = assignSingle(
+                target,
+                source,
+                clone && target === originalTarget
+              ))
+          )
+        : (target = assignSingle(target, sources[1], clone));
+    }
+  } else {
+    sources.length > 1
+      ? forEach(sources, (source) => assignSingle(target, source, true))
+      : assignSingle(target, sources[0]);
+  }
+
+  return target;
 };
 
 export interface Merge2Settings<

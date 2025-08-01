@@ -66,12 +66,12 @@ export const commerce: TrackerExtensionFactory = {
             ? tracker({
                 type: "cart_updated",
                 action: "clear",
-              } as CartUpdatedEvent)
+              } satisfies CartUpdatedEvent)
             : (cart = normalizeCartEventData(cart)!) &&
               tracker({
                 ...cart,
                 type: "cart_updated",
-              } as CartUpdatedEvent);
+              } satisfies CartUpdatedEvent);
 
           return T;
         }
@@ -79,7 +79,7 @@ export const commerce: TrackerExtensionFactory = {
           tracker({
             type: "order",
             ...command.order,
-          } as OrderEvent);
+          } satisfies OrderEvent);
 
           return T;
         }

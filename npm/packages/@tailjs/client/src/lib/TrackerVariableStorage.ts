@@ -30,6 +30,7 @@ import {
   required,
   skip,
   some,
+  structuralEquals,
 } from "@tailjs/util";
 import {
   addPageLoadedListener,
@@ -366,13 +367,16 @@ export const createVariableStorage = (
           const requestVariables = map(setters, (setter) => {
             const key = variableKeyToString(setter);
             const current = tryGetVariable(key);
-
             if (isLocalScopeKey(setter)) {
               const value = setter.patch
                 ? setter.patch(current?.value)
                 : setter.value;
 
-              if (current?.value != null && value === current?.value) {
+              if (
+                current?.value != null &&
+                (value === current?.value ||
+                  structuralEquals(value, current?.value))
+              ) {
                 return skip;
               }
 

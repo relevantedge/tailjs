@@ -12,7 +12,7 @@ export interface TailJsPluginConfiguration {
   config?: string;
 
   /**
-   * Disable tracking. Aliases will till be applied.
+   * Disable tracking.
    *
    * @default false
    */
@@ -71,9 +71,16 @@ export class TailJsPlugin {
     compiler.hooks.environment.tap("TailJsPlugin", () => {
       let externals = compiler.options.externals;
 
-      if (externals != null && !Array.isArray(externals)) {
-        externals = [externals];
+      if (!Array.isArray(externals)) {
+        externals = externals ? [externals] : [];
       }
+
+      externals.push(async (data: any) => {
+        if (data.request?.endsWith("/tailjs.client.config.js")) {
+          return this.config.config ?? "/tailjs.client.config";
+        }
+      });
+
       if (this.config.config) {
         externals.push(async (data: any) => {
           if (data.request?.endsWith("/tailjs.client.config")) {
@@ -82,44 +89,47 @@ export class TailJsPlugin {
         });
       }
 
-      (compiler.options.externals =
-        externals?.map((external) => {
-          if (
-            typeof external === "function" ||
-            (typeof external === "string" && tryMapRequest(external))
-          ) {
-            return async (data) => {
-              let calledBack = false;
-              let callbackResult: any = undefined;
-              let result =
-                typeof external === "function"
-                  ? await external(data, (err: any, result: any) => {
-                      calledBack = true;
-                      callbackResult = result;
-                    })
-                  : external;
-              if (calledBack) {
-                result = callbackResult;
-              }
+      externals = externals.map((external) => {
+        if (
+          !this.config.disable &&
+          (typeof external === "function" ||
+            (typeof external === "string" && tryMapRequest(external)))
+        ) {
+          return async (data) => {
+            let calledBack = false;
+            let callbackResult: any = undefined;
+            let result =
+              typeof external === "function"
+                ? await external(data, (err: any, result: any) => {
+                    calledBack = true;
+                    callbackResult = result;
+                  })
+                : external;
+            if (calledBack) {
+              result = callbackResult;
+            }
 
-              const mapped =
-                typeof result === "string" &&
-                tryMapRequest(result, data.context);
-              return mapped ? undefined : result;
-            };
-          }
-          return external;
-        }) ?? []).push({ "@tailjs/react/webpack": "var {}" });
+            const mapped =
+              typeof result === "string" && tryMapRequest(result, data.context);
+            return mapped ? undefined : result;
+          };
+        }
+        return external;
+      });
+      externals.push({ "@tailjs/react/webpack": "var {}" });
+
+      compiler.options.externals = externals;
     });
 
-    compiler.hooks.normalModuleFactory.tap("TailJsPlugin", (factory) => {
-      factory.hooks.resolve.tapAsync(
-        "TailJsPlugin",
-        (resolveData, callback) => {
-          if (!this.config.disable) {
-            const { request, contextInfo } = resolveData;
-
-            const issuer = contextInfo.issuer; // The module that is importing
+    if (!this.config.disable) {
+      compiler.hooks.normalModuleFactory.tap("TailJsPlugin", (factory) => {
+        factory.hooks.resolve.tapAsync(
+          "TailJsPlugin",
+          (resolveData, callback) => {
+            const {
+              request,
+              contextInfo: { issuer },
+            } = resolveData;
             let mapped = tryMapRequest(request, issuer);
             if (mapped) {
               resolveData.request = mapped;
@@ -128,11 +138,11 @@ export class TailJsPlugin {
                 resolveData.request = resolveFrom(context, request);
               }
             }
-          }
 
-          callback();
-        }
-      );
-    });
+            callback();
+          }
+        );
+      });
+    }
   }
 }

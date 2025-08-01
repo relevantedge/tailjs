@@ -4,9 +4,13 @@ import {
   type ComponentClickIntentEvent,
   type ConfiguredComponent,
   type Rectangle,
+  type Tag,
   type TrackingBoundaryData,
   type UserInteractionEvent,
+  getTagsForEventType,
+  isEmptyTagCollection,
   normalizeTrackingData,
+  uniqueTags,
   updateTrackingData,
 } from "@tailjs/types";
 import {
@@ -14,9 +18,8 @@ import {
   Nullish,
   T,
   array,
-  concat,
+  assign,
   filter,
-  flatMap,
   forEach,
   isString,
   join,
@@ -43,41 +46,32 @@ import {
   scanAttributes,
   trackerFlag,
   trackerProperty,
-  uniqueTags,
 } from "../lib";
 export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 
 export const componentDomConfiguration = Symbol("DOM configuration");
 
-export const parseActivationTags = (el: Element) =>
-  parseTags(el, undefined, (el) => filter(array(boundaryData.get(el)?.tags)));
+export const parseActivationTags = (el: Element, eventType?: string) =>
+  parseTags(el, undefined, (el) =>
+    getTagsForEventType(boundaryData.get(el)?.tags, eventType)
+  );
 
 const hasComponentOrContent = (boundary?: TrackingBoundaryData<true> | null) =>
   boundary?.component || boundary?.content;
 
-let entry: TrackingBoundaryData<true> | undefined;
-export const parseBoundaryTags = (el: Element, unique = true) => {
-  const parsed = parseTags(
-    el,
-    (ancestor) =>
-      ancestor !== el && !!hasComponentOrContent(boundaryData.get(ancestor)),
-    (el) => {
-      entry = boundaryData.get(el)!;
-      return (
-        (entry = boundaryData.get(el)) &&
-        flatMap(
-          concat(entry.component, entry.content, entry),
-          (item) => item.tags,
-          1
-        )
-      );
-    }
-  );
+export const parseBoundaryTags = (
+  el: NodeWithParentElement,
+  eventType?: string | Nullish,
+  unique = true
+) => {
+  const parsed = parseTags(el as Element, undefined, (parentOrSelf) => {
+    return getTagsForEventType(boundaryData.get(parentOrSelf)?.tags, eventType);
+  });
   if (unique && parsed.tags) {
     parsed.tags = uniqueTags(parsed.tags);
   }
 
-  return parsed;
+  return isEmptyTagCollection(parsed?.tags) ? {} : parsed;
 };
 
 let content: ActivatedContent[] | undefined;
@@ -110,17 +104,33 @@ export const checkTrackingEnabled = (el: NodeWithParentElement | Nullish) =>
     }
   }) !== true;
 
+export type ComponentContext = {
+  components?: ActivatedComponent[];
+  content?: ActivatedContent[];
+  area?: string;
+  tags?: Tag[];
+};
+
+export type GetComponentContextSettings = {
+  directOnly?: boolean | Nullish;
+  includeRegion?: boolean | Nullish;
+  eventType?: string | Nullish;
+  previous?: ComponentContext & Record<keyof any, unknown>;
+};
+
 export const getComponentContext = (
   el: NodeWithParentElement,
-  directOnly = F,
-  includeRegion?: boolean | Nullish
-):
-  | {
-      components?: ActivatedComponent[];
-      content?: ActivatedContent[];
-      area?: string;
-    }
-  | undefined => {
+  {
+    directOnly,
+    includeRegion,
+    eventType,
+    previous,
+  }: GetComponentContextSettings = {}
+): ComponentContext | undefined => {
+  if (!(el as HTMLElement).isConnected) {
+    return undefined;
+  }
+
   let collectedContent: ActivatedContent[] = [];
 
   type Area = {} & string; // For clarity.
@@ -162,13 +172,11 @@ export const getComponentContext = (
         ((includeRegion ?? some(components, (item) => item.tracking?.region)) &&
           getRect(el)) ||
         undefined;
-      const tags = parseBoundaryTags(el);
       entry.content &&
         collectedContent.unshift(
           ...map(entry.content, (item) => ({
             ...item,
             rect,
-            ...tags,
           }))
         );
 
@@ -186,11 +194,11 @@ export const getComponentContext = (
               stripRects(
                 {
                   ...item,
+                  tracking: undefined,
                   content: collectedContent.length
                     ? uniqueContent(collectedContent)
                     : undefined,
                   rect,
-                  ...tags,
                 },
                 !!rect
               )
@@ -216,7 +224,15 @@ export const getComponentContext = (
     }
   });
 
-  return components || areaPath || collectedContent.length
+  let tags = parseBoundaryTags(el, eventType);
+
+  if (!tags?.tags?.length && previous?.tags) {
+    // If a previous context is specified, it is probably for event diffing.
+    // Include an empty tag array to tell diffing that the tags were removed.
+    tags = { tags: [] };
+  }
+
+  return components || areaPath || collectedContent.length || tags.tags
     ? {
         components: components,
         area: join(areaPath, "/"),
@@ -224,6 +240,7 @@ export const getComponentContext = (
           collectedContent.length > 0
             ? uniqueContent(collectedContent)
             : undefined,
+        ...tags,
       }
     : undefined;
 };
@@ -237,15 +254,20 @@ export const components: TrackerExtensionFactory = {
       boundary: el,
       ...command
     }: TrackingBoundaryDataCommand) => {
-      update(boundaryData, el, (current) => {
-        return normalizeTrackingData(
-          "add" in command
-            ? updateTrackingData(current, boundaryData)
+      update(boundaryData, el, (current) =>
+        normalizeTrackingData(
+          command["add"]
+            ? updateTrackingData(
+                current,
+                assign(command, true, { add: undefined })
+              )
             : "update" in command
             ? command.update(current)
             : command
-        );
-      });
+        )
+      );
+
+      console.log(el, JSON.stringify(boundaryData.get(el)));
 
       impressions(el, boundaryData.get(el));
     };
@@ -256,7 +278,7 @@ export const components: TrackerExtensionFactory = {
         forEach((eventData as UserInteractionEvent).components, (component) => {
           set(component as any, "track", undefined);
           forEach(
-            (eventData as ComponentClickIntentEvent).clickables,
+            (eventData as ComponentClickIntentEvent).elements,
             (clickable) => set(clickable as any, "track", undefined)
           );
         });

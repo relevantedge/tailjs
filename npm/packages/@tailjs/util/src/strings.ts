@@ -1,4 +1,3 @@
-import { TrackingBoundaryData } from "@tailjs/types";
 import {
   IterationProjection,
   IterationSource,
@@ -361,7 +360,7 @@ export const parseJson = <Value = any>(
     ? value
     : undefinedIfInvalid
     ? tryCatch(
-        () => JSON.parse(value + "") as TrackingBoundaryData,
+        () => JSON.parse(value + ""),
         () => {}
       )
     : JSON.parse(value + "");

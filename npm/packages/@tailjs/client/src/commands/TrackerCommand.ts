@@ -19,8 +19,9 @@ import type {
 } from "..";
 import { Nullish } from "@tailjs/util";
 
-export type TrackEventCommand = Omit<TrackedEvent, "id"> &
-  Partial<Pick<TrackedEvent, "id">>;
+export type TrackEventCommand = Omit<TrackedEvent, "id"> & {
+  id?: string;
+} & (Record<keyof any, unknown> | {});
 
 export type TrackerCommand =
   | (

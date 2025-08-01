@@ -11,7 +11,7 @@ import {
 export const formatDataUsage = (usage?: DataUsage) =>
   `${usage?.classification ?? "anonymous"} data for ${itemize(
     DataPurposes.parse(usage?.purposes, { names: true })
-  )}  purposes.`;
+  )} purposes.`;
 
 export const validateConsent = (
   target: DataUsage,

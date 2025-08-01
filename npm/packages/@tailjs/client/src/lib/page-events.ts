@@ -1,4 +1,4 @@
-import { clock, createEvent, createTimer } from "@tailjs/util";
+import { clock, createEvent, createTimer, delay, waitFor } from "@tailjs/util";
 import { listen } from ".";
 
 type PageLoadListenerArgs = [loaded: boolean, stateDuration: number];
@@ -61,13 +61,18 @@ const setActivated = () =>
 listen(window, ["focus", "scroll"], setActivated);
 listen(window, "blur", () => activationTimeout.trigger());
 
-listen(
-  document.body,
-  ["keydown", "pointerdown", "pointermove", "scroll"],
-  setActivated
+waitFor(
+  () => document.body,
+  (body) => {
+    // Document's BODY might not be available immediately when the script load.
+    listen(
+      body,
+      ["keydown", "pointerdown", "pointermove", "scroll"],
+      setActivated
+    );
+    setActivated();
+  }
 );
-
-setActivated();
 
 export const getActiveTime = () => activeTime();
 export {

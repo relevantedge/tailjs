@@ -19,6 +19,7 @@ import {
   count,
   diff,
   forEach,
+  get,
   isString,
   itemize,
   map,
@@ -108,7 +109,7 @@ export const createEventQueue = (
   const queue: ProtectedEvent[] = [];
 
   const snapshots = new WeakMap<ProtectedEvent, any>();
-  const sources = new Map<ProtectedEvent, Factory>();
+  const patchSources = new Map<ProtectedEvent, Set<Factory>>();
 
   const mapPatchTarget = <T extends ProtectedEvent>(
     sourceEvent: T,
@@ -146,7 +147,6 @@ export const createEventQueue = (
         //debug({ diff: { snapshot, patched } }, "Patch " + snapshot.type);
 
         let [delta, current] = diff(patched, snapshot) ?? [];
-
         if (delta && !structuralEquals(current, snapshot)) {
           // The new "current" differs from the previous.
 
@@ -158,7 +158,7 @@ export const createEventQueue = (
 
       return [undefined, unbinding];
     };
-    sources.set(sourceEvent, factory);
+    get(patchSources, sourceEvent, () => new Set()).add(factory);
     if (initialPost) {
       post(sourceEvent);
     }
@@ -267,12 +267,24 @@ export const createEventQueue = (
     // Don't do anything if the tab has only been visible for less than a second and a half.
     // More than that the user is probably just switching between tabs moving past this one.
     // NOTE: (This number should preferably be better qualified. We could also look into user activation events).
+
     if (!visible && (queue.length || unloading || delta > 1500)) {
-      const updatedEvents = map(sources, ([sourceEvent, source]) => {
-        const [event, unbinding] = source();
-        unbinding &&
-          (sources.delete(sourceEvent), snapshots.delete(sourceEvent));
-        return event ?? skip;
+      const updatedEvents = map(patchSources, ([sourceEvent, factories]) => {
+        let merged: any = null;
+        forEach(factories, (source) => {
+          const [patch, unbinding] = source();
+          if (unbinding) {
+            factories.delete(source);
+            if (!factories.size) {
+              patchSources.delete(sourceEvent);
+              snapshots.delete(sourceEvent);
+            }
+          }
+          if (patch) {
+            merged = merged ? { ...merged, ...patch } : patch;
+          }
+        });
+        return merged ?? skip;
       });
 
       if (queue.length || updatedEvents.length) {
@@ -283,8 +295,8 @@ export const createEventQueue = (
 
   return {
     post,
-    postPatch: (target, patch, flush) =>
-      post(mapPatchTarget(target, patch), { flush: true }),
+    postPatch: (target, patch, flush = true) =>
+      post(mapPatchTarget(target, patch), { flush }),
     registerEventPatchSource,
   };
 };

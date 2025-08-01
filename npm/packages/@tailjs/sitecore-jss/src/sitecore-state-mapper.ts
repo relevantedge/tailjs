@@ -3,28 +3,30 @@ import {
   LayoutServiceData,
   PlaceholdersData,
 } from "@sitecore-jss/sitecore-jss-nextjs";
-import { StateMapperConfiguration } from "@tailjs/react";
 import {
   Component,
   Content,
   ExtendedTrackingBoundaryData,
   parseTags,
 } from "@tailjs/types";
+import { StateMapper } from "packages/@tailjs/react";
 import {
   getComponentPersonalization,
   getPagePersonalization,
   traversePersonalization,
 } from "./lib";
-import { StateMapper } from "packages/@tailjs/react";
 
 const UUID_REGEX =
   /\{?([a-fA-F0-9]{8})\-?([a-fA-F0-9]{4})\-?([a-fA-F0-9]{4})\-?([a-fA-F0-9]{4})\-?([a-fA-F0-9]{12})\}?/g;
 
 export interface SitecoreJssOptions {
   debug?: boolean;
+  tagsField?: string | null | undefined | false;
 }
+
 export const sitecoreJss = ({
   debug = false,
+  tagsField = "Tags",
 }: SitecoreJssOptions = {}): StateMapper => {
   let componentMap: Record<string, ExtendedTrackingBoundaryData> = {};
   let componentTypeCounts: Record<string, number> = {};
@@ -156,17 +158,16 @@ export const sitecoreJss = ({
     layoutData: LayoutServiceData,
     component: ComponentRendering
   ): Component {
-    const tags = [
-      component.fields?.["tags"],
-      component.fields?.["Tags"],
-      component.params?.["tags"],
-      component.params?.["Tags"],
-    ].flatMap((value) => {
-      value = (value as any)?.value ?? value;
-      return typeof value === "string" && value
-        ? value.split(/&/).flatMap((tag) => parseTags(tag))
-        : [];
-    });
+    const tags = tagsField
+      ? [component.fields?.[tagsField], component.params?.[tagsField]].flatMap(
+          (value) => {
+            value = (value as any)?.value ?? value;
+            return typeof value === "string" && value
+              ? value.split(/&/).flatMap((tag) => parseTags(tag))
+              : [];
+          }
+        )
+      : undefined;
 
     const mapped: Component = {
       instanceId: normalizeUuids(component.uid),
@@ -176,7 +177,7 @@ export const sitecoreJss = ({
         ? { id: normalizeUuids(component.dataSource) }
         : void 0,
       source: "sitecore",
-      tags: tags.length ? tags : undefined,
+      tags: tags?.length ? tags : undefined,
       personalization: getComponentPersonalization(layoutData, component),
     };
 

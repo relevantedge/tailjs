@@ -1,10 +1,11 @@
 import React from "react";
 import type { Metadata } from "next";
+import type { TrackingBoundaryData } from "@tailjs/types";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Head from "next/head";
 import Script from "next/script";
-import { Test3, Test4 } from "./components/ClientComponents";
+import { ContextTest, Test3, Test4 } from "./components/ClientComponents";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,13 +22,18 @@ const Test2 = () => {
   return (
     <>
       <Test10 />
-      <Test3 />
+      <Test3 foo="goo" />
       <button>Test 2</button>
       <div>Yir</div>
     </>
   );
 };
-const Test1 = ({ componentId }: { componentId?: string }) => {
+const Test1 = ({
+  componentId,
+}: {
+  componentId?: string;
+  tags?: TrackingBoundaryData["tags"];
+}) => {
   return (
     <>
       <div>Hello</div>
@@ -44,12 +50,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* {children} */}
-        <div data-hello="2">
-          <Test1 componentId="server-component" />
+        {children}
+        {/* <div data-hello="2">
+          <Test1
+            componentId="server-component"
+            tags={{ events: { view: [{ tag: "test", value: "123" }] } }}
+          />
           <div>Hello</div>
           <Test4 componentId="client-component" />
         </div>
+        <ContextTest /> */}
       </body>
       {/* <Script src="https://web.cmp.usercentrics.eu/modules/autoblocker.js" />
       <Script

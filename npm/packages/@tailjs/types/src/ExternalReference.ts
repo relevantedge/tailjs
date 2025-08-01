@@ -1,3 +1,6 @@
+import { Nullish } from "@tailjs/util";
+import { Component } from ".";
+
 /**
  * Represent a reference to externally defined data.
  *
@@ -64,3 +67,24 @@ export interface ExternalReference {
    */
   path?: string;
 }
+
+export const getExternalReferenceKey = (
+  reference: ExternalReference | undefined
+): string | undefined =>
+  reference &&
+  reference.id +
+    ((reference as Component).dataSource?.id || "") +
+    (reference.source || "") +
+    (reference.name || "");
+
+export const externalReferencesEqual = (
+  reference: ExternalReference | Nullish,
+  other: ExternalReference | Nullish
+) =>
+  reference &&
+  other &&
+  reference.id === other.id &&
+  reference.source === other.source &&
+  (reference as Component).dataSource?.id ===
+    (other as Component)?.dataSource?.id &&
+  reference.name === other.name;

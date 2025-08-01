@@ -1,6 +1,8 @@
 import type { TrackingBoundaryData } from "@tailjs/types";
 
 import type { TrackerAttributes } from "@tailjs/client/external";
+export { tail } from "@tailjs/client/external";
+
 //@ts-ignore
 import jsx from "@tailjs/react/jsx";
 
@@ -11,6 +13,7 @@ export type {
   ElementType,
   StateMapper,
   StateMapperResult,
+  StateMapperCollection,
   UpdateStateOptions,
 } from "./shared";
 
@@ -31,6 +34,10 @@ import type { JsxConfiguration } from "./config";
 
 let config: JsxConfiguration | undefined;
 
+export const isComponent: {
+  ();
+} = () => {};
+
 export const updateConfig: (
   update: (
     current: JsxConfiguration | undefined
@@ -40,7 +47,7 @@ export const updateConfig: (
   (jsx.updateConfig as any)(() => config?.tracker);
 };
 
-export const TrackerBoundary: TrackingBoundaryType = jsx.TrackerBoundary;
+export const TrackingBoundary: TrackingBoundaryType = jsx.TrackingBoundary;
 
 export const withTracking: WithTrackingFunction = jsx.withTracking;
 

@@ -1,4 +1,6 @@
 import {
+  BoundaryTag,
+  ComponentTrackingBehavior,
   ParsableTags,
   TagCollection,
   collectTags,
@@ -12,23 +14,19 @@ import {
   concat,
   flatMap,
   forEach,
-  group,
   isFunction,
   isIterable,
   isPlainObject,
   isRegEx,
   isString,
   join,
-  map,
   matches,
   nil,
   parseBoolean,
   parseJson,
   parseRegex,
   replace,
-  some,
   stop,
-  sum,
   testRegex,
   type Nullish,
 } from "@tailjs/util";
@@ -240,12 +238,14 @@ export const trackerFlag = (
   inherit:
     | boolean
     | ((el: NodeWithParentElement, distance: number) => boolean) = F,
-  boundaryData?: (data: TrackingBoundaryData) => boolean | Nullish
+  boundaryData?: (
+    data: TrackingBoundaryData & { tracking?: ComponentTrackingBehavior }
+  ) => boolean | Nullish
 ) =>
   (propertyValue = trackerProperty(el, name, inherit, boundaryData as any)) ===
     "" || (propertyValue == nil ? propertyValue : parseBoolean(propertyValue));
 
-export type ParsedTags = { tags?: Tag[] };
+export type ParsedTags = { tags?: BoundaryTag[] };
 
 export const parseTags = (
   sourceEl: Element | Nullish,
@@ -278,28 +278,4 @@ export const injectCssDefaults = (document: Document) => {
     )}:; ${trackerPropertyName("attributes", T)}:;}`),
     styleElement)
   );
-};
-
-export const uniqueTags: {
-  (tags: Tag[]): Tag[];
-  (tags: Tag[] | undefined): Tag[] | undefined;
-} = (tags: Tag[]): Tag[] => {
-  if (!tags || tags.length < 2) {
-    return tags;
-  }
-  const unique = group(tags, (tag) => [tag.tag + tag.value, tag]);
-  return map(unique, ([, tags]) => {
-    const first = tags[0];
-    if (tags.length === 1) {
-      return first;
-    }
-    if (some(tags, (tag) => tag.score != null)) {
-      return {
-        tag: first.tag,
-        value: first.value,
-        score: sum(tags, (tag) => tag.score ?? 1) / tags.length,
-      };
-    }
-    return first;
-  });
 };

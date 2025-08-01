@@ -33,7 +33,7 @@ export * from "./Session";
 export * from "./SessionEvent";
 export * from "./Tag";
 export * from "./Tagged";
-export * from "./TrackingData";
+export * from "./TrackingBoundaryData";
 export * from "./TrackingSettings";
 export * from "./UserConsent";
 export * from "./UserScoped";

@@ -41,13 +41,11 @@ export const diff = <T>(
       }
 
       if (isPlainObject((patchedValue = value))) {
-        // deltaValue will be undefined if there are no changed in the child object.
+        // deltaValue will be undefined if there are no changes in the child object.
         if (!(value = diff(value, previous[key]))) {
           return;
         }
         [value, patchedValue] = value;
-      } else if (isNumber(value) && isNumber(previousValue)) {
-        value = (patchedValue = value) - previousValue;
       }
 
       delta[key] = value;

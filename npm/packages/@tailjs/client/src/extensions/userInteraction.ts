@@ -6,14 +6,15 @@ import {
   ComponentClickEvent,
   ComponentClickIntentEvent,
   ComponentElementInfo,
+  ElementInfo,
   NavigationEvent,
   ScreenPosition,
   UserInteractionEvent,
 } from "@tailjs/types";
 import {
   F,
+  ParsedUri,
   T,
-  createTimeout,
   ellipsis,
   equalsAny,
   forEach,
@@ -22,7 +23,6 @@ import {
   nil,
   parseUri,
   remove,
-  restrict,
   some,
   stop,
   update,
@@ -34,7 +34,6 @@ import {
   getComponentContext,
   getViewTimeOffset,
   onFrame,
-  parseActivationTags,
   pushNavigationSource,
   tryGetCartEventData,
 } from "..";
@@ -51,7 +50,6 @@ import {
   listen,
   matchExHash,
   nextId,
-  normalizedAttribute,
   tagName,
   trackerConfig,
   trackerFlag,
@@ -63,29 +61,40 @@ const isLinkElement = (
 ): el is HTMLAnchorElement =>
   href && href != "#" && !href.startsWith("javascript:");
 
+const isFormElement = (el: Element, t = tagName(el)): el is HTMLElement =>
+  t === "INPUT" || t === "SELECT" || t == "TEXTAREA" || t === "LABEL";
+
 const isClickable = (
   el: Element,
   t = tagName(el),
-  attr = trackerFlag(el, "button")
+  isButton = trackerFlag(el, "button"),
+  type = attr(el, "type")
 ): el is HTMLElement =>
-  attr !== F &&
-  (equalsAny(t, "A", "BUTTON") ||
-    t === "LABEL" ||
-    (t === "INPUT" &&
-      equalsAny(normalizedAttribute(el, "type"), "button", "submit")) ||
-    attr === T);
+  isButton === T ||
+  (isButton !== F &&
+    (t === "A" ||
+      t === "BUTTON" ||
+      (t === "INPUT" &&
+        ((type = type?.toLowerCase()) === "button" ||
+          type === "submit" ||
+          (type === "checkbox" && !(el as HTMLInputElement).form)))));
 
-const getElementInfo = (el: Element, includeRect = false) => ({
-  tagName: el.tagName,
-  text: ellipsis(
-    attr(el, "title")?.trim() ||
-      attr(el, "alt")?.trim() ||
-      (el as HTMLElement).innerText?.trim(),
-    100
-  ),
-  href: (el as any).href?.toString(),
-  rect: includeRect ? getRect(el) : undefined,
-});
+export const getElementInfo = (el: Element, includeRect = false) =>
+  ({
+    tagName:
+      el.tagName === "INPUT" && el["type"]
+        ? `${el.tagName}[type=${el["type"]}]`
+        : el.tagName,
+    text: ellipsis(
+      attr(el, "title")?.trim() ||
+        attr(el, "alt")?.trim() ||
+        (el as HTMLElement).innerText?.trim(),
+      100
+    ),
+    className: el.className || undefined,
+    href: (el as any).href?.toString(),
+    rect: includeRect ? getRect(el) : undefined,
+  } satisfies ElementInfo);
 const getElementLabel = (
   el: Element | EventTarget | null,
   container: Element,
@@ -124,16 +133,23 @@ export const userInteraction: TrackerExtensionFactory = {
     const trackDocument = (document: Document) => {
       listen(
         document,
-        ["click", "contextmenu", "auxclick"],
+        ["click", "contextmenu", "auxclick", "pointerdown"],
         (ev: MouseEvent) => {
           if (!checkTrackingEnabled(ev.target)) {
             return;
           }
 
+          // The pointerdown event is only used to detect "app" links, e.g. "mailto:" or "tel:".
+          // The reason is, that they may open native browser pop-ups such as which app to use,
+          // in which case the normal click event is not fired (like context menu).
+          const isPointerEvent = ev.type === "pointerdown";
+
           let trackClicks: boolean | Nullish;
           let trackRegion: boolean | Nullish;
           let clickableElement: HTMLElement | undefined;
           let containerElement: Element | undefined;
+          // Used to decide whether there can be a click intent. If the user clicks a form element, click intent is not the case.
+          let formElement: HTMLElement | null = null;
 
           let nav = F;
 
@@ -141,6 +157,7 @@ export const userInteraction: TrackerExtensionFactory = {
 
           forAncestorsOrSelf<boolean>(ev.target, (el) => {
             isClickable(el) && (clickableElement ??= el);
+            isFormElement(el) && (formElement ??= el);
             nav = nav || tagName(el) === "NAV";
 
             const boundary = getBoundaryData(el);
@@ -151,7 +168,7 @@ export const userInteraction: TrackerExtensionFactory = {
                 (clickable) =>
                   isClickable(clickable) &&
                   ((clickables ??= []).length > 3
-                    ? stop // If there are more than three clickables, there is presumably not any missed click intent.
+                    ? ((clickables = undefined), stop) // If there are more than three clickables, there is presumably not any missed click intent.
                     : clickables.push({
                         ...getElementInfo(clickable, true),
                         component: forAncestorsOrSelf(
@@ -185,16 +202,18 @@ export const userInteraction: TrackerExtensionFactory = {
           if (!(containerElement ??= clickableElement)) {
             return;
           }
-          const clickIntent = clickables && !clickableElement && trackClicks;
+          const clickIntent =
+            clickables?.length! > 0 &&
+            !clickableElement &&
+            !formElement &&
+            trackClicks;
 
-          const componentContext = getComponentContext(
-            clickableElement ?? containerElement,
-            false,
-            clickIntent
-          );
-          const tags = parseActivationTags(
-            clickableElement ?? containerElement
-          );
+          const componentContext = (eventType: string) =>
+            getComponentContext(clickableElement ?? containerElement!, {
+              includeRegion: clickIntent,
+              eventType,
+            });
+
           trackClicks ??= !nav;
           trackRegion ??= T;
 
@@ -206,24 +225,23 @@ export const userInteraction: TrackerExtensionFactory = {
                 }
               : nil),
             ...getElementLabel(ev.target, clickableElement ?? containerElement),
-            ...componentContext,
             timeOffset: getViewTimeOffset(),
-            ...tags,
           };
           if (!clickableElement) {
-            clickIntent &&
+            !isPointerEvent &&
+              clickIntent &&
               update(activeEventClicks, containerElement, (current) => {
                 const pos = getPos(containerElement!, ev);
                 if (!current) {
                   // Reuse the same event and only add the new click coordinates
                   // if the element is clicked again to reduce data.
-                  const intentEvent = restrict<ComponentClickIntentEvent>({
+                  const intentEvent = {
                     type: "component_click_intent",
                     ...sharedEventProperties,
+                    ...componentContext("component_click_intent"),
                     clicks: (current = [pos]),
-
-                    clickables,
-                  });
+                    elements: clickables,
+                  } satisfies ComponentClickIntentEvent;
 
                   tracker.events.registerEventPatchSource(
                     intentEvent,
@@ -239,7 +257,6 @@ export const userInteraction: TrackerExtensionFactory = {
 
                 return current;
               });
-            //  ,              overlay(containerElement, "Click intent", true)
 
             return;
           }
@@ -247,15 +264,11 @@ export const userInteraction: TrackerExtensionFactory = {
           if (isLinkElement(clickableElement!)) {
             const link = clickableElement;
             const external = link.hostname !== location.hostname;
+            const elementHRef = link.href || link.getAttribute("href") || "";
+            if (!elementHRef) {
+              return;
+            }
 
-            const {
-              host,
-              scheme,
-              source: href,
-            } = parseUri(link.href, {
-              delimiters: false,
-              requireAuthority: true,
-            });
             if (
               link.host === location.host &&
               link.pathname === location.pathname &&
@@ -266,119 +279,156 @@ export const userInteraction: TrackerExtensionFactory = {
                 return;
               }
               if (link.hash !== location.hash) {
-                if (ev.button === 0)
-                  tracker(
-                    restrict<AnchorNavigationEvent>({
-                      type: "anchor_navigation",
-                      anchor: link.hash,
-                      ...sharedEventProperties,
-                    })
-                  );
+                if (ev.button === 0 && !isPointerEvent)
+                  tracker({
+                    type: "anchor_navigation",
+                    anchor: link.hash,
+                    ...sharedEventProperties,
+                    ...componentContext("anchor_navigation"),
+                  } satisfies AnchorNavigationEvent);
               }
               return;
             }
 
-            const navigationEvent: NavigationEvent = restrict<NavigationEvent>({
+            let parsed: Pick<ParsedUri, "host" | "source" | "scheme"> =
+              parseUri(elementHRef, {
+                delimiters: false,
+                requireAuthority: true,
+              });
+            if (!parsed) {
+              const schemeMatch = elementHRef.match(/^([^:]+):(?:\/\/)?(.+)/);
+              parsed = {
+                source: elementHRef,
+                scheme: schemeMatch?.[1],
+              };
+            }
+
+            let { host, scheme, source: href } = parsed;
+
+            if (!href) {
+              return;
+            }
+            scheme = scheme?.toLowerCase();
+            const isHttpNavigation = !!scheme?.match(/^https?/);
+
+            if (
+              (isHttpNavigation && isPointerEvent) ||
+              (!isHttpNavigation && !isPointerEvent)
+            ) {
+              // Only trap "mailto:", "tel:" etc. via pointer down.
+              return;
+            }
+            const navigationEvent: NavigationEvent = {
               clientId: nextId(),
               type: "navigation",
               href: external ? link.href : href,
               external,
-              domain: { host, scheme },
+              domain: host || scheme ? { host, scheme } : undefined,
               self: T,
-              anchor: link.hash,
+              anchor: link.hash || undefined,
               ...sharedEventProperties,
-            });
+              ...componentContext("navigation"),
+            } satisfies NavigationEvent;
 
             // There does not seem to be any way to detect when the user clicks
             // "Open link in new tab/window", so we need to do a little extra gymnastics to capture it.
             if (ev.type === "contextmenu") {
-              const originalUrl = link.href;
-              const internalUrl = isInternalUrl(originalUrl);
-              if (internalUrl) {
-                // If the page loads in a new tab, it will pick up this value as the referrer,
-                //   and we will know navigation happened.
-                pushNavigationSource(navigationEvent.clientId, () =>
-                  tracker(navigationEvent)
-                );
-                return;
-              }
+              if (isHttpNavigation) {
+                const originalUrl = link.href;
+                const internalUrl = isInternalUrl(originalUrl);
+                if (internalUrl) {
+                  // If the page loads in a new tab, it will pick up this value as the referrer,
+                  //   and we will know navigation happened.
+                  pushNavigationSource(navigationEvent.clientId, () =>
+                    tracker(navigationEvent)
+                  );
+                  return;
+                }
 
-              // Detecting external navigation is _much_ harder.
-              // Unfortunately we need to rewrite the URL to redirect via the request handler, and poll for a local storage key.
-              // This is only a problem if the user decides to copy the link from the context menu and share it,
-              // since some may argue the link looks "obscure".
-              var requestId = ("" + Math.random())
-                .replace(".", "")
-                .substring(1, 8);
-              if (!internalUrl) {
-                if (!trackerConfig.captureContextMenu) return;
-                link.href =
-                  MNT_URL + "=" + requestId + encodeURIComponent(originalUrl);
+                // Detecting external navigation is _much_ harder.
+                // Unfortunately we need to rewrite the URL to redirect via the request handler, and poll for a local storage key.
+                // This is only a problem if the user decides to copy the link from the context menu and share it,
+                // since some may argue the link looks "obscure".
+                var requestId = ("" + Math.random())
+                  .replace(".", "")
+                  .substring(1, 8);
+                if (!internalUrl) {
+                  if (!trackerConfig.captureContextMenu) return;
+                  link.href =
+                    MNT_URL + "=" + requestId + encodeURIComponent(originalUrl);
 
-                // Poll for the storage key where the request handler will write the request ID before it redirects
-                // the user if the link is opened.
-                listen(
-                  window,
-                  "storage",
-                  (ev, unbind) =>
-                    ev.key === CLIENT_CALLBACK_CHANNEL_ID &&
-                    (ev.newValue &&
-                      JSON.parse(ev.newValue)?.requestId === requestId &&
-                      tracker(navigationEvent),
-                    unbind())
-                );
+                  // Poll for the storage key where the request handler will write the request ID before it redirects
+                  // the user if the link is opened.
+                  listen(
+                    window,
+                    "storage",
+                    (ev, unbind) =>
+                      ev.key === CLIENT_CALLBACK_CHANNEL_ID &&
+                      (ev.newValue &&
+                        JSON.parse(ev.newValue)?.requestId === requestId &&
+                        tracker(navigationEvent),
+                      unbind())
+                  );
 
-                createTimeout;
-                // Switch the link back when the context menu closes.
-                listen(
-                  document,
-                  ["keydown", "keyup", "visibilitychange", "pointermove"],
-                  (_, unbind) => {
-                    unbind();
+                  // Switch the link back when the context menu closes.
+                  listen(
+                    document,
+                    ["keydown", "keyup", "visibilitychange", "pointermove"],
+                    (_, unbind) => {
+                      unbind();
 
-                    link.href = originalUrl;
-                  }
-                );
+                      link.href = originalUrl;
+                    }
+                  );
+                }
               }
               return;
             }
 
             if (ev.button <= 1) {
-              if (
+              if (!isHttpNavigation) {
+                navigationEvent.self = F;
+                tracker(navigationEvent);
+              } else if (
                 ev.button === 1 || //Middle-click: new tab.
                 ev.ctrlKey || // New tab
                 ev.shiftKey || // New window
                 ev.altKey || // Download
-                attr(link, "target") !== window.name
+                (attr(link, "target") && attr(link, "target") !== window.name)
               ) {
-                pushNavigationSource(navigationEvent.clientId);
                 navigationEvent.self = F;
-                // Fire immediately, we are staying on the page.
                 tracker(navigationEvent);
+                pushNavigationSource(navigationEvent.clientId);
+
                 return;
               } else if (!matchExHash(location.href, link.href)) {
-                navigationEvent.exit = navigationEvent.external;
                 // No "real" navigation will happen if it is only the hash changing.
+                navigationEvent.exit = navigationEvent.external;
+                tracker(navigationEvent);
                 pushNavigationSource(navigationEvent.clientId);
               }
             }
             return;
           }
 
-          const cart = tryGetCartEventData(ev.target as Element);
-          (cart || trackClicks) &&
-            tracker(
-              cart
-                ? restrict<CartUpdatedEvent>({
-                    type: "cart_updated",
-                    ...sharedEventProperties,
-                    ...cart,
-                  })
-                : restrict<ComponentClickEvent>({
-                    type: "component_click",
-                    ...sharedEventProperties,
-                  })
-            );
+          if (!isPointerEvent) {
+            const cart = tryGetCartEventData(ev.target as Element);
+            (cart || trackClicks) &&
+              tracker(
+                cart
+                  ? ({
+                      type: "cart_updated",
+                      ...sharedEventProperties,
+                      ...componentContext("cart_updated"),
+                      ...cart,
+                    } satisfies CartUpdatedEvent)
+                  : ({
+                      type: "component_click",
+                      ...sharedEventProperties,
+                      ...componentContext("component_click"),
+                    } satisfies ComponentClickEvent)
+              );
+          }
           return;
         }
       );

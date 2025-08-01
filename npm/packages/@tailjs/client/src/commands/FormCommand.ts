@@ -1,20 +1,17 @@
+import { commandTest } from "./shared";
+
+export type FormCommandAction = "submit" | "validation-error";
+
 /**
- * Use this command if you have custom logic to "submit" a form that does not use
- * normal `<input type=submit>` or `<button type=submit>` buttons that submits the form in the normal HTML way.
+ * Use this command if you have custom validation logic or submit logic that does not get detected automatically by tail.js.
+ * If no element reference is explicitly provided, the currently submitting form is assumed.
  *
- * If you push this command from within a click handler for an element contained in the form (your custom "submit" button),
- * the library will automatically figure out which form it is.
- *
- * For very custom scenarios where the button is not in the form, or maybe not even a button,
- * you can add a reference to the form's HTML element in the {@link ref} property.
- *
+ * This command is only valid while a form is submitting (the form's "submit" event has been triggered),
+ * or a reference is specified for a form where the user has started filling it.
  */
 export type FormCommand = {
-  form:
-    | {
-        ref?: HTMLFormElement;
-        action?: "submit" | "abandon";
-      }
-    | "submit"
-    | "abandon";
+  form: FormCommandAction;
+  ref?: HTMLFormElement | { target: EventTarget };
 };
+
+export const isFormCommand = commandTest<FormCommand>("form");

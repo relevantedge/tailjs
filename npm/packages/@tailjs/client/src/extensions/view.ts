@@ -7,6 +7,7 @@ import {
   ViewTimingData,
   isEventPatch,
   isViewEvent,
+  uniqueTags,
 } from "@tailjs/types";
 import {
   F,
@@ -14,12 +15,16 @@ import {
   add,
   array,
   clock,
+  concat,
   createEvent,
   createTimer,
   forEach,
+  isArray,
+  isFunction,
   map,
   nil,
   now,
+  obj,
   parseQueryString,
   parseUri,
   replace,
@@ -144,43 +149,6 @@ export const context: TrackerExtensionFactory = {
 
     let pendingViewDefinition: View | undefined;
 
-    tracker.variables.get({
-      scope: "view",
-      key: "view",
-      poll: (definition: CurrentView | undefined) => {
-        if (
-          currentViewEvent == null ||
-          !definition ||
-          currentViewEvent?.definition
-        ) {
-          if (!structuralEquals(currentViewEvent?.definition, definition)) {
-            // Buffer for next navigation if different from the current.
-            // Otherwise, it is most likely just from a component re-render (if not `navigation` must be used).
-            pendingViewDefinition = definition;
-          }
-          if (definition?.navigation) {
-            // Post the current view, and start a new one. This was custom navigation that we are not normally intercepting.
-            postView(true);
-          }
-        } else {
-          currentViewEvent.definition = definition;
-          if (currentViewEvent.metadata?.posted) {
-            // Send the definition as a patch because the view event has already been posted.
-            tracker.events.postPatch(currentViewEvent, {
-              definition: pendingViewDefinition,
-            });
-          } else {
-            debug(
-              currentViewEvent,
-              currentViewEvent.type + " (definition updated)"
-            );
-          }
-        }
-
-        return true;
-      },
-    });
-
     let viewIndex =
       tryGetVariable({ scope: "tab", key: "viewIndex" })?.value ?? 0;
     let tabIndex = tryGetVariable({ scope: "tab", key: "tabIndex" })?.value;
@@ -223,7 +191,8 @@ export const context: TrackerExtensionFactory = {
         source: href,
         scheme,
         host,
-      } = parseUri(location.href + "", { requireAuthority: true });
+        query,
+      } = parseUri(location.href + "", { requireAuthority: true }) ?? {};
       currentViewEvent = {
         type: "view",
         timestamp: now(),
@@ -233,6 +202,9 @@ export const context: TrackerExtensionFactory = {
         path: location.pathname,
         hash: location.hash || undefined,
         domain: { scheme, host },
+        queryString: obj(query, ([key, value]) =>
+          isArray(value) ? [key, value] : [key, [value]]
+        ),
         tabNumber: tabIndex + 1,
         tabViewNumber: viewIndex + 1,
         viewport: getViewport(),
@@ -244,12 +216,12 @@ export const context: TrackerExtensionFactory = {
 
       setLocalVariables({ scope: "tab", key: "viewIndex", value: ++viewIndex });
 
-      const qs = parseQueryString(location.href);
       map(
         ["source", "medium", "campaign", "term", "content"],
         (p, _) =>
-          ((currentViewEvent!.utm ??= {})[p] = array(qs[`utm_${p}`])?.[0]) ??
-          skip
+          ((currentViewEvent!.utm ??= {})[p] = array(
+            currentViewEvent?.queryString?.[`utm_${p}`]
+          )?.[0]) ?? skip
       );
 
       !(currentViewEvent.navigationType = pushPopNavigation) &&
@@ -303,6 +275,7 @@ export const context: TrackerExtensionFactory = {
         currentViewEvent!,
         () => ({
           duration: getViewTimeOffset(),
+          tags: currentViewEvent!.tags,
         })
       );
 
@@ -344,6 +317,48 @@ export const context: TrackerExtensionFactory = {
               ? { type: "login", username: command.username }
               : { type: "logout" }
           );
+          return true;
+        } else if (isViewCommand(command)) {
+          const view = command.view;
+          if (view && "addTags" in view) {
+            const addTags = view.addTags;
+            if (currentViewEvent && addTags) {
+              currentViewEvent.tags = uniqueTags(
+                currentViewEvent.tags,
+                addTags
+              );
+            }
+          } else {
+            if (!structuralEquals(view, currentViewEvent?.definition)) {
+              if (
+                currentViewEvent == null ||
+                !view ||
+                currentViewEvent.definition
+              ) {
+                pendingViewDefinition = view;
+                if ((view as CurrentView).navigation) {
+                  postView(true);
+                }
+              } else {
+                currentViewEvent.definition = view;
+                let patchMessage = "";
+                if (currentViewEvent.metadata?.posted) {
+                  patchMessage = " via patch";
+                  // Send the definition as a patch because the view event has already been posted.
+                  tracker.events.postPatch(currentViewEvent, {
+                    definition: currentViewEvent.definition,
+                  });
+                }
+                debug(
+                  currentViewEvent,
+                  `${currentViewEvent.type} (definition updated${patchMessage})`
+                );
+              }
+              tracker({
+                set: { scope: "view", key: "view", value: view ?? null },
+              });
+            }
+          }
           return true;
         }
 

@@ -16,8 +16,8 @@ export type StateMapperResult<
   Extensions extends TrackingDataExtensionType = {}
 > =
   | ExtendedTrackingBoundaryData<Extensions>
-  | (ExtendedTrackingBoundaryData<Extensions> | Nullish)[]
-  | Nullish;
+  | StateMapperResult<Extensions>[]
+  | Voidish;
 
 export type UpdateStateOptions<
   Extensions extends TrackingDataExtensionType = {}
@@ -31,20 +31,23 @@ export type UpdateStateOptions<
 
 export type StateMapper<Extensions extends TrackingDataExtensionType = {}> = (
   /** The result from the previous state mapper, when state mappers are chained in the configuration. */
-  currentState: ExtendedTrackingBoundaryData<Extensions> | undefined,
+  currentState: ExtendedTrackingBoundaryData<Extensions, true> | undefined,
   /** The type of the rendering component. */
   type: ComponentType,
   /** The properties of the rendering component.  */
   props: Record<string, any>
 ) => StateMapperResult<Extensions>;
 
+export type StateMapperCollection<
+  Extensions extends TrackingDataExtensionType = {}
+> = Voidish | false | StateMapper<Extensions> | StateMapperCollection[];
+
 export type StateMapperConfiguration<
   Extensions extends TrackingDataExtensionType = {}
 > =
-  | StateMapper<Extensions>
-  | StateMapper<Extensions>[]
+  | StateMapperCollection
   | {
-      state: StateMapper<Extensions> | StateMapper<Extensions>[];
+      state: StateMapperCollection;
 
       /**
        * Override the default behavior that maps the boundary data to tailjs commands.
@@ -61,7 +64,7 @@ export type ElementStateMapper<
   tail: ProvisionalTracker,
   el: Element,
   data: ExtendedTrackingBoundaryData<TrackingDataExtensionType> | CustomState
-) => void | false;
+) => void | boolean;
 
 export interface JsxConfiguration<
   TrackingDataExtensions extends TrackingDataExtensionType = {}
@@ -92,3 +95,10 @@ export interface JsxConfiguration<
 }
 
 type Nullish = null | undefined;
+type Voidish = void | Nullish;
+
+export type ConfigUpdater = (
+  update: (
+    current: JsxConfiguration | undefined
+  ) => JsxConfiguration | undefined
+) => void;

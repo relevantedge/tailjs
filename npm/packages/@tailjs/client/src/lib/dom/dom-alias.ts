@@ -1,11 +1,16 @@
-import { toggleAnsi, type Nullish } from "@tailjs/util";
+import { nil, toggleAnsi, waitFor, type Nullish } from "@tailjs/util";
 
 export const SSR = typeof window === "undefined";
 
 const win = window;
 const doc = document;
 const nav = navigator;
-const body = doc.body;
+let body: HTMLElement = nil!;
+// The script may load before the body tag has been parsed.
+waitFor(
+  () => document.body,
+  (value) => (body = value)
+);
 const loc = location;
 const perf = performance;
 const hist = win.history;

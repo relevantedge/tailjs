@@ -9,9 +9,14 @@ import type {
 
 export interface UserInteractionEvent extends TrackedEvent {
   /**
-   * Relevant components and content in the scope of the activated element.
+   * Relevant components and their content in the scope of the activated element.
    */
   components?: ActivatedComponent[];
+
+  /**
+   * The content associated with an element that is not contained by a component.
+   */
+  content?: ActivatedComponent[];
 
   /** The time the event happened relative to the view were it was generated. */
   timeOffset?: ViewTimingData;

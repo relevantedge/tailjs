@@ -29,6 +29,7 @@ import {
   stop,
   throwError,
   tryCatch,
+  waitFor,
   type Nullish,
 } from "@tailjs/util";
 import {
@@ -70,7 +71,6 @@ import {
   setBoundaryData,
   setStorageKey,
   trackerConfig,
-  trackerFlag,
   window,
 } from "./lib";
 
@@ -94,6 +94,10 @@ export const initializeTracker = (
   merge(trackerConfig, [config as TrackerClientConfiguration], {
     overwrite: true,
   });
+  if (window[trackerConfig.name]?.[isTracker]) {
+    tracker = window[trackerConfig.name];
+    return tracker;
+  }
 
   setStorageKey(remove(trackerConfig, "encryptionKey"));
 
@@ -132,7 +136,7 @@ export const initializeTracker = (
     );
   };
 
-  const pendingStateCommands: TrackerCommand[] = [];
+  const pendingPostConfigurationCommands: TrackerCommand[] = [];
 
   const trackerContext: TrackerContext = {
     applyEventExtensions(event) {
@@ -243,7 +247,7 @@ export const initializeTracker = (
           !isListenerCommand(command) &&
           !isExtensionCommand(command)
         ) {
-          pendingStateCommands.push(command);
+          pendingPostConfigurationCommands.push(command);
           return F;
         }
         // #endregion
@@ -420,19 +424,22 @@ export const initializeTracker = (
 
       trackerContext.deviceSessionId = session.deviceSessionId;
 
-      globalStateResolved = true;
-
       unbind();
 
       // Now we accept commands.
       ready = true;
       tracker(...map(defaultExtensions, (extension) => ({ extension })));
+
+      // Now we also accept command unrelated to configuration, listeners and extensions.
+      globalStateResolved = true;
+
       if (!session.hasUserAgent) {
         postUserAgentEvent(tracker);
         session.hasUserAgent = true;
       }
 
-      pendingStateCommands.length && tracker(pendingStateCommands);
+      pendingPostConfigurationCommands.length &&
+        tracker(pendingPostConfigurationCommands);
       for (const commandGroup of queuedCommands) {
         if (commandGroup.length) {
           (tracker as any)(...commandGroup);

@@ -31,6 +31,7 @@ export const build = async (
         if (fs.existsSync(targetPath)) {
           await fs.promises.rm(targetPath, { recursive: true });
         }
+
         await fs.promises.cp("./dist", targetPath, { recursive: true });
         const pkgJsonPath = path.join(targetPath, "package.json");
         if (fs.existsSync(pkgJsonPath)) {

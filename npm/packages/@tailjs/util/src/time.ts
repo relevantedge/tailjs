@@ -4,11 +4,13 @@ import {
   MaybePromiseLike,
   Nullish,
   T,
+  delay,
   isBoolean,
   isFunction,
   isNotFalse,
   isTrue,
   promise,
+  throwError,
   tryCatchAsync,
 } from ".";
 
@@ -104,13 +106,13 @@ export interface ClockSettings {
 export const createTimeout = (
   defaultTimeout = 0
 ): {
-  (callback: () => void, timeout?: number): void;
+  (callback: (elapsed: number) => void, timeout?: number): void;
   (cancel: false): true;
   (trigger: true): true;
   (): boolean;
 } => {
   let handle: any;
-  let currentCallback: (() => void) | undefined;
+  let currentCallback: (() => void | boolean) | undefined;
 
   const stickyTimeout = (arg?: any, timeout = defaultTimeout) => {
     if (arg === undefined) {
@@ -130,6 +132,49 @@ export const createTimeout = (
     }
   };
   return stickyTimeout as any;
+};
+
+export type WaitForOptions<T> = {
+  pollInterval?: number;
+  timeout?: number;
+  then?: (item: T, delay: number) => void;
+};
+
+export const waitFor: {
+  <T extends {}>(
+    selector: () => T | null | undefined,
+    then: (item: T) => void,
+    options?: WaitForOptions<T>
+  ): T | Promise<T>;
+  <T extends {}>(
+    selector: () => T | null | undefined,
+    options?: WaitForOptions<T>
+  ): T | Promise<T>;
+} = (selector: () => any, arg0?: any, arg1?: any) => {
+  if (typeof arg0 === "function") {
+    return waitFor(selector, { ...arg1, then: arg0 });
+  }
+  const {
+    then,
+    timeout = -1,
+    pollInterval = 25,
+  } = (arg0 as WaitForOptions<any>) ?? {};
+
+  const t0 = now();
+  let selected = selector();
+  if (selected) {
+    then?.(selected, 0);
+    return selected;
+  }
+
+  return (async () => {
+    while (!(selected = selector()) && (timeout <= 0 || now() - t0 < timeout)) {
+      await delay(pollInterval);
+    }
+    return selected
+      ? (then?.(selected, now() - t0), selected)
+      : throwError(`Target not resolved after ${timeout} ms.`);
+  })();
 };
 
 export const clock: {

@@ -23,9 +23,9 @@ import {
   parseBoolean,
   parseUri,
   replace,
-  restrict,
   round,
   tryCatch,
+  stop as stopIteration,
   type MaybeUndefined,
   type Nullish,
 } from "@tailjs/util";
@@ -50,10 +50,11 @@ export const forAncestorsOrSelf = <T = any>(
   let i = 0;
   let returnValue: any;
   let stop = F;
+  let actionResult: any;
   while (
     el?.["nodeType"] === 1 &&
     !stoppingCriterion(el as Element, i++) &&
-    action(
+    (actionResult = action(
       el as Element,
       (value, replace) => (
         value != nil &&
@@ -61,7 +62,8 @@ export const forAncestorsOrSelf = <T = any>(
         T
       ),
       i - 1
-    ) !== F &&
+    )) !== F &&
+    actionResult !== stopIteration &&
     !stop
   ) {
     const prev = el;
@@ -214,11 +216,6 @@ export const inElementScope = (
     value(tagName(el) === name || undefined)
   );
 
-export const normalizedAttribute = (
-  node: NodeWithParentElement | Nullish,
-  name: string
-) => attr(node, name)?.trim()?.toLowerCase();
-
 let value: string | undefined;
 
 export const booleanAttribute = (
@@ -268,13 +265,13 @@ export const getScreenPos = <T extends Element | Nullish>(
   includeFold = T
 ): MaybeUndefined<ScreenPosition> =>
   (screenPos = getPos(el, mouseEvent)) &&
-  (restrict<ScreenPosition>({
+  ({
     xpx: screenPos.x,
     ypx: screenPos.y,
     x: round(screenPos.x / body.offsetWidth, 4),
     y: round(screenPos.y / body.offsetHeight, 4),
     pageFolds: includeFold ? screenPos.y / window.innerHeight : undefined,
-  }) as any);
+  } satisfies ScreenPosition);
 
 let x: number;
 let y: number;

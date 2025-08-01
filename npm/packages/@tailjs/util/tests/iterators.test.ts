@@ -32,6 +32,7 @@ import {
   count,
   last,
   first,
+  assign,
 } from "@tailjs/util";
 
 type Item = [id: string, deps?: Item[]];
@@ -169,6 +170,48 @@ describe("iterators(2)", () => {
   });
 
   it("Assigns", () => {
+    let target: any = { a: 10 };
+    let updated = assign(target, { a: 20, b: "ok" });
+
+    expect(target).toBe(updated);
+    expect(target["a"]).toBe(20);
+    expect(target["b"]).toBe("ok");
+
+    updated = assign((target = updated), { a: undefined, b: undefined });
+    expect(target).toBe(updated);
+    expect(target).toEqual({});
+
+    target = { a: 10 };
+    updated = assign(target, false, { a: 10 });
+    expect(target).toBe(updated);
+    updated = assign(target, true, { a: 10 });
+    expect(target).toBe(updated);
+
+    updated = assign(target, true, { a: 20 });
+    expect(target).not.toBe(updated);
+    expect(updated["a"]).toBe(20);
+
+    target = { a: 10, b: 20 };
+    updated = assign(target, true, { a: 10, b: undefined });
+    expect(target).not.toBe(updated);
+    expect(updated).toEqual({ a: 10 });
+
+    target = new Map([["a", 10]]);
+    updated = assign(
+      target,
+      true,
+      { a: 20 },
+      { a: 80 },
+      { b: 10 },
+      { a: 90, b: undefined }
+    );
+
+    expect(target).toBe(updated);
+    expect(target.get("a")).toBe(90);
+    expect(target.has("b")).toBe(false);
+  });
+
+  it("Merges", () => {
     expect(merge({ a: 32 }, [[["b", true]]])).toEqual({
       a: 32,
       b: true,
@@ -488,6 +531,12 @@ describe("iterators(2)", () => {
     expect(
       flatMap((x = [1, 2, 3, 4]) => (x.length ? x.slice(0, -1) : undefined))
     ).toEqual([1, 2, 3, 1, 2, 1]);
+
+    expect(
+      flatMap({ a: 1, b: [2, 3] }, (kv) =>
+        Array.isArray(kv[1]) ? kv[1] : kv[1]
+      )
+    ).toEqual([1, 2, 3]);
   });
 
   it("Min, max, sum, etc.", () => {

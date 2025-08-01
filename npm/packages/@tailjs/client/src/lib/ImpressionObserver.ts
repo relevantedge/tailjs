@@ -3,6 +3,7 @@ import {
   ImpressionEvent,
   ImpressionRegionStats,
   ImpressionTextStats,
+  externalReferencesEqual,
   TrackingBoundaryData,
 } from "@tailjs/types";
 import {
@@ -20,13 +21,14 @@ import {
   forEach,
   getTextStats,
   map,
-  restrict,
   set,
   skip,
+  some,
 } from "@tailjs/util";
 import {
   document,
   getActiveTime,
+  getBoundaryData,
   getScreenPos,
   getViewport,
   trackerConfig,
@@ -36,6 +38,7 @@ import {
   Tracker,
   createViewDurationTimer,
   getComponentContext,
+  getElementInfo,
   getViewTimeOffset,
 } from "..";
 
@@ -65,7 +68,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
 
   const currentIntersections = new Set<() => void>();
 
-  const monitor = clock({
+  clock({
     callback: () => forEach(currentIntersections, (handler) => handler()),
     frequency: INTERSECTION_POLL_INTERVAL,
     raf: true,
@@ -82,17 +85,42 @@ export const createImpressionObserver = (tracker: Tracker) => {
   ) => {
     if (!trackingData) return;
 
-    let components: ConfiguredComponent[] | Nullish;
-    if (
-      (components = filter(
-        trackingData?.component,
-        (cmp) =>
-          // Impression settings from the DOM/CSS are ignored for secondary and inferred components (performance thing)
-          cmp!.tracking?.impressions ||
-          (cmp.tracking?.secondary ?? cmp.inferred) !== T
-      ))
-    ) {
-      if (!components.length) return;
+    const trackAllImpressions = !!trackingData.tracking?.impressions;
+
+    let components: (ConfiguredComponent | null)[] | Nullish = trackerFlag(
+      el,
+      "impressions",
+      T,
+      (data) => trackAllImpressions || data.tracking?.impressions
+    )
+      ? trackingData?.component
+      : filter(
+          trackingData?.component,
+          (cmp) => trackAllImpressions || cmp!.tracking?.impressions
+        );
+
+    if (!components?.length) {
+      if (!trackAllImpressions) {
+        return;
+      }
+
+      components = [null];
+    }
+
+    if (components) {
+      const siblingData = getBoundaryData(el.previousElementSibling);
+      if (siblingData && components[0]) {
+        components = filter(
+          components,
+          (cmp) =>
+            cmp &&
+            // When a React component returns a fragment with multiple DOM elements, we only look at the first.
+            // TODO: Refine. This may cause inaccuracies but is considered an edge case (a component with tracked impressions will presumably have a single container most of the time).
+            !some(siblingData.component, (siblingCmp) =>
+              externalReferencesEqual(cmp, siblingCmp)
+            )
+        );
+      }
 
       let active = F;
       let pendingActive = F;
@@ -202,26 +230,35 @@ export const createImpressionObserver = (tracker: Tracker) => {
           ++impressions;
           viewDuration(active);
           if (!impressionEvents) {
-            impressionEvents = map(
-              components!,
-              (cmp) =>
-                ((cmp!.tracking?.impressions ||
-                  trackerFlag(
-                    el,
-                    "impressions",
-                    T,
-                    (data) => data.tracking?.impressions
-                  )) &&
-                  restrict<ImpressionEvent>({
-                    type: "impression",
-                    pos: getScreenPos(el),
-                    viewport: getViewport(),
-                    timeOffset: getViewTimeOffset(),
-                    impressions,
-                    ...getComponentContext(el, T),
-                  })) ||
-                skip
-            );
+            const contextData = getComponentContext(el, {
+              directOnly: T,
+              eventType: "impression",
+            });
+            impressionEvents = map(components!, (cmp) => {
+              const filteredComponentContext = {
+                ...contextData,
+                components: cmp
+                  ? contextData?.components!.filter((activatedComponent) =>
+                      externalReferencesEqual(cmp, activatedComponent)
+                    )
+                  : undefined,
+              };
+              if (
+                !filteredComponentContext.components?.length &&
+                !trackAllImpressions
+              ) {
+                return skip;
+              }
+              return {
+                type: "impression",
+                pos: getScreenPos(el),
+                viewport: getViewport(),
+                timeOffset: getViewTimeOffset(),
+                impressions,
+                element: getElementInfo(el),
+                ...filteredComponentContext,
+              } satisfies ImpressionEvent;
+            });
             tracker(impressionEvents);
           }
 

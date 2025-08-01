@@ -1,6 +1,6 @@
-import { DataUsage, UserConsent, VariablePollCallback } from "@tailjs/types";
-import { commandTest } from "./shared";
+import { UserConsent } from "@tailjs/types";
 import { MaybePromiseLike } from "@tailjs/util";
+import { commandTest } from "./shared";
 
 export type ExternalConsentPoller = (
   current: UserConsent | undefined

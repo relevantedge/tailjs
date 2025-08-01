@@ -16,6 +16,7 @@ import {
   replace,
   set,
   skip,
+  waitFor,
 } from "@tailjs/util";
 import {
   HEARTBEAT_FREQUENCY,
@@ -308,7 +309,15 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
   });
 
   // Add a short delay to allow other tabs to share their information (if any).
-  const initTimeout = clock(() => dispatchState("ready", state, true), -25);
+  const initTimeout = clock(
+    () =>
+      // We're not ready before the body tag has parsed by the browser.
+      waitFor(
+        () => document.body,
+        () => dispatchState("ready", state, true)
+      ),
+    -25
+  );
 
   const heartbeat = clock({
     callback: () => {

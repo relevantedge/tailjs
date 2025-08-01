@@ -4,13 +4,38 @@ import { BreakTest, InputTest, MotionTest } from "./components/AnimationTest";
 import { ClickIntentTest } from "./components/ClickIntentTest";
 import { ConsentMonitor } from "./components/ConsentMonitor";
 import { Login } from "./components/Login";
+import { FormTest } from "./components/FormTest";
 
 function ServerThenClient(props: any) {
   return <MotionTest laks="80"></MotionTest>;
 }
+
+export function ImpressionTest({ tall = false }: { tall?: boolean }) {
+  return (
+    <span
+      className="imp-test abc"
+      style={{
+        backgroundColor: tall ? "purple" : "",
+        height: tall ? "10000px" : undefined,
+        position: tall ? "absolute" : undefined,
+      }}
+    >
+      Look at me
+    </span>
+  );
+}
+
 ServerThenClient.displayName = "OOK";
 export default function Home() {
-  return <div></div>;
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div>
+        <ImpressionTest />
+        <FormTest />
+        <ImpressionTest tall={true} />
+      </div>
+    </main>
+  );
   // return (
   //   <>
   //     <ServerThenClient />

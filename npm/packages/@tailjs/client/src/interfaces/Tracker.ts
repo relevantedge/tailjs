@@ -4,15 +4,8 @@ import { EventQueue, TrackerVariableStorage } from "../lib";
 
 /** The operations on the tail.js tracker that are both valid before and after it has been initialized.  */
 export interface ProvisionalTracker {
-  /**
-   * Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data.
-   *
-   * Use this overload if a {@link TrackerClientConfiguration.key} has been configured.
-   */
-  (key: string, encoded: string): void;
-
-  /** Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data. */
-  (encoded: string): void;
+  /** Executes the specified commands. */
+  (...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
 
   /**
    * Executes the specified commands.
@@ -22,8 +15,15 @@ export interface ProvisionalTracker {
    */
   (key: string, ...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
 
-  /** Executes the specified commands. */
-  (...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
+  /**
+   * Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data.
+   *
+   * Use this overload if a {@link TrackerClientConfiguration.key} has been configured.
+   */
+  (key: string, encoded: string): void;
+
+  /** Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data. */
+  (encoded: string): void;
 }
 
 /** The tracker after it has been initialized */

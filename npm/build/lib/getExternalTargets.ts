@@ -15,7 +15,9 @@ export const getExternalTargets = async (): Promise<ExternalScriptTarget[]> => {
   const configPath = path.join(ws, "targets.json");
   if (!fs.existsSync(configPath)) return [];
 
-  const config = JSON.parse(await fs.promises.readFile(configPath, "utf8"));
+  const config = JSON.parse(
+    (await fs.promises.readFile(configPath, "utf8")).replace(/\/\/.*$/gm, "")
+  );
   return Object.entries(config)
     .filter(([, value]: any) => value.enabled !== false)
     .map(([key, value]: any) => ({
