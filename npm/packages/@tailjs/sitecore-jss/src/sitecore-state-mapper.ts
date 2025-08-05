@@ -7,7 +7,7 @@ import {
   Component,
   Content,
   ExtendedTrackingBoundaryData,
-  parseTags,
+  mapTags,
 } from "@tailjs/types";
 import { StateMapper } from "packages/@tailjs/react";
 import {
@@ -56,7 +56,7 @@ export const sitecoreJss = ({
       const mode = layoutData.sitecore?.context?.pageState;
 
       if (route?.itemId) {
-        currentState = (data ??= []).push({
+        (data ??= []).push({
           view: {
             id: route.itemId,
             name: route.name,
@@ -75,7 +75,7 @@ export const sitecoreJss = ({
       if (renderingUid) {
         const componentData = componentMap[renderingUid];
         if (componentData) {
-          currentState = (data ??= []).push(componentData);
+          (data ??= []).push(componentData);
         }
       }
     }
@@ -133,7 +133,7 @@ export const sitecoreJss = ({
             track: { promote: true },
           };
           componentMap[rendering.uid] = {
-            component: [component],
+            components: [component],
             area: placeholder,
           };
 
@@ -159,13 +159,14 @@ export const sitecoreJss = ({
     component: ComponentRendering
   ): Component {
     const tags = tagsField
-      ? [component.fields?.[tagsField], component.params?.[tagsField]].flatMap(
-          (value) => {
+      ? mapTags(
+          [
+            component.fields?.[tagsField],
+            component.params?.[tagsField],
+          ].flatMap((value) => {
             value = (value as any)?.value ?? value;
-            return typeof value === "string" && value
-              ? value.split(/&/).flatMap((tag) => parseTags(tag))
-              : [];
-          }
+            return typeof value === "string" && value ? value.split(/&/) : [];
+          })
         )
       : undefined;
 

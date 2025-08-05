@@ -1,5 +1,5 @@
 import Script, { ScriptProps } from "next/script.js";
-import React, { FunctionComponent, PropsWithChildren } from "react";
+import React, { FunctionComponent } from "react";
 
 export type ConfiguredTrackerComponent = FunctionComponent<any> & {
   /**

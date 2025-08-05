@@ -3,14 +3,14 @@ import {
   ImpressionEvent,
   ImpressionRegionStats,
   ImpressionTextStats,
-  externalReferencesEqual,
   TrackingBoundaryData,
+  externalReferencesEqual,
+  uniqueReferences,
 } from "@tailjs/types";
 import {
   F,
   Intervals,
   NoOpFunction,
-  Nullish,
   T,
   TextStats,
   Timer,
@@ -79,25 +79,24 @@ export const createImpressionObserver = (tracker: Tracker) => {
 
   const probeRange = document.createRange();
 
-  return (
-    el: Element,
-    trackingData: TrackingBoundaryData<true> | undefined
-  ) => {
+  return (el: Element, trackingData: TrackingBoundaryData | undefined) => {
     if (!trackingData) return;
 
-    const trackAllImpressions = !!trackingData.tracking?.impressions;
+    const trackAllImpressions = !!trackingData.track?.impressions;
 
-    let components: (ConfiguredComponent | null)[] | Nullish = trackerFlag(
+    let components: undefined | (ConfiguredComponent | null)[] = trackerFlag(
       el,
       "impressions",
       T,
-      (data) => trackAllImpressions || data.tracking?.impressions
+      (data) => trackAllImpressions || data.track?.impressions
     )
-      ? trackingData?.component
-      : filter(
-          trackingData?.component,
-          (cmp) => trackAllImpressions || cmp!.tracking?.impressions
-        );
+      ? uniqueReferences(trackingData?.components)
+      : (filter(
+          trackingData?.components,
+          (cmp) =>
+            trackAllImpressions ||
+            (cmp as ConfiguredComponent)?.track?.impressions
+        ) as ConfiguredComponent[]);
 
     if (!components?.length) {
       if (!trackAllImpressions) {
@@ -116,7 +115,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
             cmp &&
             // When a React component returns a fragment with multiple DOM elements, we only look at the first.
             // TODO: Refine. This may cause inaccuracies but is considered an edge case (a component with tracked impressions will presumably have a single container most of the time).
-            !some(siblingData.component, (siblingCmp) =>
+            !some(uniqueReferences(siblingData.components), (siblingCmp) =>
               externalReferencesEqual(cmp, siblingCmp)
             )
         );

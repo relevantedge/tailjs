@@ -2,7 +2,7 @@ import { TrackingBehavior } from "@tailjs/types";
 import { commandTest } from "./shared";
 
 export type ConfigurationCommand = {
-  tracking: TrackingBehavior;
+  track: TrackingBehavior;
 };
 export const isConfigurationCommand =
-  commandTest<ConfigurationCommand>("tracking");
+  commandTest<ConfigurationCommand>("track");

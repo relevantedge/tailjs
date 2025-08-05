@@ -28,7 +28,6 @@ export const diff = <T>(
 
   const delta: any = {};
   let patchedValue: any;
-  let previousValue: number | undefined;
 
   // If there are changes, this will be a clone of the previous value with the delta changes applied.
   let patched: any;

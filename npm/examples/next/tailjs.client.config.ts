@@ -11,13 +11,13 @@ export default createClientConfiguration({
       if (type === ImpressionTest) {
         console.log("IMPT");
         (updates ??= []).push({
-          component: props.tall ? undefined : { id: "ImpressionTest" },
+          components: props.tall ? undefined : { id: "ImpressionTest" },
           tracking: { impressions: true },
         });
       }
       if (type === Test3) {
         (updates ??= []).push({
-          component: { id: "test" },
+          components: { id: "test" },
           tracking: { impressions: true },
         });
       }
@@ -38,13 +38,13 @@ export default createClientConfiguration({
         });
       }
       if (props.componentId) {
-        (updates ??= []).push({ component: { id: props.componentId } });
+        (updates ??= []).push({ components: { id: props.componentId } });
       }
       if (props?.component) {
         // When using a headless CMS, you typically get the page and component data, and the layout is rendered dynamically.
         // Use the properties passed to the components handling this to map to tail.js component and content data.
         (updates ??= []).push({
-          component: { id: props.component.id ?? "unknown component" },
+          components: { id: props.component.id ?? "unknown component" },
         });
       }
 

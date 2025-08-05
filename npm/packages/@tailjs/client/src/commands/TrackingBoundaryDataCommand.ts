@@ -10,17 +10,28 @@ import { commandTest } from "./shared";
 export type TrackingBoundaryDataCommand = {
   boundary: Element;
 } & (
-  | (TrackingBoundaryData & {
-      /**
-       * The content, tags and components will be added to the existing, if any.
-       */
-      add?: boolean;
-    })
   | {
-      update: (
-        current?: TrackingBoundaryData<true>
-      ) => TrackingBoundaryData | Nullish;
+      /** Remove all boundary data from the element from all {@link layer}s. */
+      clear: boolean;
+      layer?: never;
     }
+  | ({
+      /**
+       * Used to avoid conflicts between different logic that provides boundary data for the same element.
+       * The default is that all exiting boundary data for the element gets replaced, but this key allows you
+       * to only replace the data related to some specific logic.
+       *
+       * The different layers gets merged after each update.
+       */
+      layer?: string | symbol;
+    } & (
+      | (TrackingBoundaryData & { update?: never })
+      | {
+          update: (
+            current?: TrackingBoundaryData<true>
+          ) => TrackingBoundaryData | Nullish;
+        }
+    ))
 );
 
 export const isTrackingDataCommand =

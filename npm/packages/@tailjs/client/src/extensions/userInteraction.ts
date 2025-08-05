@@ -10,13 +10,13 @@ import {
   NavigationEvent,
   ScreenPosition,
   UserInteractionEvent,
+  uniqueReferences,
 } from "@tailjs/types";
 import {
   F,
   ParsedUri,
   T,
   ellipsis,
-  equalsAny,
   forEach,
   isObject,
   map,
@@ -161,7 +161,7 @@ export const userInteraction: TrackerExtensionFactory = {
             nav = nav || tagName(el) === "NAV";
 
             const boundary = getBoundaryData(el);
-            const components = boundary?.component;
+            const components = uniqueReferences(boundary?.components);
             if (!ev.button && components?.length && !clickables) {
               forEach(
                 el.querySelectorAll("a,button"),
@@ -177,7 +177,9 @@ export const userInteraction: TrackerExtensionFactory = {
                             child,
                             r,
                             _,
-                            childComponents = getBoundaryData(child)?.component
+                            childComponents = uniqueReferences(
+                              getBoundaryData(child)?.components
+                            )
                           ) => childComponents && r(childComponents[0]),
                           (child) => child === el
                         ),
@@ -190,13 +192,13 @@ export const userInteraction: TrackerExtensionFactory = {
             }
 
             trackClicks ??=
-              trackerFlag(el, "clicks", T, (data) => data.tracking?.clicks) ??
+              trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
               (components &&
-                some(components, (cmp) => cmp.tracking?.clicks !== F));
+                some(components, (cmp) => cmp.track?.clicks !== F));
 
             trackRegion ??=
-              trackerFlag(el, "region", T, (data) => data.tracking?.region) ??
-              (components && some(components, (cmp) => cmp.tracking?.region));
+              trackerFlag(el, "region", T, (data) => data.track?.region) ??
+              (components && some(components, (cmp) => cmp.track?.region));
           });
 
           if (!(containerElement ??= clickableElement)) {

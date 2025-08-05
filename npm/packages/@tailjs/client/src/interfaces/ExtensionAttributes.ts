@@ -19,7 +19,7 @@ export interface TrackerAttributes {
   /**
    * The DOM element represents a component
    */
-  ["track-component"]?: string | TrackingBoundaryData["component"];
+  ["track-component"]?: string | TrackingBoundaryData["components"];
 
   /**
    * The DOM element represents a container for content.

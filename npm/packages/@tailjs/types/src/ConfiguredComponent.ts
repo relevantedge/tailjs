@@ -6,7 +6,7 @@ export interface ConfiguredComponent extends Component {
    *
    * These settings are not tracked, that is, this property is stripped from the data sent to the server.
    */
-  tracking?: ComponentTrackingBehavior;
+  track?: ComponentTrackingBehavior;
 }
 
 export interface ComponentTrackingBehavior extends TrackingBehavior {

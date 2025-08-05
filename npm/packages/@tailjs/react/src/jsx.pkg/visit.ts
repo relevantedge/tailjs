@@ -11,13 +11,10 @@ import {
 import { tail } from "@tailjs/client/external";
 
 import {
-  clearTrackingDataExtensions,
-  EventSpecificTags,
   ExtendedTrackingBoundaryData,
-  isEmptyTrackingData,
   normalizeTrackingData,
   TrackingBoundaryData,
-  updateTrackingData,
+  appendTrackingData,
 } from "@tailjs/types";
 import {
   ElementStateMapper,
@@ -42,9 +39,9 @@ let tracker = baseTracker;
 
 let config: JsxConfiguration | null = null;
 
-let stateMapper: StateMapper<any> | null = null;
+let stateMapper: StateMapper | null = null;
 let script: JsxConfiguration["script"] | null = null;
-let customRef: ElementStateMapper<any> | null = null;
+let customRef: ElementStateMapper | null = null;
 
 const clientReferenceSymbol = Symbol.for("react.client.reference");
 const isClientComponentReference = (type: any) =>
@@ -74,7 +71,7 @@ const chainStateMappers = (
         let mergedState = currentState;
         for (const mapper of mappers) {
           mergedState =
-            updateTrackingData(undefined, mapper(mergedState, type, props)) ??
+            appendTrackingData(undefined, mapper(mergedState, type, props)) ??
             mergedState;
         }
         return mergedState === currentState ? undefined : mergedState;
@@ -116,7 +113,7 @@ export const updateConfig: ConfigUpdater = (update: any) => {
           return [
             currentState,
             {
-              component: [
+              components: [
                 {
                   id: displayName,
                   name: displayName,
@@ -176,6 +173,8 @@ const withProp = (target: any, prop: keyof any, value: any) => {
 };
 
 const currentElementStates = new WeakMap<Element, any>();
+const REACT_BOUNDARY_DATA_KEY = Symbol("react boundary");
+
 export const bindState = (el: any, state: ExtendedTrackingBoundaryData) => {
   if (currentElementStates.get(el) === state) {
     // Don't call the tracker more than necessary.
@@ -189,17 +188,14 @@ export const bindState = (el: any, state: ExtendedTrackingBoundaryData) => {
   const view = state.view;
   if (view) {
     tracker({ view });
-    delete state.view;
-  }
-  const viewTags = (state.tags as EventSpecificTags)?.events?.view;
-  if (viewTags) {
-    tracker({ view: { addTags: viewTags } });
-    delete (state.tags! as EventSpecificTags).events!.view;
+    state = { ...state, view: undefined };
   }
 
-  if (!isEmptyTrackingData(state, true)) {
-    tracker({ boundary: el, add: !state.reset, ...state });
-  }
+  tracker({
+    boundary: el,
+    ...state,
+    layer: state.layer ?? REACT_BOUNDARY_DATA_KEY,
+  });
 };
 
 const withStateProperty = (
@@ -264,7 +260,7 @@ export const getStateFromProps = (type: any, props: any) => {
     if (stateMapper && type) {
       const parentState = parseStateProperty(props, PARENT_STATE_PROP);
 
-      const mappedState = updateTrackingData(
+      const mappedState = appendTrackingData(
         undefined,
         stateMapper(
           normalizeTrackingData(parentState),
@@ -276,7 +272,7 @@ export const getStateFromProps = (type: any, props: any) => {
       );
 
       state = state
-        ? updateTrackingData(mappedState, state) ?? parentState
+        ? appendTrackingData(mappedState, state) ?? parentState
         : mappedState;
     }
     state = normalizeTrackingData(state);
@@ -349,10 +345,10 @@ export type WithTrackingFunction = {
 
 export const withTracking: WithTrackingFunction =
   (component: any, mapState: any) => (props: any) => {
-    const mapped = clearTrackingDataExtensions(mapState(props));
+    const mapped = mapState(props);
     return mapped // Empty object will also create a TrackingBoundary to support state that depends on a parameter (e.g., sometimes returns `{}` sometimes return `{tags: ...}`)
       ? createElement(TrackingBoundary, {
-          state: updateTrackingData(null, mapped),
+          state: appendTrackingData(null, mapped),
           children: createElement(component, props),
         })
       : createElement(component, props);
@@ -388,7 +384,7 @@ const EnsureScript = ({ children }: PropsWithChildren) => {
   const bodyIndex = htmlChildren.findIndex((el) => {
     if (el.type === "body") {
       if (
-        parseStateProperty(el.props, EXPLICIT_STATE_PROP)?.tracking?.disable ===
+        parseStateProperty(el.props, EXPLICIT_STATE_PROP)?.track?.disable ===
         true
       ) {
         locallyDisabled = true;
@@ -423,8 +419,7 @@ const tryInjectScript = (
       hasHead = false;
 
       locallyDisabled =
-        parseStateProperty(props, EXPLICIT_STATE_PROP)?.tracking?.disable ===
-        true;
+        parseStateProperty(props, EXPLICIT_STATE_PROP)?.track?.disable === true;
       props = cloneIfFrozen(props ?? {});
       children ??= props.children;
       const wrapper = createElement(EnsureScript, {

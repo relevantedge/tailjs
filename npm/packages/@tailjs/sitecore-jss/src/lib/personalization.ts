@@ -52,7 +52,7 @@ export function getPagePersonalization(
   if (pageVariantId !== DEFAULT_VARIANT) {
     return [
       {
-        source: getRouteItem(layout),
+        definition: getRouteItem(layout),
         variants: [
           {
             id: pageVariantId,
@@ -96,7 +96,7 @@ export function getComponentPersonalization(
   };
 
   const personalization: Personalization = {
-    source: getRouteItem(layout),
+    definition: getRouteItem(layout),
     variants: set.map(mapChoice),
   };
 

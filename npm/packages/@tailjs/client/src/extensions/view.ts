@@ -2,6 +2,7 @@ import { SCOPE_INFO_KEY } from "@constants";
 
 import {
   LocalID,
+  Tag,
   View,
   ViewEvent,
   ViewTimingData,
@@ -15,17 +16,14 @@ import {
   add,
   array,
   clock,
-  concat,
   createEvent,
   createTimer,
   forEach,
   isArray,
-  isFunction,
   map,
   nil,
   now,
   obj,
-  parseQueryString,
   parseUri,
   replace,
   skip,
@@ -51,6 +49,7 @@ import {
   parseDomain,
   setLocalVariables,
   tryGetVariable,
+  updateBoundaryData,
 } from "../lib";
 
 export let currentViewEvent: ViewEvent | undefined;
@@ -323,12 +322,12 @@ export const context: TrackerExtensionFactory = {
           if (view && "addTags" in view) {
             const addTags = view.addTags;
             if (currentViewEvent && addTags) {
-              currentViewEvent.tags = uniqueTags(
-                currentViewEvent.tags,
-                addTags
-              );
+              currentViewEvent.tags =
+                updateBoundaryData(currentViewEvent, {
+                  tags: addTags,
+                })?.tags ?? [];
             }
-          } else {
+          } else if (view) {
             if (!structuralEquals(view, currentViewEvent?.definition)) {
               if (
                 currentViewEvent == null ||

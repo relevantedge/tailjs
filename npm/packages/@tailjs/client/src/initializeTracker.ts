@@ -4,7 +4,7 @@ import { createTransport } from "@tailjs/transport";
 import {
   clearSchemaMetadata,
   isTrackedEvent,
-  updateTrackingData,
+  appendTrackingData,
 } from "@tailjs/types";
 import {
   F,
@@ -68,7 +68,7 @@ import {
   isTracker,
   logError,
   nextId,
-  setBoundaryData,
+  updateBoundaryData,
   setStorageKey,
   trackerConfig,
   window,
@@ -164,13 +164,13 @@ export const initializeTracker = (
   // Main
   const events = createEventQueue(VAR_URL, trackerContext);
 
-  let boundaryDataDefaults = updateTrackingData(
+  let boundaryDataDefaults = appendTrackingData(
     getBoundaryData(document.documentElement),
     getBoundaryData(document.body)
   );
 
   if (!checkTrackingEnabled(document.body)) {
-    ((boundaryDataDefaults ??= {}).tracking ??= {}).disable = true;
+    ((boundaryDataDefaults ??= {}).track ??= {}).disable = true;
     trackerConfig.disabled = true;
   }
 
@@ -227,14 +227,14 @@ export const initializeTracker = (
           trackerConfig.disabled = command.disable;
           return F;
         } else if (isConfigurationCommand(command)) {
-          boundaryDataDefaults = updateTrackingData(boundaryDataDefaults, {
-            tracking: command.tracking,
-          })?.tracking;
+          boundaryDataDefaults = appendTrackingData(boundaryDataDefaults, {
+            track: command.track,
+          });
 
-          if (boundaryDataDefaults?.tracking?.disable != null) {
-            trackerConfig.disabled = boundaryDataDefaults.tracking.disable;
+          if (boundaryDataDefaults?.track?.disable != null) {
+            trackerConfig.disabled = boundaryDataDefaults.track.disable;
           }
-          setBoundaryData(document.body, boundaryDataDefaults);
+          updateBoundaryData(document.body, boundaryDataDefaults);
         } else if (isFlushCommand(command)) {
           flush = T;
           return F;

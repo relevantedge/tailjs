@@ -174,6 +174,19 @@ export let add: {
   }
 };
 
+export let trySet: {
+  <
+    Target,
+    K extends KeyTypeOf<Target>,
+    Value extends InputValueTypeOf<Target, K>
+  >(
+    target: Target,
+    key: K,
+    value: Value
+  ): boolean;
+} = (target: any, key: any, value: any) =>
+  get(target, key) !== set(target, key, value);
+
 export let set: {
   <
     Target,

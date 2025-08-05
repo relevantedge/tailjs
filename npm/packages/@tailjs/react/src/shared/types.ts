@@ -1,8 +1,6 @@
 import type { ProvisionalTracker } from "@tailjs/client/external";
-import type {
-  ExtendedTrackingBoundaryData,
-  TrackingDataExtensionType,
-} from "@tailjs/types";
+import type { ExtendedTrackingBoundaryData } from "@tailjs/types";
+import { Falsish } from "@tailjs/util";
 import type { ComponentClass } from "react";
 
 export type ComponentType = (
@@ -12,39 +10,35 @@ export type ComponentType = (
 
 export type ElementType = string | ComponentType;
 
-export type StateMapperResult<
-  Extensions extends TrackingDataExtensionType = {}
-> =
-  | ExtendedTrackingBoundaryData<Extensions>
-  | StateMapperResult<Extensions>[]
-  | Voidish;
+export type StateMapperResult =
+  | ExtendedTrackingBoundaryData
+  | StateMapperResult[]
+  | Falsish;
 
-export type UpdateStateOptions<
-  Extensions extends TrackingDataExtensionType = {}
-> = {
+export type UpdateStateOptions = {
   uniqueIds?: boolean;
   mergeExtensions?: (
-    target: ExtendedTrackingBoundaryData<Extensions>,
-    update: ExtendedTrackingBoundaryData<Extensions>
-  ) => ExtendedTrackingBoundaryData<Extensions>;
+    target: ExtendedTrackingBoundaryData,
+    update: ExtendedTrackingBoundaryData
+  ) => ExtendedTrackingBoundaryData;
 };
 
-export type StateMapper<Extensions extends TrackingDataExtensionType = {}> = (
+export type StateMapper = (
   /** The result from the previous state mapper, when state mappers are chained in the configuration. */
-  currentState: ExtendedTrackingBoundaryData<Extensions, true> | undefined,
+  currentState: ExtendedTrackingBoundaryData | undefined,
   /** The type of the rendering component. */
   type: ComponentType,
   /** The properties of the rendering component.  */
   props: Record<string, any>
-) => StateMapperResult<Extensions>;
+) => StateMapperResult;
 
-export type StateMapperCollection<
-  Extensions extends TrackingDataExtensionType = {}
-> = Voidish | false | StateMapper<Extensions> | StateMapperCollection[];
+export type StateMapperCollection =
+  | Voidish
+  | false
+  | StateMapper
+  | StateMapperCollection[];
 
-export type StateMapperConfiguration<
-  Extensions extends TrackingDataExtensionType = {}
-> =
+export type StateMapperConfiguration =
   | StateMapperCollection
   | {
       state: StateMapperCollection;
@@ -55,20 +49,16 @@ export type StateMapperConfiguration<
        * return `false` to suppress default behavior.
        */
 
-      ref?: ElementStateMapper<Extensions>;
+      ref?: ElementStateMapper;
     };
 
-export type ElementStateMapper<
-  CustomState extends TrackingDataExtensionType = {}
-> = (
+export type ElementStateMapper = (
   tail: ProvisionalTracker,
   el: Element,
-  data: ExtendedTrackingBoundaryData<TrackingDataExtensionType> | CustomState
+  data: ExtendedTrackingBoundaryData
 ) => void | boolean;
 
-export interface JsxConfiguration<
-  TrackingDataExtensions extends TrackingDataExtensionType = {}
-> {
+export interface JsxConfiguration {
   /**
    * The script to inject in the the page's `<head>` section.
    *
@@ -79,7 +69,7 @@ export interface JsxConfiguration<
     | false;
 
   /** Maps component types and properties to boundary data (views, components etc.) */
-  map?: StateMapperConfiguration<TrackingDataExtensions>;
+  map?: StateMapperConfiguration;
 
   disabled?: false;
 

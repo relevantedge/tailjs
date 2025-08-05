@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" tailjs={{ tracking: { disable: false } }}>
+    <html lang="en" tailjs={{ track: { disable: false } }}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

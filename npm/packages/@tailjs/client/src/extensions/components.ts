@@ -1,33 +1,27 @@
 import {
+  cleanBoundaryDataProperties,
+  hasComponentOrContent,
+  uniqueReferences,
   type ActivatedComponent,
   type ActivatedContent,
   type ComponentClickIntentEvent,
   type ConfiguredComponent,
   type Rectangle,
   type Tag,
-  type TrackingBoundaryData,
   type UserInteractionEvent,
-  getTagsForEventType,
-  isEmptyTagCollection,
-  normalizeTrackingData,
-  uniqueTags,
-  updateTrackingData,
 } from "@tailjs/types";
 import {
   F,
   Nullish,
   T,
-  array,
-  assign,
   filter,
   forEach,
   isString,
   join,
   map,
   max,
-  set,
+  skip,
   some,
-  update,
 } from "@tailjs/util";
 import {
   TrackerExtensionFactory,
@@ -37,41 +31,27 @@ import {
 } from "..";
 import {
   NodeWithParentElement,
-  boundaryData,
   createImpressionObserver,
   forAncestorsOrSelf,
   getBoundaryData,
+  getBoundaryTags,
   getRect,
-  parseTags,
   scanAttributes,
   trackerFlag,
   trackerProperty,
+  updateBoundaryData,
 } from "../lib";
 export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 
 export const componentDomConfiguration = Symbol("DOM configuration");
 
-export const parseActivationTags = (el: Element, eventType?: string) =>
-  parseTags(el, undefined, (el) =>
-    getTagsForEventType(boundaryData.get(el)?.tags, eventType)
-  );
-
-const hasComponentOrContent = (boundary?: TrackingBoundaryData<true> | null) =>
-  boundary?.component || boundary?.content;
-
-export const parseBoundaryTags = (
+const parseBoundaryTags = (
   el: NodeWithParentElement,
-  eventType?: string | Nullish,
-  unique = true
+  eventType?: string | Nullish
 ) => {
-  const parsed = parseTags(el as Element, undefined, (parentOrSelf) => {
-    return getTagsForEventType(boundaryData.get(parentOrSelf)?.tags, eventType);
-  });
-  if (unique && parsed.tags) {
-    parsed.tags = uniqueTags(parsed.tags);
-  }
+  const parsed = getBoundaryTags(el as Element, eventType);
 
-  return isEmptyTagCollection(parsed?.tags) ? {} : parsed;
+  return parsed?.tags && parsed;
 };
 
 let content: ActivatedContent[] | undefined;
@@ -98,7 +78,7 @@ const enum IncludeState {
 export const checkTrackingEnabled = (el: NodeWithParentElement | Nullish) =>
   forAncestorsOrSelf(el, (el, returnValue) => {
     let disabledSetting =
-      getBoundaryData(el)?.tracking?.disable || trackerFlag(el, "disable");
+      getBoundaryData(el)?.track?.disable || trackerFlag(el, "disable");
     if (disabledSetting != null) {
       returnValue(disabledSetting);
     }
@@ -139,17 +119,6 @@ export const getComponentContext = (
   let includeState = IncludeState.Secondary;
   let rect: Rectangle | undefined;
 
-  const uniqueContent = (content: ActivatedContent[]) => {
-    if (content.length <= 1) {
-      return content;
-    }
-    const seen = new Set<string>();
-    return content.filter((item) => {
-      const key = item.id + item.name;
-      return seen.has(key) ? false : seen.add(key);
-    });
-  };
-
   forAncestorsOrSelf(el, (el) => {
     const entry = getBoundaryData(el);
     if (!entry) {
@@ -158,26 +127,29 @@ export const getComponentContext = (
 
     if (hasComponentOrContent(entry)) {
       const components =
-        filter(array(entry.component), (entry) => {
-          return (
-            includeState === IncludeState.Secondary ||
-            (!directOnly &&
-              ((includeState === IncludeState.Primary &&
-                entry.tracking?.secondary !== T) ||
-                entry.tracking?.promote))
-          );
+        filter(uniqueReferences(entry.components), (entry) => {
+          entry &&
+            (includeState === IncludeState.Secondary ||
+              (!directOnly &&
+                ((includeState === IncludeState.Primary &&
+                  entry.track?.secondary !== T) ||
+                  entry.track?.promote)));
         }) ?? [];
 
       rect =
-        ((includeRegion ?? some(components, (item) => item.tracking?.region)) &&
+        ((includeRegion ?? some(components, (item) => item.track?.region)) &&
           getRect(el)) ||
         undefined;
       entry.content &&
         collectedContent.unshift(
-          ...map(entry.content, (item) => ({
-            ...item,
-            rect,
-          }))
+          ...map(entry.content, (item) =>
+            item
+              ? {
+                  ...item,
+                  rect,
+                }
+              : skip
+          )
         );
 
       components?.length &&
@@ -187,17 +159,15 @@ export const getComponentContext = (
             (item) => (
               (includeState = max([
                 includeState,
-                item.tracking?.secondary // INV: Secondary components are only included here if we did not have any components from a child element.
+                item.track?.secondary // INV: Secondary components are only included here if we did not have any components from a child element.
                   ? IncludeState.Primary
                   : IncludeState.Promoted,
               ])),
               stripRects(
                 {
                   ...item,
-                  tracking: undefined,
-                  content: collectedContent.length
-                    ? uniqueContent(collectedContent)
-                    : undefined,
+                  track: undefined,
+                  content: uniqueReferences(collectedContent),
                   rect,
                 },
                 !!rect
@@ -232,16 +202,19 @@ export const getComponentContext = (
     tags = { tags: [] };
   }
 
-  return components || areaPath || collectedContent.length || tags.tags
-    ? {
-        components: components,
-        area: join(areaPath, "/"),
-        content:
-          collectedContent.length > 0
-            ? uniqueContent(collectedContent)
-            : undefined,
-        ...tags,
-      }
+  return components || areaPath || collectedContent.length || tags?.tags
+    ? cleanBoundaryDataProperties(
+        {
+          components: uniqueReferences(components),
+          area: join(areaPath, "/"),
+          content:
+            collectedContent.length > 0
+              ? uniqueReferences(collectedContent)
+              : undefined,
+          ...tags,
+        },
+        eventType
+      )
     : undefined;
 };
 
@@ -252,36 +225,31 @@ export const components: TrackerExtensionFactory = {
 
     const registerComponent = ({
       boundary: el,
+      layer,
       ...command
     }: TrackingBoundaryDataCommand) => {
-      update(boundaryData, el, (current) =>
-        normalizeTrackingData(
-          command["add"]
-            ? updateTrackingData(
-                current,
-                assign(command, true, { add: undefined })
-              )
-            : "update" in command
-            ? command.update(current)
-            : command
-        )
+      const data = updateBoundaryData(
+        el,
+        command?.["update"] ?? command,
+        layer
       );
 
-      console.log(el, JSON.stringify(boundaryData.get(el)));
-
-      impressions(el, boundaryData.get(el));
+      impressions(el, data);
     };
 
     return {
       decorate(eventData) {
         // Strip tracking configuration.
-        forEach((eventData as UserInteractionEvent).components, (component) => {
-          set(component as any, "track", undefined);
-          forEach(
-            (eventData as ComponentClickIntentEvent).elements,
-            (clickable) => set(clickable as any, "track", undefined)
-          );
-        });
+        forEach(
+          (eventData as UserInteractionEvent).components,
+          (component: any) => {
+            component.track && delete component.track;
+            forEach(
+              (eventData as ComponentClickIntentEvent).elements,
+              (clickable: any) => clickable.track && delete clickable.track
+            );
+          }
+        );
       },
       processCommand(cmd) {
         return isTrackingDataCommand(cmd)

@@ -1,4 +1,5 @@
 import {
+  uniqueReferences,
   type CartAction,
   type CartEventData,
   type CartUpdatedEvent,
@@ -48,7 +49,9 @@ export function tryGetCartEventData(sourceElement: Element) {
         getBoundaryData(el)?.cart ?? trackerProperty(el, "cart")
       )) &&
       !contextCart.item &&
-      (contextCart.item = last(getBoundaryData(el)?.content)) &&
+      (contextCart.item = last(
+        uniqueReferences(getBoundaryData(el)?.content)
+      )) &&
       r(contextCart)
   );
 

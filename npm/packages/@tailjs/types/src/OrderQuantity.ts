@@ -20,7 +20,7 @@ export interface OrderQuantity extends CommerceData {
 
   /**
    * The item that relates to this quantity.
-   * If not explictly set it will get its value from the closest associated content in a {@link UserInteractionEvent} context.
+   * If not explicitly set it will get its value from the closest associated content in a {@link UserInteractionEvent} context.
    */
   item?: ExternalReference;
 }
