@@ -1,4 +1,11 @@
-import { FormEvent, FormField, Timestamp } from "@tailjs/types";
+import {
+  DataClassification,
+  FormEvent,
+  FormField,
+  FormFieldTrackingLevel,
+  Timestamp,
+  UserConsent,
+} from "@tailjs/types";
 import {
   T,
   ansi,
@@ -6,11 +13,12 @@ import {
   ellipsis,
   forEach,
   get,
+  last,
   nil,
   now,
-  parseBoolean,
   replace,
   some,
+  stringify,
   tryCatch,
   type Nullish,
 } from "@tailjs/util";
@@ -35,6 +43,7 @@ import {
   scopeAttribute,
   tagName,
   trackerFlag,
+  trackerProperty,
   trackerPropertyName,
   uuidv4,
 } from "../lib";
@@ -49,7 +58,11 @@ const enum FormFillState {
 }
 
 type FormSubmitState = {
+  started: number;
+  requestState: number;
+  pending: boolean;
   formElement: Element;
+  defaultPrevented: boolean;
   cancel(explicit: boolean): boolean;
   complete(explicit: boolean): boolean;
 };
@@ -71,7 +84,7 @@ type FormFieldState = FormField & {
 
 const VALIDATION_POLL_INTERVAL = 1000;
 /** The time waited after a form submit event to test if it still there, which is assumed to indicate that there are validation errors. */
-const VALIDATION_ERROR_TIMEOUT = 8000;
+const VALIDATION_ERROR_TIMEOUT = 10000;
 
 export const forms: TrackerExtensionFactory = {
   id: "forms",
@@ -80,14 +93,126 @@ export const forms: TrackerExtensionFactory = {
 
     const pendingFormSubmits: FormSubmitState[] = [];
 
-    const getFormFieldValue = (element: any, tracked = false): string => {
-      let include = true as any;
-      //!tracked || scopeAttribute(element, trackerPropertyName("form-value"));
+    // Trap fetch() to check whether there are pending (AJAX) submit requests when the user leaves the page.
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const pendingFormSubmit = last(pendingFormSubmits);
+      if (
+        !pendingFormSubmit ||
+        pendingFormSubmit.requestState ||
+        now() - pendingFormSubmit.started > 100 // More than 100 ms must be something else.
+      ) {
+        // This request is probably about something else.
+        return await originalFetch(...args);
+      }
 
-      tracked &&
-        (include = include
-          ? parseBoolean(include)
-          : element.type === "checkbox");
+      pendingFormSubmit.requestState = 1;
+
+      try {
+        const response = await originalFetch(...args);
+        if (!response.ok) {
+          debug(
+            `Request for pending form failed (status ${
+              response.status
+            }). ${ansi("Form not submitted", 1)}.`
+          );
+          pendingFormSubmit.cancel(false);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          try {
+            const json = await response.json();
+            if (
+              // Qualified guessing
+              json?.error ||
+              // GraphQL
+              json?.errors?.length
+            ) {
+              debug(
+                `Request for pending form (presumably) failed with an error response ('${stringify(
+                  json
+                )}'). ${ansi("Form not submitted", 1)}.`
+              );
+              pendingFormSubmit.cancel(false);
+            }
+          } catch (e) {
+            debug(
+              `Request for pending form failed (invalid JSON). ${ansi(
+                "Form not submitted",
+                1
+              )}.`
+            );
+            pendingFormSubmit.cancel(false);
+          }
+        }
+
+        if (pendingFormSubmit.pending) {
+          debug(
+            `Request for pending form succeeded. ${ansi("Form submitted", 1)}.`
+          );
+          pendingFormSubmit.complete(false);
+        }
+
+        return response;
+      } catch (error) {
+        debug(
+          `Request for pending form failed ('${error.toString()}'). ${ansi(
+            "Form not submitted",
+            1
+          )}.`
+        );
+        pendingFormSubmit.cancel(false);
+        throw error;
+      } finally {
+        pendingFormSubmit.requestState = 2;
+      }
+    };
+
+    let currentConsent: UserConsent | undefined;
+
+    tracker({
+      consent: {
+        get: (consent) => {
+          currentConsent = consent;
+          return true;
+        },
+      },
+    });
+
+    const getFormFieldValue = (element: any, forTracking = false): string => {
+      //let include = true as any;
+      let include =
+        !forTracking ||
+        ((trackerProperty(
+          element,
+          "field",
+          true,
+          (data) => data.track?.formFields?.values
+        ) as FormFieldTrackingLevel) ??
+          "checkbox-only");
+
+      if (forTracking) {
+        include =
+          include === true ||
+          (include === "checkbox-only" && element.type === "checkbox");
+
+        if (include) {
+          const privacy =
+            (trackerProperty(
+              element,
+              "field-privacy",
+              true,
+              (data) => data.track?.formFields?.privacy
+            ) as DataClassification) ?? "anonymous";
+          if (privacy) {
+            // Check privacy.
+            const consentLevel = currentConsent?.classification ?? "anonymous";
+
+            include = DataClassification.compare(privacy, consentLevel) <= 0;
+          }
+        }
+      }
 
       let value = element.selectedOptions
         ? [...element.selectedOptions].map((option) => option.value).join(",")
@@ -97,7 +222,7 @@ export const forms: TrackerExtensionFactory = {
           : "false"
         : element.value;
 
-      if (tracked && value) {
+      if (forTracking && value) {
         value = ellipsis(value, 200);
       }
       return include ? value : undefined;
@@ -107,11 +232,24 @@ export const forms: TrackerExtensionFactory = {
       el: FormElement
     ): [input: FormElement, state: FormState] | undefined => {
       const formElement = el.form;
-      if (!formElement) return; // Don't care if we started with an element that didn't map to a field.
+      if (
+        !formElement ||
+        trackerFlag(
+          formElement,
+          "disable",
+          true,
+          (data) => data.track?.forms
+        ) === false ||
+        trackerFlag(formElement, "form", true, (data) => data.track?.forms) ==
+          false
+      ) {
+        return; // Don't care if we started with an element that didn't map to a field.
+      }
 
       const refName =
         scopeAttribute(formElement, trackerPropertyName("ref")) || "track_ref";
 
+      let anonymousId = 0;
       const parseElements = () => {
         forEach(
           formElement.querySelectorAll(
@@ -121,7 +259,8 @@ export const forms: TrackerExtensionFactory = {
             if (el.tagName === "BUTTON" && el.type !== "submit") {
               return;
             }
-            if (!el.name || el.type === "hidden") {
+            const name = el.name || `(unnamed ${++anonymousId})`;
+            if (el.type === "hidden") {
               if (
                 el.type === "hidden" &&
                 (el.name === refName || trackerFlag(el, "ref"))
@@ -131,12 +270,11 @@ export const forms: TrackerExtensionFactory = {
               }
               return;
             }
-            const name = el.name;
             const field = (state[0].fields![name] ??= {
               id: el.id || name,
               name,
               label: replace(
-                el.labels?.[0]?.innerText ?? el.name,
+                el.labels?.[0]?.innerText ?? name,
                 /^\s*(.*?)\s*\*?\s*$/g,
                 "$1"
               ),
@@ -202,6 +340,10 @@ export const forms: TrackerExtensionFactory = {
               explicit ||
               state[3] === FormFillState.Submitting ||
               !isFormVisible();
+
+            if (explicit) {
+              debug(`Form explicitly submitted. ${ansi("Form submitted", 1)}.`);
+            }
           }
 
           tracker.events.postPatch(ev, {
@@ -248,8 +390,7 @@ export const forms: TrackerExtensionFactory = {
 
         let unbindNavigationListener: (() => void) | undefined;
 
-        let pendingFormSubmit: (typeof pendingFormSubmits)[number] | null =
-          null;
+        let pendingFormSubmit: FormSubmitState | null = null;
 
         listen(formElement.ownerDocument.body, "submit", (submitEvent) => {
           capturedContext = getComponentContext(formElement, {
@@ -261,6 +402,7 @@ export const forms: TrackerExtensionFactory = {
             if (!pendingFormSubmit) {
               return false;
             }
+            pendingFormSubmit.pending = false;
             const index = pendingFormSubmits.indexOf(pendingFormSubmit);
             if (index > -1) {
               pendingFormSubmits.splice(index, 1);
@@ -273,7 +415,11 @@ export const forms: TrackerExtensionFactory = {
 
           clearPendingSubmit();
           pendingFormSubmit = {
+            started: now(),
+            requestState: 0,
+            pending: true,
             formElement: formElement,
+            defaultPrevented: false,
             cancel(explicit) {
               if (!clearPendingSubmit()) {
                 return false;
@@ -284,7 +430,7 @@ export const forms: TrackerExtensionFactory = {
                   `Form submit explicitly cancelled. ${ansi(
                     "Form not submitted",
                     1
-                  )}`
+                  )}.`
                 );
               }
               return true;
@@ -296,7 +442,7 @@ export const forms: TrackerExtensionFactory = {
 
               if (explicit) {
                 debug(
-                  `Form explicitly submitted. ${ansi("Form submitted", 1)}`
+                  `Form explicitly submitted. ${ansi("Form submitted", 1)}.`
                 );
                 if (state[3] === FormFillState.Pending) {
                   state[3] = FormFillState.Submitting;
@@ -313,41 +459,73 @@ export const forms: TrackerExtensionFactory = {
           // Add a short timeout make sure we get the correct value of event.defaultPrevent if we are not the last event handler.
           setTimeout(() => {
             if (submitEvent.defaultPrevented) {
+              if (pendingFormSubmit) {
+                pendingFormSubmit.defaultPrevented = true;
+              }
+
               // Might be XHR. If so, the default would have been prevented.
               // However, we must wait and see if the form disappears, otherwise, it could also be validation errors.
-              [unbindNavigationListener] = addPageLoadedListener((loaded) => {
-                if (loaded) return;
+              [unbindNavigationListener] = addPageLoadedListener(
+                (loaded, _) => {
+                  if (loaded) return;
 
-                // If the browser navigates while waiting, this is also considered a submit.
-                if (recaptcha) {
-                  if (pendingFormSubmit?.cancel(false)) {
-                    debug(
-                      `The browser is navigating to another page after submit leaving a reCAPTCHA challenge. ${ansi(
-                        "Form not submitted",
-                        1
-                      )}`
-                    );
-                  }
-                } else if (state[3] === FormFillState.Submitting) {
-                  if (pendingFormSubmit?.complete(false)) {
-                    debug(
-                      `The browser is navigating to another page after submit. ${ansi(
-                        "Form submitted",
-                        1
-                      )}`
-                    );
-                  }
-                } else if (state[3] !== FormFillState.Submitted) {
-                  if (pendingFormSubmit?.cancel(false)) {
-                    debug(
-                      `The browser is navigating to another page after submit, but submit was cancelled earlier because of validation errors. ${ansi(
-                        "Form not submitted.",
-                        1
-                      )}`
-                    );
+                  // If the browser navigates while waiting, this is also considered a submit.
+                  if (recaptcha) {
+                    if (pendingFormSubmit?.cancel(false)) {
+                      debug(
+                        `The browser is navigating to another page after submit leaving a reCAPTCHA challenge. ${ansi(
+                          "Form not submitted",
+                          1
+                        )}.`
+                      );
+                    }
+                  } else if (state[3] === FormFillState.Submitting) {
+                    if (!pendingFormSubmit?.pending) {
+                      return;
+                    }
+
+                    const delta = now() - pendingFormSubmit.started;
+
+                    if (!pendingFormSubmit.requestState && delta < 1500) {
+                      pendingFormSubmit?.complete(false) &&
+                        debug(
+                          `The browser is navigating to another page shortly after submit, and no requests are pending. ${ansi(
+                            "Form (quite likely) submitted",
+                            1
+                          )}.`
+                        );
+                    } else if (!pendingFormSubmit.defaultPrevented) {
+                      pendingFormSubmit?.complete(false) &&
+                        debug(
+                          `The browser is navigating to another page before ${
+                            VALIDATION_ERROR_TIMEOUT / 1000
+                          }s after submit. ${ansi(
+                            delta < 3000
+                              ? "Form submitted"
+                              : "Form (quite likely) submitted",
+                            1
+                          )}.`
+                        );
+                    } else if (pendingFormSubmit?.cancel(false)) {
+                      debug(
+                        `The browser is navigating to another page before submit has completed. Note to developers: You may need to do an explicit \`tail({form:"submit", ref: (submit event/form element)})\` if you think this is wrong. ${ansi(
+                          "Form state uncertain",
+                          1
+                        )}.`
+                      );
+                    }
+                  } else if (state[3] !== FormFillState.Submitted) {
+                    if (pendingFormSubmit?.cancel(false)) {
+                      debug(
+                        `The browser is navigating to another page after submit, but submit was cancelled earlier because of validation errors. ${ansi(
+                          "Form not submitted.",
+                          1
+                        )}.`
+                      );
+                    }
                   }
                 }
-              });
+              );
 
               let recaptcha = false;
               let started = now();
@@ -373,7 +551,7 @@ export const forms: TrackerExtensionFactory = {
                       `Form is still visible after ${elapsed} ms, validation errors assumed. Logic for auto-detecting submit is suspended. ${ansi(
                         "Form not submitted",
                         1
-                      )}`
+                      )}.`
                     );
                     return false;
                   }
@@ -383,7 +561,7 @@ export const forms: TrackerExtensionFactory = {
                       `Form is no longer visible ${elapsed} ms after submit. ${ansi(
                         "Form submitted",
                         1
-                      )}`
+                      )}.`
                     );
                   }
                 }
@@ -397,7 +575,7 @@ export const forms: TrackerExtensionFactory = {
                   `Submit event triggered and default not prevented. ${ansi(
                     "Form submitted",
                     1
-                  )}`
+                  )}.`
                 );
               }
             }
@@ -446,7 +624,7 @@ export const forms: TrackerExtensionFactory = {
             `Field got changed, assuming validation error correction. ${ansi(
               "Form not submitted",
               1
-            )}`
+            )}.`
           );
         }
 

@@ -70,7 +70,7 @@ export interface BootstrapSettings
   /**
    * Configuration for the client script.
    */
-  client?: TrackerClientConfiguration;
+  client?: Omit<TrackerClientConfiguration, "src">;
 }
 
 export function bootstrap(settings: BootstrapSettings) {

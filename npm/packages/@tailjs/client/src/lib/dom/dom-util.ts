@@ -78,8 +78,8 @@ export const forAncestorsOrSelf = <T = any>(
 
 export type AttributeValueType =
   /**
-   * The normalized attribute value, int the sense it gets trimmed and lowercased.
-   * The empty spring is considered undefined.
+   * The normalized attribute value, in the sense it gets trimmed and lowercased.
+   * The empty string is considered undefined.
    *
    * This is the default.
    */

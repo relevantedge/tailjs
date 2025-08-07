@@ -5,20 +5,18 @@ import {
   memo,
   PropsWithChildren,
   ComponentType as ReactComponentType,
-  ReactNode,
 } from "react";
 
 import { tail } from "@tailjs/client/external";
 
 import {
+  appendTrackingData,
   ExtendedTrackingBoundaryData,
   normalizeTrackingData,
   TrackingBoundaryData,
-  appendTrackingData,
 } from "@tailjs/types";
 import {
   ElementStateMapper,
-  ElementType,
   JsxConfiguration,
   StateMapper,
   StateMapperCollection,
@@ -134,43 +132,52 @@ export const updateConfig: ConfigUpdater = (update: any) => {
     : baseTracker;
 };
 
-const cloneIfFrozen = <T>(obj: T): T => {
-  if (!Object.isFrozen(obj)) return obj;
-  if (Array.isArray(obj)) {
-    return [...obj] as T;
+const withKey = (el: any, key: string) =>
+  el?.key || !key ? el : setProperty(el, "key", key);
+
+const withProp = (obj: any, prop: string, value: any) =>
+  obj?.props?.[prop] === value
+    ? obj
+    : setProperty(obj, "props", setProperty(obj.props ?? {}, prop, value));
+
+const setProperty = <T>(obj: T, name: keyof any, value: any): T => {
+  if (obj == null || typeof obj !== "object") {
+    return obj;
   }
-  const props = Object.getOwnPropertyDescriptors(obj);
-  for (let prop in props) {
-    if (props[prop].writable === false) {
-      props[prop].writable = true;
+  if (Object.isFrozen(obj)) {
+    if (Array.isArray(obj)) {
+      return [...obj] as T;
     }
+
+    if (!(name in (obj as any)) && value == undefined) {
+      return obj;
+    }
+
+    const clone = {};
+    for (const prop of Object.getOwnPropertyNames(obj)) {
+      clone[prop] = obj[prop];
+    }
+
+    obj = clone as any;
+    // // This only happens in debug mode, so the performance overhead doesn't matter in prod.
+    // const props = Object.getOwnPropertyDescriptors(obj);
+    // for (let prop in props) {
+    //   if (props[prop].writable === false) {
+    //     props[prop].writable = true;
+    //   }
+    // }
+    // obj = Object.defineProperties({}, props) as T;
   }
-  return Object.defineProperties({}, props) as T;
+  if (value === undefined) {
+    delete obj[name];
+  } else {
+    obj[name] = value;
+  }
+  return obj;
 };
 
-const singleOrArray = (children: any[], alwaysArray = false) =>
-  children == null
-    ? children
-    : children.length === 1 && !alwaysArray
-    ? children[0]
-    : children.map((child, i) => {
-        if (child == null || typeof child !== "object" || child.key) {
-          return child;
-        }
-        child = cloneIfFrozen(child);
-        child.key = `__child_${i}`;
-        return child;
-      });
-
-const PARENT_STATE_PROP = "_tjs_ps";
 /** This is allowed on all elements/components to explicitly define the boundary data. */
-const EXPLICIT_STATE_PROP = "tailjs";
-const withProp = (target: any, prop: keyof any, value: any) => {
-  target = cloneIfFrozen(target);
-  target.props = cloneIfFrozen(target.props ?? {});
-  target.props[prop] = value;
-  return target;
-};
+const EXPLICIT_STATE_PROP = "data-tailjs";
 
 const currentElementStates = new WeakMap<Element, any>();
 const REACT_BOUNDARY_DATA_KEY = Symbol("react boundary");
@@ -180,6 +187,7 @@ export const bindState = (el: any, state: ExtendedTrackingBoundaryData) => {
     // Don't call the tracker more than necessary.
     return;
   }
+
   currentElementStates.set(el, state);
   if (customRef?.(tracker, el, state) === false) {
     return;
@@ -198,23 +206,6 @@ export const bindState = (el: any, state: ExtendedTrackingBoundaryData) => {
   });
 };
 
-const withStateProperty = (
-  props: any,
-  prop: string,
-  state: any,
-  jsx = false
-) => {
-  if (!state || typeof state === "string") {
-    return props;
-  }
-  if (jsx) {
-    return withProp(props, prop, JSON.stringify(state));
-  }
-
-  props = cloneIfFrozen(props);
-  props[prop] = JSON.stringify(state);
-  return props;
-};
 const parseStateProperty = (
   props: any,
   prop: string
@@ -252,80 +243,81 @@ const indexOfChild = (el: any, test: (el: any) => boolean) => {
 };
 
 const getChildArray = (children: any) =>
-  children == null ? [] : Array.isArray(children) ? [...children] : [children];
+  children == null
+    ? []
+    : Array.isArray(children)
+    ? [...children.map((child, i) => withKey(child, "__child_" + i))]
+    : [withKey(children, "child")];
 
-export const getStateFromProps = (type: any, props: any) => {
-  if (props) {
-    let state = parseStateProperty(props, EXPLICIT_STATE_PROP);
-    if (stateMapper && type) {
-      const parentState = parseStateProperty(props, PARENT_STATE_PROP);
-
-      const mappedState = appendTrackingData(
-        undefined,
-        stateMapper(
-          normalizeTrackingData(parentState),
-          isClientComponentReference(type)
-            ? { $$typeof: type.$$typeof, $$id: type.$$id } // Copy type to free the consumer from handling weird "server can't call client" errors.
-            : type,
-          props
-        )
-      );
-
-      state = state
-        ? appendTrackingData(mappedState, state) ?? parentState
-        : mappedState;
-    }
-    state = normalizeTrackingData(state);
-
-    return state;
+export const getStateFromProps = (el: any) => {
+  if (!el.props) {
+    return undefined;
   }
+  const { type, props } = el;
+  let state = parseStateProperty(props, EXPLICIT_STATE_PROP);
+  if (stateMapper && el.type) {
+    const mappedState = appendTrackingData(
+      undefined,
+      stateMapper(
+        undefined,
+        isClientComponentReference(type)
+          ? { $$typeof: type.$$typeof, $$id: type.$$id } // Copy type to free the consumer from handling weird "server can't call client" errors.
+          : type,
+        props
+      )
+    );
+
+    state = state ? appendTrackingData(mappedState, state) : mappedState;
+  }
+  state = normalizeTrackingData(state, true);
+
+  return state;
 };
 
 export const visit = (
   factory: (type: any, props: any, key?: any) => any,
-  type: ElementType,
-  props: Record<string, any>,
-  children?: ReactNode[]
+  original: any
 ) => {
-  if (disabled || !props) {
+  if (disabled || !original?.props) {
     return;
   }
 
-  const injected = tryInjectScript(type, props, children);
-
-  let updated = false;
-  if (injected) {
-    ({ type, props } = injected);
-    updated = true;
-  }
+  original = tryInjectScript(factory, original) ?? original;
 
   if (!stateMapper) {
-    return;
+    return original;
   }
 
-  if (typeof type === "string") {
-    if (props[EXPLICIT_STATE_PROP]) {
-      props = withStateProperty(
-        props,
-        EXPLICIT_STATE_PROP,
-        props[EXPLICIT_STATE_PROP]
+  let state: any;
+  if (typeof original.type === "string") {
+    if (original.props && EXPLICIT_STATE_PROP in original.props) {
+      state = normalizeTrackingData(
+        parseStateProperty(original.props, EXPLICIT_STATE_PROP)
       );
-      updated = true;
+      original = withProp(original, EXPLICIT_STATE_PROP, undefined);
+      if (state) {
+        return withKey(
+          factory(TrackingBoundary, {
+            state,
+            children: [withKey(original, "wrapped")],
+          }),
+          original.key
+        );
+      }
     }
-  } else if ((type as any) !== FRAGMENT_SYMBOL) {
-    const state = getStateFromProps(type, props);
-    if (state || isClientComponentReference(type)) {
-      props = {
-        children: singleOrArray([factory(type, props)], true),
-        state, // Will be undefined if a client component reference without state. In that case we wrap it.
-      };
-      type = TrackingBoundary;
-      updated = true;
+  } else if ((original.type as any) !== FRAGMENT_SYMBOL) {
+    const state = getStateFromProps(original);
+    if (state || isClientComponentReference(original.type)) {
+      return withKey(
+        factory(TrackingBoundary, {
+          state, // Will be undefined if a client component reference without state. In that case we wrap the component to make sure state checks are made client-side.
+          children: [withKey(original, "wrapped")],
+        }),
+        original.key
+      );
     }
   }
-  if (updated) {
-    return { type, props };
-  }
+  return original;
 };
 
 type PropertyMapper<P> = (
@@ -349,7 +341,7 @@ export const withTracking: WithTrackingFunction =
     return mapped // Empty object will also create a TrackingBoundary to support state that depends on a parameter (e.g., sometimes returns `{}` sometimes return `{tags: ...}`)
       ? createElement(TrackingBoundary, {
           state: appendTrackingData(null, mapped),
-          children: createElement(component, props),
+          children: [createElement(component, props)],
         })
       : createElement(component, props);
   };
@@ -374,7 +366,11 @@ const TrackingScript = memo(
       ...script.attrs,
     });
 
-    return head ? createElement("head", {}, scriptElement) : scriptElement;
+    return head
+      ? createElement("head", {
+          children: [withKey(scriptElement, "__tailjs")],
+        })
+      : scriptElement;
   },
   () => true
 );
@@ -400,38 +396,34 @@ const EnsureScript = ({ children }: PropsWithChildren) => {
     // before any preceding components might have created a `<head />` element which we capture in `tryInjectScript`.
     createElement(TrackingScript, { head: true })
   );
-  return singleOrArray(htmlChildren, Array.isArray(children));
+  return htmlChildren;
 };
 
 let locallyDisabled = false;
 const tryInjectScript = (
-  type: ElementType,
-  props: Record<string, any>,
-  children?: ReactNode[]
+  factory: (type: any, props: any, key?: any) => any,
+  original: any
 ) => {
   if (!script || disabled) {
     return;
   }
 
-  switch (type) {
+  switch (original.type) {
     case "html":
       // Reset state
       hasHead = false;
 
       locallyDisabled =
-        parseStateProperty(props, EXPLICIT_STATE_PROP)?.track?.disable === true;
-      props = cloneIfFrozen(props ?? {});
-      children ??= props.children;
-      const wrapper = createElement(EnsureScript, {
-        children,
+        parseStateProperty(original.props, EXPLICIT_STATE_PROP)?.track
+          ?.disable === true;
+      const wrapper = factory(EnsureScript, {
+        children: getChildArray(original.props?.children),
       });
-      props.children = singleOrArray([wrapper], Array.isArray(children));
-      return { type, props };
+      return withProp(original, "children", [withKey(wrapper, "wrapped")]);
 
     case "head":
       hasHead = true;
-      children ??= props.children;
-      const headChildren = getChildArray(children);
+      const headChildren = getChildArray(original.props?.children ?? []);
       let insertIndex = 0;
       headChildren.forEach((child, index) => {
         if (
@@ -443,10 +435,12 @@ const tryInjectScript = (
         }
       });
 
-      headChildren.splice(insertIndex, 0, createElement(TrackingScript));
+      headChildren.splice(
+        insertIndex,
+        0,
+        withKey(factory(TrackingScript, {}), "__tailjs")
+      );
 
-      props = cloneIfFrozen(props);
-      props.children = singleOrArray(headChildren, Array.isArray(children));
-      return { type, props };
+      return withProp(original, "children", headChildren);
   }
 };

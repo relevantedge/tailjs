@@ -1,6 +1,7 @@
 import {
   cleanBoundaryDataProperties,
   hasComponentOrContent,
+  TrackingBoundaryData,
   uniqueReferences,
   type ActivatedComponent,
   type ActivatedContent,
@@ -111,7 +112,7 @@ export const getComponentContext = (
     return undefined;
   }
 
-  let collectedContent: ActivatedContent[] = [];
+  let collectedContent: undefined | ActivatedContent[] = undefined;
 
   type Area = {} & string; // For clarity.
   let collected: (ActivatedDomComponent | Area)[] = [];
@@ -127,21 +128,23 @@ export const getComponentContext = (
 
     if (hasComponentOrContent(entry)) {
       const components =
-        filter(uniqueReferences(entry.components), (entry) => {
-          entry &&
+        filter(
+          uniqueReferences(entry.components),
+          (entry) =>
+            entry &&
             (includeState === IncludeState.Secondary ||
               (!directOnly &&
                 ((includeState === IncludeState.Primary &&
                   entry.track?.secondary !== T) ||
-                  entry.track?.promote)));
-        }) ?? [];
+                  entry.track?.promote)))
+        ) ?? [];
 
       rect =
         ((includeRegion ?? some(components, (item) => item.track?.region)) &&
           getRect(el)) ||
         undefined;
       entry.content &&
-        collectedContent.unshift(
+        (collectedContent ??= []).unshift(
           ...map(entry.content, (item) =>
             item
               ? {
@@ -175,7 +178,7 @@ export const getComponentContext = (
             )
           )
         ),
-        (collectedContent = []));
+        (collectedContent = undefined));
     }
 
     const area = entry.area || trackerProperty(el, "area");
@@ -202,15 +205,12 @@ export const getComponentContext = (
     tags = { tags: [] };
   }
 
-  return components || areaPath || collectedContent.length || tags?.tags
+  return components || areaPath || collectedContent || tags?.tags
     ? cleanBoundaryDataProperties(
         {
           components: uniqueReferences(components),
           area: join(areaPath, "/"),
-          content:
-            collectedContent.length > 0
-              ? uniqueReferences(collectedContent)
-              : undefined,
+          content: uniqueReferences(collectedContent),
           ...tags,
         },
         eventType
@@ -225,14 +225,9 @@ export const components: TrackerExtensionFactory = {
 
     const registerComponent = ({
       boundary: el,
-      layer,
       ...command
     }: TrackingBoundaryDataCommand) => {
-      const data = updateBoundaryData(
-        el,
-        command?.["update"] ?? command,
-        layer
-      );
+      const data = updateBoundaryData(el, command?.["update"] ?? command);
 
       impressions(el, data);
     };

@@ -1,14 +1,13 @@
 import { SCOPE_INFO_KEY } from "@constants";
 
 import {
+  BoundaryDataView,
   LocalID,
-  Tag,
   View,
   ViewEvent,
   ViewTimingData,
   isEventPatch,
   isViewEvent,
-  uniqueTags,
 } from "@tailjs/types";
 import {
   F,
@@ -98,12 +97,18 @@ const [addViewChangedListener, dispatchViewChanged] =
 
 export { addViewChangedListener };
 
-export const createViewDurationTimer = (started?: boolean) => {
+export type ViewDurationTimer = (
+  toggle?: boolean,
+  reset?: boolean
+) => ViewTimingData;
+export const createViewDurationTimer = (
+  started?: boolean
+): ViewDurationTimer => {
   const totalTime = createTimer(started, totalDuration);
   const visibleTime = createTimer(started, visibleDuration);
   const activeTime = createTimer(started, getActiveTime);
   const activationsCounter = createTimer(started, () => activations);
-  return (toggle?: boolean, reset?: boolean): ViewTimingData => ({
+  return (toggle, reset) => ({
     totalTime: totalTime(toggle, reset),
     visibleTime: visibleTime(toggle, reset),
     activeTime: activeTime(toggle, reset),
@@ -319,45 +324,59 @@ export const context: TrackerExtensionFactory = {
           return true;
         } else if (isViewCommand(command)) {
           const view = command.view;
-          if (view && "addTags" in view) {
-            const addTags = view.addTags;
-            if (currentViewEvent && addTags) {
-              currentViewEvent.tags =
-                updateBoundaryData(currentViewEvent, {
-                  tags: addTags,
-                })?.tags ?? [];
-            }
-          } else if (view) {
-            if (!structuralEquals(view, currentViewEvent?.definition)) {
-              if (
-                currentViewEvent == null ||
-                !view ||
-                currentViewEvent.definition
-              ) {
-                pendingViewDefinition = view;
-                if ((view as CurrentView).navigation) {
-                  postView(true);
-                }
-              } else {
-                currentViewEvent.definition = view;
-                let patchMessage = "";
-                if (currentViewEvent.metadata?.posted) {
-                  patchMessage = " via patch";
-                  // Send the definition as a patch because the view event has already been posted.
-                  tracker.events.postPatch(currentViewEvent, {
-                    definition: currentViewEvent.definition,
-                  });
-                }
-                debug(
-                  currentViewEvent,
-                  `${currentViewEvent.type} (definition updated${patchMessage})`
-                );
+          const viewTags = (view as BoundaryDataView)?.tags;
+          if (viewTags) {
+            if (currentViewEvent) {
+              const newTags =
+                (
+                  updateBoundaryData(
+                    currentViewEvent,
+                    {
+                      view: {
+                        tags: viewTags,
+                      },
+                    },
+                    (view as BoundaryDataView).layer
+                  ) as any
+                )?.view.tags ?? [];
+
+              if (!structuralEquals(currentViewEvent.tags, newTags)) {
+                currentViewEvent.tags = newTags;
               }
-              tracker({
-                set: { scope: "view", key: "view", value: view ?? null },
-              });
             }
           }
+          const definition = (view as CurrentView)?.id
+            ? (view as CurrentView)
+            : (view as BoundaryDataView)?.definition || undefined;
+          if (
+            definition &&
+            !structuralEquals(definition, currentViewEvent?.definition)
+          ) {
+            if (currentViewEvent == null || currentViewEvent.definition) {
+              pendingViewDefinition = definition;
+              if ((definition as CurrentView).navigation) {
+                postView(true);
+              }
+            } else {
+              currentViewEvent.definition = definition;
+              let patchMessage = "";
+              if (currentViewEvent.metadata?.posted) {
+                patchMessage = " via patch";
+                // Send the definition as a patch because the view event has already been posted.
+                tracker.events.postPatch(currentViewEvent, {
+                  definition: currentViewEvent.definition,
+                });
+              }
+              debug(
+                currentViewEvent,
+                `${currentViewEvent.type} (definition updated${patchMessage})`
+              );
+            }
+            tracker({
+              set: { scope: "view", key: "view", value: definition ?? null },
+            });
+          }
+
           return true;
         }
 

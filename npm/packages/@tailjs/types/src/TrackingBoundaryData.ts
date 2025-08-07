@@ -1,14 +1,15 @@
-import { Nullish } from "@tailjs/util";
-import type {
-  ExternalReference,
-  CartAction,
-  CartEventData,
-  ConfiguredComponent,
-  Content,
-  Tag,
-  View,
-  ViewEvent,
-  Tagged,
+import {
+  getExternalReferenceKey,
+  type CartAction,
+  type CartEventData,
+  type ConfiguredComponent,
+  type Content,
+  type DataClassification,
+  type ExternalReference,
+  type Tag,
+  type Tagged,
+  type View,
+  type ViewEvent,
 } from ".";
 
 type Falsish = void | null | undefined | 0 | "" | false;
@@ -86,9 +87,16 @@ export type TrackingBoundaryData<Normalized extends boolean = false> =
 
     /**
      * Can be used to avoid collisions between different logic updating the boundary data for an element.
-     * Boundary data from all layers is merged. The precedence of id and tag value clashes between named layers is undefined, but the override default values.
+     * Boundary data from all layers is merged.
+     * The precedence of id and tag value clashes between named layers with the same priority is undefined.
      */
     layer?: string | symbol;
+    /**
+     * The priority of the values from this layer, higher is more important.
+     *
+     * @default 0
+     */
+    layerPriority?: number;
   };
 
 export interface TrackingBehavior {
@@ -125,34 +133,76 @@ export interface TrackingBehavior {
   clicks?: boolean;
 
   /**
-   * Track impressions, that is, when the component becomes visible in the user's browser for the first time.
+   * Track impressions, that is, when the component's element becomes visible in the user's browser.
    * This goes well with {@link region}.
    *
    * Not inherited by child components.
    *
-   * HTML attribute: `track-impressions`.
-   * CSS: `--track-impressions: 0/no/false/1/yes/true`.
+   * Not configurable via HTML/CSS.
    *
    * @default false
    */
-  impressions?: boolean;
+  impressions?: ImpressionTrackingOptions;
+
+  /**
+   * Track forms.
+   * @default true
+   *
+   * HTML attribute: `track-form`.
+   * CSS: `--track-form: 0/no/false/1/yes/true`.
+   */
+  forms?: boolean;
+
+  formFields?: {
+    /**
+     * Which form fields to track values for.
+     *
+     * HTML attribute: `track-form-field`.
+     * CSS: `--track-form-field: 0/no/false/1/yes/true/none/checkbox-only/all`.
+     *
+     * @default "checkbox-only"
+     */
+    values?: FormFieldTrackingLevel;
+    /**
+     * Minimum consent classification before values are tracked.
+     *
+     * HTML attribute: `track-form-privacy`.
+     * CSS: `--track-form-privacy: 0/no/false/1/yes/true/none/checkbox-only/all`.
+     *
+     * @default "anonymous" (always)
+     */
+    privacy?: DataClassification;
+  };
 }
 
+export type FormFieldTrackingLevel = boolean | "checkbox-only";
+export type ImpressionTrackingOptions =
+  | boolean
+  | {
+      /** Do not count the impression before the component has been visible for at least this amount of milliseconds */
+      delay?: number;
+    };
+
 export type UpdateFunction<T> = ((current: T | undefined) => T) | T;
+
+export type BoundaryDataView = {
+  /**
+   * Sets the definition on the current view event.
+   */
+  definition?: Falsish | View;
+
+  tags?: OptionalArray<Tag>;
+  /**
+   * Can be used to avoid collisions between different logic updating the view's tags (cf. {@link TrackingBoundaryData.layer}).
+   * Note, layer does not have an effect on the definition since setting that triggers navigation.
+   */
+  layer?: string | symbol;
+};
 
 export type ExtendedTrackingBoundaryData<Normalized extends boolean = false> =
   TrackingBoundaryData<Normalized> & {
     /** Causes the current view to end, and a new {@link ViewEvent} to be sent, or tags to be added. */
-    view?:
-      | Falsish
-      | (View & { addTags?: never })
-      | {
-          /**
-           * Can be used to avoid collisions between different logic updating the view's tags (cf. {@link TrackingBoundaryData.layer}).
-           */
-          layer?: string | symbol;
-          addTags: OptionalArray<Tag>;
-        };
+    view?: Falsish | BoundaryDataView;
   };
 
 export type UpdateStateOptions<Normalized extends boolean = false> = {
@@ -164,17 +214,18 @@ const isEmpty = (value: any) => {
   if (value) {
     for (const p in value) {
       if (value[p] != null) {
-        return true;
+        return false;
       }
     }
   }
-  return false;
+
+  return true;
 };
 
 export const hasComponentOrContent = (
   data: Falsish | TrackingBoundaryData
 ): data is TrackingBoundaryData =>
-  data ? !(isEmpty(data.components) || isEmpty(data.content)) : false;
+  data ? !isEmpty(data.components) || !isEmpty(data.content) : false;
 
 export const uniqueReferences = <T extends ExternalReference>(
   references: OptionalArray<T>
@@ -247,17 +298,22 @@ const hasValues = (map: any, depth = 0) => {
   return false;
 };
 
-const referenceKey = (reference: ExternalReference) =>
-  reference.source ? `${reference.source}\0${reference.id}` : reference.id;
+const referenceKey: (reference: ExternalReference) => string =
+  getExternalReferenceKey;
 
-export const isEmptyTrackingData = (data: Falsish | TrackingBoundaryData) =>
+export const isEmptyTrackingData = (
+  data: Falsish | ExtendedTrackingBoundaryData
+) =>
+  // `layer` ignored here, since layer + no other property is used to remove its data in the client.
   !data ||
   (isEmpty(data.components) &&
     isEmpty(data.content) &&
     !data.area &&
     !data.cart &&
     isEmpty(data.track) &&
-    isEmpty(data.extensions));
+    isEmpty(data.extensions) &&
+    isEmpty(data.tags) &&
+    (!data.view || (!data.view?.definition && isEmpty(data.view?.tags))));
 
 type AppendData = Falsish | ExtendedTrackingBoundaryData | Iterable<AppendData>;
 
@@ -265,20 +321,25 @@ const isIterable = (value: any): value is Iterable<any> =>
   value ? typeof value !== "string" && Symbol.iterator in value : false;
 export const appendTrackingData = (
   current: ExtendedTrackingBoundaryData<true> | Falsish,
-  other: AppendData
+  other: AppendData,
+  keepEmpty = true
 ): ExtendedTrackingBoundaryData<true> | undefined => {
+  if (current === other) {
+    return normalizeTrackingData(current, keepEmpty);
+  }
+
   if (!other) {
     return current || undefined;
   } else if (isIterable(other)) {
     let merged = current || undefined;
     for (const item of other as any) {
       if (item) {
-        merged = appendTrackingData(merged, item);
+        merged = appendTrackingData(merged, item, keepEmpty);
       }
     }
     return merged;
   } else if (!current) {
-    return normalizeTrackingData(other) || undefined;
+    return normalizeTrackingData(other, keepEmpty) || undefined;
   }
 
   return {
@@ -295,24 +356,20 @@ export const appendTrackingData = (
         ? { ...current.track, ...other.track }
         : current.track
       : other.track || undefined,
-    layer: other.layer || current.layer,
+    layer: other.layer ?? current.layer,
+    layerPriority: other.layerPriority ?? current.layerPriority,
     tags: cleanOptionalArray(current.tags, getTagKey, other.tags),
     view: current.view
       ? other.view
-        ? // Merge tag arrays, if both are arrays.
-          current.view.addTags
-          ? other.view.addTags
-            ? {
-                layer: other.layer || current.layer,
-                addTags: cleanOptionalArray(
-                  current.view.addTags,
-                  getTagKey,
-                  other.view.addTags
-                ),
-              }
-            : // Prefer whichever is an actual view (addTags is undefined), if none, go with the other.
-              other.view
-          : current.view
+        ? {
+            definition: other.view.definition || current.view.definition,
+            tags:
+              cleanOptionalArray(
+                current.view.tags,
+                getTagKey,
+                other.view.tags
+              ) ?? [],
+          }
         : current.view
       : other.view,
     extensions: current.extensions
@@ -324,18 +381,44 @@ export const appendTrackingData = (
 };
 
 export const normalizeTrackingData = (
-  data?: Falsish | ExtendedTrackingBoundaryData
+  data?: Falsish | ExtendedTrackingBoundaryData,
+  keepEmpty = false
 ): undefined | ExtendedTrackingBoundaryData<true> => {
-  if (!data || isEmptyTrackingData(data)) {
+  if (!data || (!keepEmpty && isEmptyTrackingData(data))) {
     return undefined;
   }
-  const components = cleanOptionalArray(data.components, referenceKey);
-  const content = cleanOptionalArray(data.content, referenceKey);
-  const tags = cleanOptionalArray(data.tags, getTagKey);
-  return components !== data.components ||
-    content !== data.content ||
-    tags !== data.tags
-    ? { ...data, components, content, tags }
+  let updates: undefined | ExtendedTrackingBoundaryData<true> = undefined;
+  let cleanedArray: any;
+  if (
+    (cleanedArray = cleanOptionalArray(data.components, referenceKey)) !==
+    data.components
+  ) {
+    (updates ??= {}).components = cleanedArray;
+  }
+  if (
+    (cleanedArray = cleanOptionalArray(data.content, referenceKey)) !==
+    data.content
+  ) {
+    (updates ??= {}).content = cleanedArray;
+  }
+  if ((cleanedArray = cleanOptionalArray(data.tags, getTagKey)) !== data.tags) {
+    (updates ??= {}).tags = cleanedArray;
+  }
+  let view = data.view;
+  if (view !== undefined) {
+    if (!view) {
+      (updates ??= {}).view = undefined;
+    } else {
+      const definition = view.definition || undefined;
+      const viewTags = cleanOptionalArray(view.tags, getTagKey);
+      if (definition !== view.definition || viewTags !== view.tags) {
+        (updates ??= {}).view = { definition, tags: viewTags };
+      }
+    }
+  }
+
+  return updates
+    ? { ...(data as any), ...updates }
     : (data as ExtendedTrackingBoundaryData<true>);
 };
 
@@ -344,7 +427,7 @@ export const getTagKey = (tag: BoundaryDataTag) =>
 
 export const cleanBoundaryDataProperties = <T extends any>(
   data: T,
-  eventType: string | Nullish
+  eventType: string | null | undefined
 ): T => {
   if (data == null || typeof data !== "object") {
     return data;
@@ -374,13 +457,13 @@ export const cleanBoundaryDataProperties = <T extends any>(
 
 export const uniqueTags = (
   tags: OptionalArray<BoundaryDataTag>,
-  eventType: string | Nullish | false = undefined,
+  eventType: string | undefined | null | false = undefined,
   other?: OptionalArray<BoundaryDataTag>
 ): undefined | Tag[] =>
   tags
     ? (cleanOptionalArray(
         tags,
-        getTagKey,
+        getTagKey, // eventType is cleared before the key is resolved.
         other,
         eventType === false
           ? undefined

@@ -7,7 +7,6 @@ import {
   OptionalPurposes,
   SchemaDefinition,
   UserConsent,
-  type DataPurposes,
 } from "@tailjs/types";
 import {
   add,
@@ -117,7 +116,7 @@ export type RequestHandlerConfiguration = {
   /**
    * The configuration for the client-side tracker.
    */
-  client?: TrackerClientConfiguration;
+  client?: Partial<TrackerClientConfiguration>;
 
   /**
    * The specific logic that maps a cookie-less client request to a unique'ish identifier.

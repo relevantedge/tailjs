@@ -74,6 +74,7 @@ export const match: {
     return lastMatch;
   }
   let returnValue: any = map ? [] : undefined;
+
   while (lastMatch) {
     const value = projection(...lastMatch);
     if (value === stop) {
@@ -87,6 +88,9 @@ export const match: {
       }
     }
     lastMatch = regex.global ? regex.exec(s) : null;
+    if (!lastMatch?.[0].length && ++regex.lastIndex >= s.length) {
+      break;
+    }
   }
   return returnValue;
 };

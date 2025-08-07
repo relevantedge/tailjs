@@ -1,4 +1,11 @@
-import type { TrackingBoundaryData } from "@tailjs/types";
+import React from "react";
+
+import type {
+  DataClassification,
+  FormFieldTrackingLevel,
+  TrackingBehavior,
+  TrackingBoundaryData,
+} from "@tailjs/types";
 
 import type { TrackerAttributes } from "@tailjs/client/external";
 export { tail } from "@tailjs/client/external";
@@ -51,18 +58,33 @@ export const TrackingBoundary: TrackingBoundaryType = jsx.TrackingBoundary;
 
 export const withTracking: WithTrackingFunction = jsx.withTracking;
 
-export declare namespace React {
-  interface DOMAttributes<T> extends TrackerAttributes {}
-  interface HTMLAttributes<T> extends TrackerAttributes {}
-  interface Attributes {
-    tailjs?: TrackingBoundaryData;
-  }
-}
+export const tracking = (track: TrackingBehavior) => ({
+  "data-tailjs": { track },
+});
+tracking.form = (
+  values: FormFieldTrackingLevel,
+  privacy?: DataClassification
+) =>
+  tracking(
+    !values
+      ? { forms: false }
+      : { forms: true, formFields: { values, privacy } }
+  );
+tracking.field = (
+  values: FormFieldTrackingLevel,
+  privacy?: DataClassification
+) => tracking({ formFields: { values, privacy } });
 
 declare module "react" {
-  interface DOMAttributes<T> extends TrackerAttributes {}
-  interface HTMLAttributes<T> extends TrackerAttributes {}
+  interface DOMAttributes<T> extends TrackerAttributes {
+    ["data-tailjs"]?: TrackingBoundaryData;
+  }
+  interface HTMLAttributes<T>
+    extends TrackerAttributes,
+      React.DOMAttributes<T> {
+    ["data-tailjs"]?: TrackingBoundaryData;
+  }
   interface Attributes {
-    tailjs?: TrackingBoundaryData;
+    ["data-tailjs"]?: TrackingBoundaryData;
   }
 }

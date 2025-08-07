@@ -1,6 +1,7 @@
-import React from "react";
 import type { Metadata } from "next";
 import type { TrackingBoundaryData } from "@tailjs/types";
+import foo from "@tailjs/react";
+import { tracking } from "@tailjs/react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Head from "next/head";
@@ -50,6 +51,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <form {...tracking.field(true)}>
+          <input name="foo" type="checkbox" />
+          <input name="bar" type="text" />
+        </form>
         {children}
         {/* <div data-hello="2">
           <Test1

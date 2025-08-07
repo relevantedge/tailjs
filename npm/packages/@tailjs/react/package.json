@@ -22,7 +22,9 @@
   "peerDependencies": {
     "react": ">=18.3.1",
     "react-dom": ">=18.3.1",
-    "webpack": "^5.15.0"
+    "webpack": "^5.15.0",
+    "@types/react": ">=18.3.0",
+    "@types/react-dom": ">=18.3.0"
   },
   "peerDependenciesMeta": {
     "webpack": {
@@ -33,6 +35,12 @@
     },
     "react-dom": {
       "optional": true
+    },
+    "@types/react": {
+      "optional": true
+    },
+    "@types/react-dom": {
+      "optional": true
     }
   },
   "publishConfig": {
@@ -40,8 +48,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "@types/react": ">=18.3.1",
-    "@types/react-dom": ">=18.3.1",
     "preact": ">=10.22.1",
     "preact-render-to-string": ">=6.5.6"
   },

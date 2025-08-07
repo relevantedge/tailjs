@@ -1,4 +1,4 @@
-import { OmitUnion } from "../src";
+import { match, OmitUnion } from "../src";
 import {
   appendQueryString,
   formatUri,

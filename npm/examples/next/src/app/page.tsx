@@ -32,7 +32,7 @@ export default function Home() {
       <div>
         <ImpressionTest />
         <FormTest />
-        <ImpressionTest tall={true} />
+        <ImpressionTest />
       </div>
     </main>
   );

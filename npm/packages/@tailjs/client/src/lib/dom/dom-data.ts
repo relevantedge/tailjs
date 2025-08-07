@@ -1,6 +1,7 @@
 import {
   BoundaryDataTag,
   ComponentTrackingBehavior,
+  ExtendedTrackingBoundaryData,
   appendTrackingData,
   collectTags,
   normalizeTrackingData,
@@ -12,23 +13,23 @@ import {
   F,
   T,
   concat,
-  filter,
   flatMap,
   forEach,
+  get,
   isFunction,
   isIterable,
   isPlainObject,
   isRegEx,
   isString,
   join,
-  map,
   matches,
   nil,
   parseBoolean,
   parseJson,
   parseRegex,
   replace,
-  skip,
+  set,
+  sort,
   stop,
   testRegex,
   trySet,
@@ -55,7 +56,9 @@ export const boundaryData = new WeakMap<
   }
 >();
 
-export const getBoundaryData = (el: any): TrackingBoundaryData | undefined => {
+export const getBoundaryData = (
+  el: any
+): TrackingBoundaryData<true> | undefined => {
   if (el == null) {
     return undefined;
   }
@@ -64,9 +67,10 @@ export const getBoundaryData = (el: any): TrackingBoundaryData | undefined => {
   if (
     !data &&
     (el as HTMLElement).getAttribute &&
-    (data = parseJson((el as HTMLElement).getAttribute("tailjs")))
+    (data = normalizeTrackingData(
+      parseJson((el as HTMLElement).getAttribute("data-tailjs"), true)
+    ))
   ) {
-    data = normalizeTrackingData(data as any);
     boundaryData.set(el, {
       merged: data!,
       layers: new Map([[null, data!]]),
@@ -75,23 +79,21 @@ export const getBoundaryData = (el: any): TrackingBoundaryData | undefined => {
   return data;
 };
 
-export const clearBoundaryData = (el: any) => el && boundaryData.delete(el);
-
 export const updateBoundaryData = (
   el: any,
   data:
-    | TrackingBoundaryData
+    | ExtendedTrackingBoundaryData
     | { clear: boolean }
     | Nullish
     | ((
         current: TrackingBoundaryData<true> | undefined
       ) => TrackingBoundaryData | Nullish),
-  layer: any = null
-): TrackingBoundaryData<true> | undefined => {
+  layer: any = null,
+  debug = false
+): ExtendedTrackingBoundaryData<true> | undefined => {
   if (el == null) {
     return;
   }
-
   let current = boundaryData.get(el);
   if (typeof data === "function") {
     data = data(current?.merged);
@@ -99,39 +101,38 @@ export const updateBoundaryData = (
     boundaryData.delete(el);
     return undefined;
   }
+  layer ??= data?.layer;
 
   const normalized = normalizeTrackingData(data);
+
   if (current) {
     if (trySet(current.layers, layer, normalized ?? undefined)) {
       if (!current.layers.size) {
         boundaryData.delete(el);
         current = undefined;
       } else {
-        current.merged = appendTrackingData(undefined, [
-          current.layers.get(null),
-          map(current.layers, ([key, layer]) => (key == null ? skip : layer)),
-        ])!;
+        current.merged = appendTrackingData(
+          undefined,
+          sort(current.layers.values(), (layer) => layer.layerPriority ?? 0)
+        )!;
       }
     }
   } else if (normalized) {
-    boundaryData.set(el, {
-      merged: normalized,
-      layers: new Map([[layer, normalized]]),
-    });
+    boundaryData.set(
+      el,
+      (current = {
+        merged: normalized,
+        layers: new Map([[layer, normalized]]),
+      })
+    );
   }
 
+  flushPropertyCache();
   return current?.merged;
 };
 
 export const trackerPropertyName = (name: string, css = F) =>
-  (css ? "--track-" : "track-") + name;
-
-// const trackerProperty = (
-//   el: Element,
-//   name: string,
-//   value = attr(el, trackerPropertyName(name)),
-//   css = cssProperty(el as Element, trackerPropertyName(name, T))
-// ) => (value ? (css ? value + " " + css : value) : css);
+  (css ? "--track-" : "data-track-") + name;
 
 type MatchAttributeRule = readonly [
   match: RegExp,
@@ -270,31 +271,13 @@ const parseCssMappingRules = (
 
 let currentBoundaryData: TrackingBoundaryData | Nullish;
 let boundaryDataValue: any;
-export const trackerProperty = (
-  el: Element,
-  name: string,
-  inherit:
-    | boolean
-    | ((el: NodeWithParentElement, distance: number) => boolean) = F,
-  boundaryData?: (el: TrackingBoundaryData) => string | Nullish
-): string | null =>
-  boundaryData &&
-  (currentBoundaryData = getBoundaryData(el)) &&
-  (boundaryDataValue = boundaryData(currentBoundaryData)) != null
-    ? boundaryDataValue
-    : (inherit
-        ? forAncestorsOrSelf(
-            el,
-            (el, r) => r(trackerProperty(el, name, F)),
-            isFunction(inherit) ? inherit : undefined
-          )
-        : join(
-            concat(
-              attr(el, trackerPropertyName(name)),
-              cssProperty(el, trackerPropertyName(name, T))
-            ),
-            " "
-          )) ?? nil;
+let trackerPropertyCache = new WeakMap<
+  any,
+  [direct: Map<string, { value: any }>, inherit: Map<string, { value: any }>]
+>();
+setInterval(() => flushPropertyCache, 500); // Flush cache.
+
+const flushPropertyCache = () => (trackerPropertyCache = new WeakMap());
 
 let propertyValue: string | Nullish;
 export const trackerFlag = (
@@ -304,11 +287,49 @@ export const trackerFlag = (
     | boolean
     | ((el: NodeWithParentElement, distance: number) => boolean) = F,
   boundaryData?: (
-    data: TrackingBoundaryData & { tracking?: ComponentTrackingBehavior }
+    data: TrackingBoundaryData & { track?: ComponentTrackingBehavior }
   ) => boolean | Nullish
-) =>
+): boolean | Nullish =>
   (propertyValue = trackerProperty(el, name, inherit, boundaryData as any)) ===
-    "" || (propertyValue == nil ? propertyValue : parseBoolean(propertyValue));
+    "" || (propertyValue == nil ? undefined : parseBoolean(propertyValue));
+
+export const trackerProperty = <T = string>(
+  el: Element,
+  name: string,
+  inherit:
+    | boolean
+    | ((el: NodeWithParentElement, distance: number) => boolean) = F,
+  boundaryData?: (el: TrackingBoundaryData) => T | Nullish
+): string | T | Nullish => {
+  if (!el) {
+    return undefined;
+  }
+  let cached = trackerPropertyCache.get(el)?.[+inherit].get(name);
+
+  if (cached) {
+    return cached.value;
+  }
+
+  return set(
+    get(trackerPropertyCache, el, () => [new Map(), new Map()])[+inherit],
+    name,
+    (cached = {
+      value:
+        boundaryData &&
+        (currentBoundaryData = getBoundaryData(el)) &&
+        (boundaryDataValue = boundaryData(currentBoundaryData)) != null
+          ? boundaryDataValue
+          : (inherit
+              ? forAncestorsOrSelf(
+                  el,
+                  (el, r) => r(trackerProperty(el, name, F, boundaryData)),
+                  isFunction(inherit) ? inherit : undefined
+                )
+              : attr(el, trackerPropertyName(name)) ||
+                cssProperty(el, trackerPropertyName(name, T))) || undefined,
+    })
+  ).value;
+};
 
 export type ParsedTags = { tags?: Tag[] };
 

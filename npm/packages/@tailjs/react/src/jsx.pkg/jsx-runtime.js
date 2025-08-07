@@ -5,15 +5,10 @@ const { jsx, jsxs } = original;
 module.exports = {
   ...original,
   jsx(type, props, key) {
-    const updated = visit(jsx, type, props);
-    return updated
-      ? jsx(updated.type, updated.props, key)
-      : jsx(type, props, key);
+    // jsxs used as factory because that is the one that assumes static children.
+    return visit(jsx, jsx(type, props, key));
   },
   jsxs(type, props, key) {
-    const updated = visit(jsxs, type, props);
-    return updated
-      ? jsxs(updated.type, updated.props, key)
-      : jsxs(type, props, key);
+    return visit(jsx, jsxs(type, props, key));
   },
 };

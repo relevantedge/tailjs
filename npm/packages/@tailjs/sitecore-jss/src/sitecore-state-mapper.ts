@@ -58,13 +58,15 @@ export const sitecoreJss = ({
       if (route?.itemId) {
         (data ??= []).push({
           view: {
-            id: route.itemId,
-            name: route.name,
-            preview: mode === "preview" || mode === "edit",
-            language: route.itemLanguage,
-            version: "" + route.itemVersion,
-            personalization: getPagePersonalization(layoutData),
-            source: "sitecore",
+            definition: {
+              id: route.itemId,
+              name: route.name,
+              preview: mode === "preview" || mode === "edit",
+              language: route.itemLanguage,
+              version: "" + route.itemVersion,
+              personalization: getPagePersonalization(layoutData),
+              source: "sitecore",
+            },
           },
         });
       }
@@ -87,7 +89,7 @@ export const sitecoreJss = ({
       });
     }
 
-    return data;
+    return data ? [currentState, data] : data;
   };
 
   function content(props: Record<string, any>): Content[] {

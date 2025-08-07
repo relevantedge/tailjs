@@ -2,9 +2,10 @@ import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
 
 import { createTransport } from "@tailjs/transport";
 import {
+  TrackingBoundaryData,
+  appendTrackingData,
   clearSchemaMetadata,
   isTrackedEvent,
-  appendTrackingData,
 } from "@tailjs/types";
 import {
   F,
@@ -29,7 +30,6 @@ import {
   stop,
   throwError,
   tryCatch,
-  waitFor,
   type Nullish,
 } from "@tailjs/util";
 import {
@@ -63,14 +63,13 @@ import {
   createVariableStorage,
   debug,
   errorLogger,
-  getBoundaryData,
   httpDecode,
   isTracker,
   logError,
   nextId,
-  updateBoundaryData,
   setStorageKey,
   trackerConfig,
+  updateBoundaryData,
   window,
 } from "./lib";
 
@@ -164,10 +163,11 @@ export const initializeTracker = (
   // Main
   const events = createEventQueue(VAR_URL, trackerContext);
 
-  let boundaryDataDefaults = appendTrackingData(
-    getBoundaryData(document.documentElement),
-    getBoundaryData(document.body)
-  );
+  let boundaryDataDefaults: TrackingBoundaryData<true> | undefined = {
+    track: { ...trackerConfig.defaultTracking },
+    layer: "default",
+    layerPriority: -10,
+  };
 
   if (!checkTrackingEnabled(document.body)) {
     ((boundaryDataDefaults ??= {}).track ??= {}).disable = true;
@@ -233,6 +233,10 @@ export const initializeTracker = (
 
           if (boundaryDataDefaults?.track?.disable != null) {
             trackerConfig.disabled = boundaryDataDefaults.track.disable;
+          }
+          if (boundaryDataDefaults) {
+            boundaryDataDefaults.layer = "defaults";
+            boundaryDataDefaults.layerPriority = -10;
           }
           updateBoundaryData(document.body, boundaryDataDefaults);
         } else if (isFlushCommand(command)) {
@@ -425,6 +429,8 @@ export const initializeTracker = (
       trackerContext.deviceSessionId = session.deviceSessionId;
 
       unbind();
+
+      updateBoundaryData(document.body, boundaryDataDefaults);
 
       // Now we accept commands.
       ready = true;
