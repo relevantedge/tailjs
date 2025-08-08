@@ -1,4 +1,4 @@
-import { itemize2, throwError, throwTypeError } from "@tailjs/util";
+import { itemize, throwError, throwTypeError } from "@tailjs/util";
 import { createRootContext, parseJsonSchema, serializeSchema } from ".";
 import { Schema, SchemaAdapter, SchemaDefinition } from "../..";
 
@@ -23,7 +23,7 @@ export class JsonSchemaAdapter implements SchemaAdapter {
     const pending = rootContext.refs.pending();
     if (pending.length) {
       throwError(
-        itemize2(
+        itemize(
           pending,
           null,
           (refs, n) =>

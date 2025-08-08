@@ -4,8 +4,14 @@ import {
   TrackerEnvironment,
   TrackerEnvironmentInitializable,
 } from "@tailjs/engine";
+import {
+  delay,
+  formatError,
+  parseJson,
+  stringify,
+  withRetry,
+} from "@tailjs/util";
 import { RavenDbSettings } from ".";
-import { formatError, json2, now, stringify2 } from "@tailjs/util";
 
 export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
   protected readonly _settings: RavenDbSettings;
@@ -47,6 +53,8 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
     body?: any,
     headers?: { [name: string]: string | undefined }
   ): Promise<HttpResponse & { error?: any }> {
+    const maxRetries = Math.max(1, this._settings.maxRetries ?? 5);
+    const retryDelay = Math.max(200, this._settings.retryDelay ?? 200);
     const url = `${this._settings.url}/databases/${encodeURIComponent(
       this._settings.database
     )}/${relativeUrl}`;
@@ -58,26 +66,44 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
       x509: this._cert,
       body: body && (typeof body === "string" ? body : JSON.stringify(body)),
     };
-    try {
-      const response = (await this._env.request(request)) as HttpResponse & {
-        error?: any;
-      };
-      if (response.status === 500) {
-        const body = json2(response.body);
-        response.error = new Error(
-          body?.Type ? `${body.Type}: ${body.Message}` : "(unspecified error)"
-        );
+
+    return withRetry(
+      async () => {
+        const response = (await this._env.request(request)) as HttpResponse & {
+          error?: any;
+        };
+        if (response.status === 500) {
+          const body = parseJson(response.body);
+          response.error = new Error(
+            body?.Type ? `${body.Type}: ${body.Message}` : "(unspecified error)"
+          );
+        }
+
+        return response;
+      },
+      {
+        retries: maxRetries,
+        retryDelay,
+        errorFilter: (error, retry) => {
+          if (retry) {
+            this._env.log(this, {
+              level: "error",
+              message: `Request to RavenDB failed on attempt ${retry + 1}.`,
+              error,
+            });
+          }
+        },
+        errorHandler: (error) => {
+          return {
+            request,
+            status: 500,
+            headers: {},
+            cookies: {},
+            body: stringify({ Message: formatError(error, true) }),
+            error,
+          };
+        },
       }
-      return response;
-    } catch (error) {
-      return {
-        request,
-        status: 500,
-        headers: {},
-        cookies: {},
-        body: stringify2({ Message: formatError(error, true) }),
-        error,
-      };
-    }
+    );
   }
 }

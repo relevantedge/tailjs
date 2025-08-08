@@ -1,4 +1,4 @@
-import { MaybePromiseLike, Nullish } from "@tailjs/util";
+import { MaybePromiseLike } from "@tailjs/util";
 import {
   VariableConflictResult,
   VariableErrorResult,
@@ -75,7 +75,5 @@ export type VariableSetResult<T extends {} = any> =
   | VariableConflictResult<T>
   | VariableNotFoundResult
   | VariableValueErrorResult
-  | (
-      | (T extends null | undefined ? VariableDeleteResult : never)
-      | VariableSuccessResult<T>
-    );
+  | VariableDeleteResult
+  | VariableSuccessResult<T>;

@@ -14,7 +14,7 @@ import { applyDefaultConfiguration, build, compilePlugin, env } from "./lib";
 import { getDistBundles } from "./rollup-dist";
 
 import strip from "@rollup/plugin-strip";
-import * as zlib from "zlib";
+//import * as zlib from "zlib";
 
 const pkg = await env();
 
@@ -118,10 +118,10 @@ const vars: Record<string, any> = {};
 await build([createConfig(false), createConfig(true)], {
   export: false,
   async buildEnd() {
-    for (const target of pkg.externalTargets) {
+    for (const target of pkg.externalTargets.filter((target) => !target.npm)) {
       for (const srcFile of await fs.promises.readdir(destinations[0])) {
         if (srcFile.startsWith("tail")) {
-          const targetFile = path.join(target, srcFile);
+          const targetFile = path.join(target.path, srcFile);
           await fs.promises.copyFile(
             path.join(destinations[0], srcFile),
             targetFile
@@ -136,28 +136,28 @@ await build(
   await getDistBundles({
     variables: {
       '"{Client script}"': () => JSON.stringify(vars.BUNDLE_tail_js),
-      '"{Client script (gzip)}"': () =>
-        vars.BUNDLE_tail_js &&
-        JSON.stringify(
-          zlib
-            .gzipSync(vars.BUNDLE_tail_js, {
-              level: 9,
-            })
-            .toString("base64url")
-        ),
+      // '"{Client script (gzip)}"': () =>
+      //   vars.BUNDLE_tail_js &&
+      //   JSON.stringify(
+      //     zlib
+      //       .gzipSync(vars.BUNDLE_tail_js, {
+      //         level: 9,
+      //       })
+      //       .toString("base64url")
+      //   ),
 
-      '"{Client script (br)}"': () =>
-        vars.BUNDLE_tail_js &&
-        JSON.stringify(
-          zlib
-            .brotliCompressSync(vars.BUNDLE_tail_js, {
-              params: {
-                [zlib.constants.BROTLI_PARAM_QUALITY]:
-                  zlib.constants.BROTLI_MAX_QUALITY,
-              },
-            })
-            .toString("base64url")
-        ),
+      // '"{Client script (br)}"': () =>
+      //   vars.BUNDLE_tail_js &&
+      //   JSON.stringify(
+      //     zlib
+      //       .brotliCompressSync(vars.BUNDLE_tail_js, {
+      //         params: {
+      //           [zlib.constants.BROTLI_PARAM_QUALITY]:
+      //             zlib.constants.BROTLI_MAX_QUALITY,
+      //         },
+      //       })
+      //       .toString("base64url")
+      //   ),
       '"{Client debug script}"': () =>
         vars.BUNDLE_tail_debug_js && JSON.stringify(vars.BUNDLE_tail_debug_js),
     },

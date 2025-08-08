@@ -1,9 +1,5 @@
-import type {
-  IterableOrSelf,
-  MaybeArray,
-  Nullish,
-  ParsableRegExp,
-} from "@tailjs/util";
+import { TrackingBehavior } from "@tailjs/types";
+import type { MaybeArray, Nullish, ParsableRegExp } from "@tailjs/util";
 
 /**
  * Defines a mapping from HTML element attributes to tags based on their names.
@@ -71,7 +67,7 @@ export interface TrackerClientConfiguration {
   /**
    * The minimum duration (ms) a component needs to be visible before it counts as an impression.
    *
-   * @default 750
+   * @default 1000
    */
   impressionThreshold?: number;
 
@@ -128,4 +124,7 @@ export interface TrackerClientConfiguration {
 
   /** These attributes will be added to scripts to avoid CMP/script blockers to prevent them from executing. */
   scriptBlockerAttributes?: Record<string, string>;
+
+  /** Default tracking settings. */
+  defaultTracking?: TrackingBehavior;
 }

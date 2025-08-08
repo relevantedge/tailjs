@@ -21,6 +21,8 @@ import { now } from "@tailjs/util";
 import {
   NextPatchExtension,
   ParseResult,
+  ServerTrackedEvent,
+  TrackedEventBatch,
   Tracker,
   TrackerExtension,
 } from "../shared";
@@ -66,7 +68,7 @@ export class TrackerCoreEvents implements TrackerExtension {
   public readonly id = "core_events";
 
   public async patch(
-    events: TrackedEvent[],
+    { events }: TrackedEventBatch,
     next: NextPatchExtension,
     tracker: Tracker
   ) {
@@ -77,36 +79,10 @@ export class TrackerCoreEvents implements TrackerExtension {
 
     let currentTime = now();
 
-    const pipelineEvents: ParseResult[] = [];
-    // Assign IDs and adjust timestamps.
-    for (const event of events) {
-      if (event.timestamp) {
-        if (event.timestamp > 0) {
-          pipelineEvents.push({
-            error:
-              "When explicitly specified, timestamps are interpreted relative to current. As such, a positive value would indicate that the event happens in the future which is currently not supported.",
-            source: event,
-          });
-          continue;
-        }
-        event.timestamp = currentTime + event.timestamp;
-      } else {
-        event.timestamp = currentTime;
-      }
-
-      event.id = await tracker.env.nextId();
-      pipelineEvents.push(event);
-    }
-
     // Finish the pipeline to get the final events.
     events = await next(events);
 
-    for (const event of events) {
-      event.timestamp! < currentTime && (currentTime = event.timestamp!);
-    }
-
     // Apply updates via patches. This enables multiple requests for the same session to execute concurrently.
-
     let sessionPatches: ((current: SessionInfo) => void)[] = [];
     let devicePatches: ((current: DeviceInfo) => void)[] = [];
 
@@ -130,7 +106,7 @@ export class TrackerCoreEvents implements TrackerExtension {
             return current;
           },
         },
-        tracker.device && {
+        tracker.device?.id && {
           scope: "device",
           key: SCOPE_INFO_KEY,
           patch: (current: DeviceInfo) => {
@@ -161,11 +137,12 @@ export class TrackerCoreEvents implements TrackerExtension {
           // Fake a sign out event if the user is currently authenticated.
           events.push(event);
           event = {
+            id: undefined!,
             type: "sign_out",
             userId: tracker.authenticatedUserId,
             timestamp: event.timestamp,
             session,
-          } satisfies SignOutEvent as TrackedEvent;
+          } satisfies SignOutEvent as ServerTrackedEvent;
         }
         // Start new session
         await flushUpdates();
@@ -206,6 +183,14 @@ export class TrackerCoreEvents implements TrackerExtension {
             tags: tracker.env.tags,
             timestamp: currentTime,
           } satisfies SessionStartedEvent as TrackedEvent);
+
+          devicePatches.push((current) => {
+            if (current) {
+              ++current.sessions;
+            }
+
+            return current;
+          });
         }
       }
 

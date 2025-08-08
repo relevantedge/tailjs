@@ -1,4 +1,4 @@
-import { Duration, FormEvent, Integer } from ".";
+import { Duration, FormEvent, Integer, TrackingBehavior } from ".";
 
 /**
  * A form field value in a {@link FormEvent}.
@@ -25,6 +25,7 @@ export interface FormField {
   /**
    * The number of times the field was changed after initially being filled.
    */
+
   corrections?: Integer;
 
   /**
@@ -41,9 +42,8 @@ export interface FormField {
    * The value of the form field. Be careful with this one.
    *
    * The default is only to track whether checkboxes are selected.
-   * Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.
+   * See {@link TrackingBehavior.forms} and {@link TrackingBehavior.formFields} for details.
    *
-   * @privacy direct
    */
   value?: string;
 

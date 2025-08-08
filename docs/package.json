@@ -8,7 +8,7 @@
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "docker": "docker build -t tailjs/docs -f ./Dockerfile ./dist"
+    "docker": "docker build -t tailjs/docs:0.41 -f ./Dockerfile ./dist"
   },
   "dependencies": {
     "@astrojs/check": "^0.4.1",

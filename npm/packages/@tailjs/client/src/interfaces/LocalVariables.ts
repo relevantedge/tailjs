@@ -2,6 +2,7 @@ import { Variable, VariableKey, VariableServerScope } from "@tailjs/types";
 import { MaybeNullish, Nullish, createEnumParser } from "@tailjs/util";
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
 import type {
+  DeviceInfo,
   LocalID,
   RestrictScopes,
   ServerScoped,
@@ -38,6 +39,9 @@ export type ReservedTrackerVariables = {
   session: {
     [SCOPE_INFO_KEY]: SessionInfo;
     [CONSENT_INFO_KEY]: UserConsent;
+  };
+  device: {
+    [SCOPE_INFO_KEY]: DeviceInfo;
   };
   view: {
     view: CurrentView;
@@ -188,14 +192,14 @@ export const isLocalScopeKey = (
 
 export const variableKeyToString: <S extends ClientVariableKey | Nullish>(
   key: S
-) => MaybeNullish<string, S> = (key: any): any =>
-  key == null ? key : [key.scope, key.key, key.targetId].join("\0");
+) => MaybeNullish<string, S> = (key: ClientVariableKey | Nullish): any =>
+  key == null ? key : [key.scope, key.key, key.entityId].join("\0");
 
 export const stringToVariableKey = (key: string): ClientVariableKey => {
   const parts = key.split("\0");
   return {
-    scope: parts[0],
+    scope: parts[0] as any,
     key: parts[1],
-    targetId: parts[2],
-  } as any;
+    entityId: parts[2],
+  } satisfies ClientVariableKey;
 };

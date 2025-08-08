@@ -1,6 +1,7 @@
 import { SCOPE_INFO_KEY } from "@constants";
 
 import {
+  BoundaryDataView,
   LocalID,
   View,
   ViewEvent,
@@ -11,21 +12,28 @@ import {
 import {
   F,
   T,
-  add2,
-  array2,
+  add,
+  array,
   clock,
   createEvent,
   createTimer,
-  forEach2,
-  map2,
+  forEach,
+  isArray,
+  map,
   nil,
   now,
-  parseQueryString,
+  obj,
   parseUri,
   replace,
-  skip2,
+  skip,
+  structuralEquals,
 } from "@tailjs/util";
-import { TrackerExtensionFactory, isChangeUserCommand } from "..";
+import {
+  CurrentView,
+  TrackerExtensionFactory,
+  isChangeUserCommand,
+  isViewCommand,
+} from "..";
 import { tracker } from "../initializeTracker";
 import {
   TAB_ID,
@@ -40,13 +48,16 @@ import {
   parseDomain,
   setLocalVariables,
   tryGetVariable,
+  updateBoundaryData,
 } from "../lib";
 
 export let currentViewEvent: ViewEvent | undefined;
+let unbindViewEventPatcher: (() => void) | undefined;
 
 export const getCurrentViewId = () => currentViewEvent?.clientId;
 
 let pushPopNavigation: ViewEvent["navigationType"] | undefined;
+let pushPopNavigationType: ViewEvent["clientNavigation"] | undefined;
 
 const referrerKey = {
   scope: "shared",
@@ -86,12 +97,18 @@ const [addViewChangedListener, dispatchViewChanged] =
 
 export { addViewChangedListener };
 
-export const createViewDurationTimer = (started?: boolean) => {
+export type ViewDurationTimer = (
+  toggle?: boolean,
+  reset?: boolean
+) => ViewTimingData;
+export const createViewDurationTimer = (
+  started?: boolean
+): ViewDurationTimer => {
   const totalTime = createTimer(started, totalDuration);
   const visibleTime = createTimer(started, visibleDuration);
   const activeTime = createTimer(started, getActiveTime);
   const activationsCounter = createTimer(started, () => activations);
-  return (toggle?: boolean, reset?: boolean): ViewTimingData => ({
+  return (toggle, reset) => ({
     totalTime: totalTime(toggle, reset),
     visibleTime: visibleTime(toggle, reset),
     activeTime: activeTime(toggle, reset),
@@ -108,7 +125,7 @@ export const onFrame: typeof addFrameListenerInternal = (
   listener,
   triggerCurrent
 ) => {
-  triggerCurrent && forEach2(frames, (frame) => listener(frame, () => false));
+  triggerCurrent && forEach(frames, (frame) => listener(frame, () => false));
   return addFrameListenerInternal(listener);
 };
 //export { addFrameListener as onFrame };
@@ -121,9 +138,9 @@ export const context: TrackerExtensionFactory = {
   setup(tracker) {
     clock(
       () =>
-        forEach2(
+        forEach(
           frames,
-          (frame) => add2(knownFrames, frame) && callOnFrame(frame)
+          (frame: any) => add(knownFrames, frame) && callOnFrame(frame)
         ),
       500
     ).trigger();
@@ -135,40 +152,6 @@ export const context: TrackerExtensionFactory = {
     // Instead any new view definition that arrives before the next navigation is assumed to be for the next view event.
 
     let pendingViewDefinition: View | undefined;
-
-    tracker.variables.get({
-      scope: "view",
-      key: "view",
-      poll: (definition) => {
-        if (
-          currentViewEvent == null ||
-          !definition ||
-          currentViewEvent?.definition
-        ) {
-          // Buffer for next navigation.
-          pendingViewDefinition = definition;
-          if (definition?.navigation) {
-            // Post view registered. This was custom navigation that we are not normally intercepting.
-            postView(true);
-          }
-        } else {
-          currentViewEvent.definition = definition;
-          if (currentViewEvent.metadata?.posted) {
-            // Send the definition as a patch because the view event has already been posted.
-            tracker.events.postPatch(currentViewEvent, {
-              definition: pendingViewDefinition,
-            });
-          } else {
-            debug(
-              currentViewEvent,
-              currentViewEvent.type + " (definition updated)"
-            );
-          }
-        }
-
-        return true;
-      },
-    });
 
     let viewIndex =
       tryGetVariable({ scope: "tab", key: "viewIndex" })?.value ?? 0;
@@ -206,11 +189,14 @@ export const context: TrackerExtensionFactory = {
         return;
       }
 
+      unbindViewEventPatcher?.();
+
       const {
         source: href,
         scheme,
         host,
-      } = parseUri(location.href + "", { requireAuthority: true });
+        query,
+      } = parseUri(location.href + "", { requireAuthority: true }) ?? {};
       currentViewEvent = {
         type: "view",
         timestamp: now(),
@@ -220,6 +206,9 @@ export const context: TrackerExtensionFactory = {
         path: location.pathname,
         hash: location.hash || undefined,
         domain: { scheme, host },
+        queryString: obj(query, ([key, value]) =>
+          isArray(value) ? [key, value] : [key, [value]]
+        ),
         tabNumber: tabIndex + 1,
         tabViewNumber: viewIndex + 1,
         viewport: getViewport(),
@@ -231,17 +220,17 @@ export const context: TrackerExtensionFactory = {
 
       setLocalVariables({ scope: "tab", key: "viewIndex", value: ++viewIndex });
 
-      const qs = parseQueryString(location.href);
-      map2(
+      map(
         ["source", "medium", "campaign", "term", "content"],
         (p, _) =>
-          ((currentViewEvent!.utm ??= {})[p] = array2(qs[`utm_${p}`])?.[0]) ??
-          skip2
+          ((currentViewEvent!.utm ??= {})[p] = array(
+            currentViewEvent?.queryString?.[`utm_${p}`]
+          )?.[0]) ?? skip
       );
 
       !(currentViewEvent.navigationType = pushPopNavigation) &&
         performance &&
-        forEach2(
+        forEach(
           performance.getEntriesByType("navigation"),
           (entry: PerformanceNavigationTiming) => {
             currentViewEvent!.redirects = entry.redirectCount;
@@ -252,8 +241,11 @@ export const context: TrackerExtensionFactory = {
             ) as any;
           }
         );
+      if (pushPopNavigationType) {
+        currentViewEvent.clientNavigation = pushPopNavigationType;
+      }
 
-      pushPopNavigation = undefined;
+      pushPopNavigation = pushPopNavigationType = undefined;
 
       if ((currentViewEvent.navigationType ??= "navigate") === "navigate") {
         // Try find related event and parent tab context if any.
@@ -283,9 +275,13 @@ export const context: TrackerExtensionFactory = {
 
       tracker.events.post(currentViewEvent);
 
-      tracker.events.registerEventPatchSource(currentViewEvent!, () => ({
-        duration: getViewTimeOffset(),
-      }));
+      unbindViewEventPatcher = tracker.events.registerEventPatchSource(
+        currentViewEvent!,
+        () => ({
+          duration: getViewTimeOffset(),
+          tags: currentViewEvent!.tags,
+        })
+      );
 
       dispatchViewChanged(currentViewEvent);
     };
@@ -304,11 +300,13 @@ export const context: TrackerExtensionFactory = {
       "popstate",
       () => ((pushPopNavigation = "back-forward"), postView())
     );
-    forEach2(["push", "replace"], (name) => {
-      const inner = history[(name += "State")];
-      history[name] = (...args: any) => {
+    forEach(["push", "replace"] as const, (name) => {
+      const methodName = name + "State";
+      const inner = history[methodName];
+      history[methodName] = (...args: any) => {
         inner.apply(history, args);
         pushPopNavigation = "navigate";
+        pushPopNavigationType = name;
         postView();
       };
     });
@@ -316,14 +314,74 @@ export const context: TrackerExtensionFactory = {
     postView();
 
     return {
-      processCommand: (command) =>
-        isChangeUserCommand(command) &&
-        (tracker(
-          command.username
-            ? { type: "login", username: command.username }
-            : { type: "logout" }
-        ),
-        T),
+      processCommand: (command) => {
+        if (isChangeUserCommand(command)) {
+          tracker(
+            command.username
+              ? { type: "login", username: command.username }
+              : { type: "logout" }
+          );
+          return true;
+        } else if (isViewCommand(command)) {
+          const view = command.view;
+          const viewTags = (view as BoundaryDataView)?.tags;
+          if (viewTags) {
+            if (currentViewEvent) {
+              const newTags =
+                (
+                  updateBoundaryData(
+                    currentViewEvent,
+                    {
+                      view: {
+                        tags: viewTags,
+                      },
+                    },
+                    (view as BoundaryDataView).layer
+                  ) as any
+                )?.view.tags ?? [];
+
+              if (!structuralEquals(currentViewEvent.tags, newTags)) {
+                currentViewEvent.tags = newTags;
+              }
+            }
+          }
+          const definition = (view as CurrentView)?.id
+            ? (view as CurrentView)
+            : (view as BoundaryDataView)?.definition || undefined;
+          if (
+            definition &&
+            !structuralEquals(definition, currentViewEvent?.definition)
+          ) {
+            if (currentViewEvent == null || currentViewEvent.definition) {
+              pendingViewDefinition = definition;
+              if ((definition as CurrentView).navigation) {
+                postView(true);
+              }
+            } else {
+              currentViewEvent.definition = definition;
+              let patchMessage = "";
+              if (currentViewEvent.metadata?.posted) {
+                patchMessage = " via patch";
+                // Send the definition as a patch because the view event has already been posted.
+                tracker.events.postPatch(currentViewEvent, {
+                  definition: currentViewEvent.definition,
+                });
+              }
+              debug(
+                currentViewEvent,
+                `${currentViewEvent.type} (definition updated${patchMessage})`
+              );
+            }
+            tracker({
+              set: { scope: "view", key: "view", value: definition ?? null },
+            });
+          }
+
+          return true;
+        }
+
+        return false;
+      },
 
       decorate: (event) => {
         currentViewEvent &&

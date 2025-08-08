@@ -83,36 +83,6 @@ const fromCharCodes = (chars)=>String.fromCharCode(...chars);
     return String.fromCodePoint(...chars);
 };
 
-const throwError = (error, transform = (message)=>new Error(message))=>{
-    throw isString(error = unwrap(error)) ? transform(error) : error;
-};
-const tryCatch = (expression, errorHandler = true, always)=>{
-    try {
-        return expression();
-    } catch (e) {
-        return isFunction(errorHandler) ? isError(e = errorHandler(e)) ? throwError(e) : e : isBoolean(errorHandler) ? console.error(errorHandler ? throwError(e) : e) : errorHandler;
-    } finally{
-        always === null || always === void 0 ? void 0 : always();
-    }
-};
-/** Minify friendly version of `false`. */ const undefined$1 = void 0;
-/** The identity function (x)=>x. */ const IDENTITY = (item)=>item;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator$1 = Symbol.iterator;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
-const isBoolean = (value)=>typeof value === "boolean";
-const isNumber = (value)=>typeof value === "number";
-const isString = (value)=>typeof value === "string";
-const isArray = Array.isArray;
-const isError = /*#__PURE__*/ (value)=>value instanceof Error;
-const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
-const isPlainObject = /*#__PURE__*/ (value)=>(value === null || value === void 0 ? void 0 : value.constructor) === Object;
-const isSymbol = /*#__PURE__*/ (value)=>typeof value === "symbol";
-const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
-const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
-const testFirstLast = (s, first, last)=>s[0] === first && s[s.length - 1] === last;
-const isJsonString = (value)=>isString(value) && (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
-const unwrap = (value)=>isFunction(value) ? value() : value;
-// #endregion
 const getRootPrototype = (value)=>{
     let proto = value;
     while(proto){
@@ -137,14 +107,14 @@ const findPrototypeFrame = (frameWindow, matchPrototype)=>{
 /**
  * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
  * e.g., `Object` in an iframe is different from `Object` in the top frame.
- */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
+ */ const findDeclaringScope = (target)=>target == null ? target : typeof window !== "undefined" ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
 let stopInvoked = false;
-const skip2 = Symbol();
-const stop2 = (value)=>(stopInvoked = true, value);
+const skip = Symbol();
+const stop = (value)=>(stopInvoked = true, value);
 // #region region_iterator_implementations
 const forEachSymbol = Symbol();
 const asyncIteratorFactorySymbol = Symbol();
-const symbolIterator = Symbol.iterator;
+const symbolIterator$1 = Symbol.iterator;
 // Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
 const ensureForEachImplementations = (target, error, retry)=>{
     if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
@@ -157,8 +127,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
     const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
             let projected, i = 0;
             for (const item of target){
-                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                    if (projected === stop2) {
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                    if (projected === stop) {
                         break;
                     }
                     seed = projected;
@@ -175,8 +145,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
         let projected, item;
         for(let i = 0, n = target.length; i < n; i++){
             item = target[i];
-            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip) {
+                if (projected === stop) {
                     break;
                 }
                 seed = projected;
@@ -193,7 +163,7 @@ const ensureForEachImplementations = (target, error, retry)=>{
     };
     const genericForEachIterable = forEachIterable();
     scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        if (target[symbolIterator]) {
+        if (target[symbolIterator$1]) {
             if (target.constructor === Object) {
                 return genericForEachIterable(target, projection, mapped, seed, context);
             }
@@ -205,8 +175,8 @@ const ensureForEachImplementations = (target, error, retry)=>{
                 key,
                 target[key]
             ];
-            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                if (projected === stop) {
                     break;
                 }
                 seed = projected;
@@ -220,14 +190,14 @@ const ensureForEachImplementations = (target, error, retry)=>{
         return mapped || seed;
     };
     scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
-        if (this[symbolIterator] || this[symbolAsyncIterator]) {
+        if (this[symbolIterator$1] || this[symbolAsyncIterator]) {
             if (this.constructor === Object) {
                 var _this_symbolAsyncIterator;
-                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator]();
+                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator$1]();
             }
             const proto = Object.getPrototypeOf(this);
             var _proto_symbolAsyncIterator;
-            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator];
+            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator$1];
             return this[asyncIteratorFactorySymbol]();
         }
         return iterateEntries(this);
@@ -241,19 +211,19 @@ const ensureForEachImplementations = (target, error, retry)=>{
         Object.getPrototypeOf(function*() {})
     ]){
         proto[forEachSymbol] = forEachIterable();
-        proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
+        proto[asyncIteratorFactorySymbol] = proto[symbolIterator$1];
     }
-    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
-    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse;
     return retry();
 };
 // #endregion
-function* range2(length = this) {
+function* range(length = this) {
     for(let i = 0; i < length; i++)yield i;
 }
-function* traverse2(next = this) {
+function* traverse(next = this) {
     let item = undefined;
     while((item = next(item)) !== undefined)yield item;
 }
@@ -265,13 +235,42 @@ function* iterateEntries(source) {
         ];
     }
 }
-let map2 = (source, projection, target = [], seed, context = source)=>{
+let map = (source, projection, target = [], seed, context = source)=>{
     try {
         return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
     } catch (e) {
-        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
+        return ensureForEachImplementations(source, e, ()=>map(source, projection, target, seed, context));
     }
 };
+const unwrap = (value)=>typeof value === "function" ? value() : value;
+const throwError = (error, transform = (message)=>new Error(message))=>{
+    throw isString(error = unwrap(error)) ? transform(error) : error;
+};
+const tryCatch = (expression, errorHandler = true, always)=>{
+    try {
+        return expression();
+    } catch (e) {
+        return isFunction(errorHandler) ? isError(e = errorHandler(e)) ? throwError(e) : e : isBoolean(errorHandler) ? console.error(errorHandler ? throwError(e) : e) : errorHandler;
+    } finally{
+        always === null || always === void 0 ? void 0 : always();
+    }
+};
+/** Minify friendly version of `false`. */ const undefined$1 = void 0;
+/** The identity function (x)=>x. */ const IDENTITY = (item)=>item;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
+const isBoolean = (value)=>typeof value === "boolean";
+const isNumber = (value)=>typeof value === "number";
+const isString = (value)=>typeof value === "string";
+const isArray = Array.isArray;
+const isError = /*#__PURE__*/ (value)=>value instanceof Error;
+const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
+const isPlainObject = /*#__PURE__*/ (value)=>(value === null || value === void 0 ? void 0 : value.constructor) === Object;
+const isSymbol = /*#__PURE__*/ (value)=>typeof value === "symbol";
+const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
+const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value !== "string" || acceptStrings));
+const testFirstLast = (s, first, last)=>s[0] === first && s[s.length - 1] === last;
+const isJsonString = (value)=>isString(value) && (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
 
 /** The number of leading entropy bytes. */ const ENTROPY = 4;
 /** The padding length. Cipher texts will always be a multiple of this. */ const MAX_PADDING = 16;
@@ -1001,7 +1000,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
         Object.entries(value).forEach(([k, v])=>v !== (v = inner(v)) && (value[k] = v));
         return value;
     };
-    return inner(isString(value) ? tryCatch(()=>JSON.parse(value), ()=>(console.error(`Invalid JSON received.`, value, new Error().stack), undefined$1)) : value != null ? tryCatch(()=>msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value, new Error().stack), undefined$1)) : value);
+    return inner(isString(value) ? tryCatch(()=>JSON.parse(value), ()=>(console.error(`Invalid JSON received.`, value, new Error().stack), undefined$1)) : value != null ? tryCatch(()=>!(value === null || value === void 0 ? void 0 : value.length) ? undefined$1 : msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value, new Error().stack), undefined$1)) : value);
 };
 let _defaultTransports;
 /**
@@ -1011,7 +1010,7 @@ let _defaultTransports;
     const factory = (key, { json = false, decodeJson = false, ...serializeOptions })=>{
         const fastStringHash = (value, bitsOrNumeric)=>{
             if (isNumber(value) && bitsOrNumeric === true) return value;
-            value = isString(value) ? new Uint8Array(map2(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
+            value = isString(value) ? new Uint8Array(map(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
             return hash(value, bitsOrNumeric);
         };
         const jsonDecode = (encoded)=>encoded == null ? undefined$1 : tryCatch(()=>deserialize(encoded), undefined$1);

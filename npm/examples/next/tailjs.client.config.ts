@@ -1,42 +1,55 @@
 import { createClientConfiguration } from "@tailjs/next";
-import Link from "next/link";
+import { Test3 } from "./src/app/components/ClientComponents";
+import { ImpressionTest } from "./src/app/page";
+import { BoundaryDataTag } from "@tailjs/types";
 
-// This file configures the context for tracking.
-//
-// Wrap the content you want to track with the ConfiguredTracker component.
-// Preferably, this should be in one of your high-level 'layout.tsx' or 'page.tsx' files.
-
+// This file configures how properties and React components are mapped to content, components, tags etc. for tail.js.
 export default createClientConfiguration({
   tracker: {
-    map: ({ type, props }) => {
-      // The below are just examples.
-      // Configure this to match your CMS or whatever.
+    map: (state, type, props) => {
+      let updates: (typeof state)[] | undefined;
 
+      if (type === ImpressionTest) {
+        console.log("IMPT");
+        (updates ??= []).push({
+          components: props.tall ? undefined : [{ id: "ImpressionTest" }],
+          track: { impressions: true },
+        });
+      }
+      if (type === Test3) {
+        (updates ??= []).push({
+          components: [{ id: "test" }],
+          track: { impressions: true },
+        });
+      }
+
+      if (props.tags) {
+        (updates ??= []).push({ tags: props.tags });
+      }
+      if (props.value?.selected) {
+        (updates ??= []).push({
+          tags: props.value.selected.map(
+            (value: string): BoundaryDataTag => ({
+              tag: "selected",
+              value,
+              eventType: "form",
+            })
+          ),
+        });
+      }
       if (props.componentId) {
-        // Associate tracked events that happens in the context of
-        // a React components that get a property called 'componentId'
-        // with this. (Assuming this property comes from some kind of headless CMS)
-        return {
-          component: { id: props.componentId },
-          content: props.itemId && { id: props.itemId },
-        };
+        (updates ??= []).push({ components: [{ id: props.componentId }] });
+      }
+      if (props?.component) {
+        // When using a headless CMS, you typically get the page and component data, and the layout is rendered dynamically.
+        // Use the properties passed to the components handling this to map to tail.js component and content data.
+        (updates ??= []).push({
+          components: [{ id: props.component.id ?? "unknown component" }],
+        });
       }
 
-      if (type === Link) {
-        // Track NextJS links as a special kind of components.
-        // (As an example of how you can test on component types)
-        return {
-          component: {
-            id: "next-link",
-            instanceId: props.href?.href ?? props.href ?? "#",
-          },
-        };
-      }
-
-      if (type === "main") {
-        // Add a tag to all events that is related to content in the page's '<main>' element.
-        return { tags: [{ tag: "content:area", value: "main" }] };
-      }
+      return updates;
+      //return { component: { id: "ok" + (type as any)?.name } };
     },
   },
 });

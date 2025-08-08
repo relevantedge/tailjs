@@ -1,3 +1,359 @@
+const getRootPrototype = (value)=>{
+    let proto = value;
+    while(proto){
+        proto = Object.getPrototypeOf(value = proto);
+    }
+    return value;
+};
+const findPrototypeFrame = (frameWindow, matchPrototype)=>{
+    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+        return frameWindow;
+    }
+    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
+        try {
+            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
+                return frameWindow;
+            }
+        } catch (e) {
+        // Cross domain issue.
+        }
+    }
+};
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */ const findDeclaringScope = (target)=>target == null ? target : typeof window !== "undefined" ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
+let stopInvoked = false;
+const skip = Symbol();
+const stop = (value)=>(stopInvoked = true, value);
+// #region region_iterator_implementations
+const forEachSymbol = Symbol();
+const asyncIteratorFactorySymbol = Symbol();
+const symbolIterator$1 = Symbol.iterator;
+// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
+const ensureForEachImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
+    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
+            let projected, i = 0;
+            for (const item of target){
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                    if (projected === stop) {
+                        break;
+                    }
+                    seed = projected;
+                    if (mapped) mapped.push(projected);
+                    if (stopInvoked) {
+                        stopInvoked = false;
+                        break;
+                    }
+                }
+            }
+            return mapped || seed;
+        };
+    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        let projected, item;
+        for(let i = 0, n = target.length; i < n; i++){
+            item = target[i];
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip) {
+                if (projected === stop) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) {
+                    mapped.push(projected);
+                }
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    const genericForEachIterable = forEachIterable();
+    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        if (target[symbolIterator$1]) {
+            if (target.constructor === Object) {
+                return genericForEachIterable(target, projection, mapped, seed, context);
+            }
+            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
+        }
+        let projected, item, i = 0;
+        for(const key in target){
+            item = [
+                key,
+                target[key]
+            ];
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                if (projected === stop) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) mapped.push(projected);
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
+        if (this[symbolIterator$1] || this[symbolAsyncIterator]) {
+            if (this.constructor === Object) {
+                var _this_symbolAsyncIterator;
+                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator$1]();
+            }
+            const proto = Object.getPrototypeOf(this);
+            var _proto_symbolAsyncIterator;
+            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator$1];
+            return this[asyncIteratorFactorySymbol]();
+        }
+        return iterateEntries(this);
+    };
+    for (const proto of [
+        scope.Map.prototype,
+        scope.WeakMap.prototype,
+        scope.Set.prototype,
+        scope.WeakSet.prototype,
+        // Generator function
+        Object.getPrototypeOf(function*() {})
+    ]){
+        proto[forEachSymbol] = forEachIterable();
+        proto[asyncIteratorFactorySymbol] = proto[symbolIterator$1];
+    }
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse;
+    return retry();
+};
+// #endregion
+function* range(length = this) {
+    for(let i = 0; i < length; i++)yield i;
+}
+function* traverse(next = this) {
+    let item = undefined;
+    while((item = next(item)) !== undefined)yield item;
+}
+function* iterateEntries(source) {
+    for(const key in source){
+        yield [
+            key,
+            source[key]
+        ];
+    }
+}
+const forEach = (source, projection, seed, context)=>{
+    try {
+        var _source_forEachSymbol;
+        return source ? (_source_forEachSymbol = source[forEachSymbol](source, projection, undefined, seed, context)) !== null && _source_forEachSymbol !== void 0 ? _source_forEachSymbol : seed : source == null ? source : undefined;
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>forEach(source, projection, seed, context));
+    }
+};
+let map = (source, projection, target = [], seed, context = source)=>{
+    try {
+        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>map(source, projection, target, seed, context));
+    }
+};
+let filter = (items, filter = true, invert = false)=>map(items, filter === true ? (item)=>item !== null && item !== void 0 ? item : skip : !filter ? (item)=>item || skip : filter.has ? (item)=>item == null || filter.has(item) === invert ? skip : item : (item, index, prev)=>!filter(item, index, prev, items) === invert ? item : skip);
+const first = (source, predicate)=>!predicate && isArray(source) ? source[0] : forEach(source, (item, index, prev)=>((!predicate || predicate(item, index, prev, source)) && (stopInvoked = true), item));
+const collect$1 = (source, generator, includeSelf = true, collected)=>{
+    if (source == null) return source;
+    const root = collected;
+    collected !== null && collected !== void 0 ? collected : collected = new Set();
+    if (source[symbolIterator$1] && typeof source !== "string") {
+        for (const item of source){
+            if (collect$1(item, generator, includeSelf, collected) === stop) {
+                break;
+            }
+        }
+    } else if (!collected.has(source)) {
+        if (includeSelf) {
+            collected.add(source);
+        }
+        let generated = generator(source);
+        if (generated === stop) return root ? stop : collected;
+        if (generated !== skip) {
+            collect$1(generated, generator, true, collected);
+        }
+    }
+    return collected;
+};
+const distinct = (source)=>source == null ? source : source instanceof Set ? source : new Set(source[symbolIterator$1] && typeof source !== "string" ? source : [
+        source
+    ]);
+const array = (source)=>source == null ? source : isArray(source) ? source : source[symbolIterator$1] && typeof source !== "string" ? [
+        ...source
+    ] : [
+        source
+    ];
+const some = (source, predicate)=>forEach(source, (item, index, prev)=>(predicate ? predicate(item, index, prev, source) : item) ? stopInvoked = true : item) === true;
+const sortCompare = (x, y, descending)=>(descending ? -1 : 1) * (x === y ? 0 : typeof x === "string" ? typeof y === "string" ? x.localeCompare(y) : 1 : typeof y === "string" ? -1 : x == null ? y == null ? 0 : -1 : y == null ? 1 : x - y);
+const sort = (items, selector, descending)=>array(items).sort(typeof selector === "function" ? (x, y)=>sortCompare(selector(x), selector(y), descending) : isArray(selector) ? selector.length ? (x, y)=>{
+        let c = 0;
+        for(let i = 0; i < selector.length && !c; i++){
+            c = sortCompare(selector[i](x), selector[i](y), descending);
+        }
+        return c;
+    } : (x, y)=>sortCompare(x, y, descending) : (x, y)=>sortCompare(x, y, selector));
+const topoSort = (items, dependencies, format)=>{
+    if (items == null) return items;
+    let clear = [];
+    let mapped = [];
+    const edges = new Map(map(items, (item)=>[
+            item,
+            [
+                item,
+                [],
+                null
+            ]
+        ]));
+    for (const [item, info] of edges){
+        var _dependencies;
+        for (const dependency of (_dependencies = dependencies(item)) !== null && _dependencies !== void 0 ? _dependencies : []){
+            var _edges_get;
+            var _info, _ref;
+            var _;
+            ((_edges_get = edges.get(dependency)) === null || _edges_get === void 0 ? void 0 : _edges_get[1].push(info)) && ((_ = (_info = info)[_ref = 2]) !== null && _ !== void 0 ? _ : _info[_ref] = new Set()).add(dependency);
+        }
+        if (!info[2]) {
+            clear.push(info);
+        }
+    }
+    for (const [item, dependents] of clear){
+        mapped.push(item);
+        for (const dependent of dependents){
+            dependent[2].delete(item);
+            if (!dependent[2].size) {
+                clear.push(dependent);
+            }
+        }
+    }
+    return mapped.length === edges.size ? mapped : throwError(`Cyclic dependencies: ${itemize(map(edges, ([, info])=>{
+        var _info_;
+        return ((_info_ = info[2]) === null || _info_ === void 0 ? void 0 : _info_.size) ? (format = normalizeSelector(format))(info[0]) + " depends on " + itemize(info[2], format) : skip;
+    }))}.`);
+};
+const normalizeSelector = (selector, require = false)=>typeof selector === "function" ? selector : selector != null ? (item)=>(item = item[selector]) === undefined && require ? skip : item : (item)=>item;
+const setSymbol = Symbol();
+const getSymbol = Symbol();
+const pushSymbol = Symbol();
+let ensureAssignImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[getSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
+    if (scope.Object.prototype[setSymbol]) throw error;
+    for (const { prototype } of [
+        scope.Map,
+        scope.WeakMap
+    ]){
+        prototype[setSymbol] = function(key, value) {
+            return value === void 0 ? this.delete(key) : this.get(key) !== value && !!this.set(key, value);
+        };
+        prototype[getSymbol] = prototype.get;
+    }
+    for (const { prototype } of [
+        scope.Set,
+        scope.WeakSet
+    ]){
+        prototype[setSymbol] = function(key, value, add = false) {
+            return value || add && value === void 0 ? this.has(key) ? false : !!this.add(key) : this.delete(key);
+        };
+        prototype[getSymbol] = prototype.has;
+        prototype[pushSymbol] = function(...keys) {
+            for (const key of keys)key !== void 0 && this.add(key);
+            return this;
+        };
+    }
+    scope.Array.prototype[pushSymbol] = scope.Array.prototype.push;
+    for (const { prototype } of [
+        scope.Object,
+        scope.Array
+    ]){
+        prototype[setSymbol] = function(key, value) {
+            if (value === undefined) {
+                if (this[key] !== undefined) {
+                    delete this[key];
+                    return true;
+                }
+                return false;
+            }
+            return (this[key] = value) !== value;
+        };
+        prototype[getSymbol] = function(key) {
+            return this[key];
+        };
+    }
+    return retry();
+};
+let get = (source, key, initialize)=>{
+    try {
+        if (source == null) return source;
+        let value = source[getSymbol](key);
+        if (value === void 0 && (value = typeof initialize === "function" ? initialize() : initialize) !== void 0) {
+            if (value === null || value === void 0 ? void 0 : value.then) return value.then((value)=>value === void 0 ? value : source[setSymbol](key, value));
+            source[setSymbol](key, value);
+        }
+        return value;
+    } catch (e) {
+        return ensureAssignImplementations(source, e, ()=>get(source, key, initialize));
+    }
+};
+let add = (target, key, value)=>{
+    try {
+        return (target === null || target === void 0 ? void 0 : target[setSymbol](key, value, true)) === true;
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>add(target, key, value));
+    }
+};
+let set = (target, key, value)=>{
+    try {
+        target[setSymbol](key, value);
+        return value;
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>set(target, key, value));
+    }
+};
+let exchange = (target, key, value)=>{
+    try {
+        const previous = target[getSymbol](key);
+        target[setSymbol](key, value);
+        return previous;
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>exchange(target, key, value));
+    }
+};
+const update = (target, key, update)=>{
+    let updated = update(get(target, key));
+    return typeof (updated === null || updated === void 0 ? void 0 : updated.then) === "function" ? updated.then((value)=>set(target, key, value)) : set(target, key, updated);
+};
+let push = (target, ...items)=>{
+    try {
+        return target == null ? target : (target[pushSymbol](...items), target);
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>push(target, ...items));
+    }
+};
+const obj = (source, projection)=>{
+    const target = {};
+    forEach(source, projection ? (item, index, seed)=>(item = projection(item, index, seed)) && (typeof item !== "symbol" || item !== skip && item !== stop) ? target[item[0]] = item[1] : item : (item)=>item && (typeof item !== "symbol" || item !== skip && item !== stop) ? target[item[0]] = item[1] : item);
+    return target;
+};
+const unwrap = (value)=>typeof value === "function" ? value() : value;
 function _define_property$1$1(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
@@ -41,176 +397,50 @@ class DeferredPromise extends Promise {
  * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
  */ const deferredPromise = (expression)=>new DeferredPromise(async ()=>unwrap(expression));
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
-/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 /** Minify friendly version of `null`. */ const nil = null;
-/** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator$1 = Symbol.iterator;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
 const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
-const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
-const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
-let stopInvoked$1 = false;
-const stop = (yieldValue)=>(stopInvoked$1 = true, yieldValue);
-const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
-function* createFilteringIterator(source, projection) {
-    if (source == null) return;
-    if (projection) {
-        projection = wrapProjection(projection);
-        let i = 0;
-        for (let item of source){
-            if ((item = projection(item, i++)) != null) {
-                yield item;
-            }
-            if (stopInvoked$1) {
-                stopInvoked$1 = false;
-                break;
-            }
-        }
-    } else {
-        for (let item of source){
-            if (item != null) yield item;
-        }
-    }
-}
-function* createObjectIterator(source, action) {
-    action = wrapProjection(action);
-    let i = 0;
-    for(const key in source){
-        let value = [
-            key,
-            source[key]
-        ];
-        action && (value = action(value, i++));
-        if (value != null) {
-            yield value;
-        }
-        if (stopInvoked$1) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-}
-function* createRangeIterator(length = 0, offset) {
-    if (length < 0) {
-        offset !== null && offset !== void 0 ? offset : offset = -length - 1;
-        while(length++)yield offset--;
-    } else {
-        offset !== null && offset !== void 0 ? offset : offset = 0;
-        while(length--)yield offset++;
-    }
-}
-function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
-    if (start != null) yield start;
-    while(maxIterations-- && (start = step(start)) != null){
-        yield start;
-    }
-}
-const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
-const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator$1] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
-const forEachArray = (source, action, start, end)=>{
-    let returnValue;
-    let i = 0;
-    start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
-    end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
-    for(; start < end; start++){
-        var _action;
-        if (source[start] != null && (returnValue = (_action = action(source[start], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked$1)) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachIterable = (source, action)=>{
-    let returnValue;
-    let i = 0;
-    for (let value of source){
-        var _action;
-        if (value != null && (returnValue = (_action = action(value, i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked$1)) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachObject = (source, action)=>{
-    let returnValue;
-    let i = 0;
-    for(let key in source){
-        var _action;
-        if (returnValue = (_action = action([
-            key,
-            source[key]
-        ], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked$1) {
-            stopInvoked$1 = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachInternal = (source, action, start, end)=>{
-    if (source == null) return;
-    if (isArray(source)) return forEachArray(source, action, start, end);
-    if (start === undefined$1) {
-        if (source[symbolIterator$1]) return forEachIterable(source, action);
-        if (typeof source === "object") return forEachObject(source, action);
-    }
-    let returnValue;
-    for (const value of createIterator(source, action, start, end)){
-        value != null && (returnValue = value);
-    }
-    return returnValue;
-};
-/** Fast version of `obj`. */ const fromEntries = (source, map)=>{
-    if (source == null) return undefined$1;
-    const result = {};
-    if (map) {
-        let i = 0;
-        let value;
-        for(const key in source){
-            (value = map([
-                key,
-                source[key]
-            ], i++)) && (result[value[0]] = value[1]);
-        }
-    } else {
-        for (const entry of source){
-            entry && (result[entry[0]] = entry[1]);
-        }
-    }
-    return result;
-};
-const first = (source, predicate, start, end)=>source == null ? undefined$1 : forEachInternal(source, (value, i)=>!predicate || predicate(value, i) ? stop(value) : undefined$1, start, end);
-const set = (target, key, value)=>{
-    if (target.constructor === Object || isArray(target)) {
-        value === undefined ? delete target[key] : target[key] = value;
-        return value;
-    }
-    value === undefined ? target.delete ? target.delete(key) : delete target[key] : target.set ? target.set(key, value) : target.add ? value ? target.add(key) : target.delete(key) : target[key] = value;
-    return value;
-};
-const tryAdd = (target, key, value, conflict)=>{
-    const current = get(target, key);
-    if (current != null) {
-        conflict === null || conflict === void 0 ? void 0 : conflict(current);
-        return false;
-    }
-    set(target, key, unwrap(value));
-    return true;
-};
-const get = (target, key, init)=>{
-    if (!target) return undefined;
-    let value = target.get ? target.get(key) : target.has ? target.has(key) : target[key];
-    if (value === undefined && init != null) {
-        (value = isFunction(init) ? init() : init) != null && set(target, key, value);
-    }
-    return value;
-};
-const unwrap = (value)=>isFunction(value) ? value() : value;
+const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value !== "string" || acceptStrings));
 const ellipsis = (text, maxLength, debug = false)=>text && (text.length > maxLength ? debug ? `${text.slice(0, maxLength)}... [and ${text.length - maxLength} more]` : text.slice(0, maxLength - 1) + "…" : text);
+const isEmptyString = (s)=>s == null || typeof s === "boolean" || s.toString() === "";
+const join = (source, arg1, arg2)=>source == null ? source : typeof source === "string" ? source : source[symbolIterator] ? filter(typeof arg1 === "function" ? map(source, arg1) : (arg2 = arg1, source), isEmptyString, true).join(arg2 !== null && arg2 !== void 0 ? arg2 : "") : typeof source === "boolean" ? "" : source.toString();
+const indent = (text, indent = "  ")=>{
+    if (text == null) return text;
+    let i = 0;
+    let baseIndent = 0;
+    return replace(text, /( *)([^\r\n]*)(\r?\n?)/g, (_, lineIndent, text, br)=>{
+        if (!text) {
+            return br;
+        }
+        if (!i++) {
+            baseIndent = lineIndent.length;
+        }
+        return `${indent}${lineIndent.length >= baseIndent ? lineIndent.slice(baseIndent) : ""}${text}${br}`;
+    });
+};
+const stringify = JSON.stringify;
+/**
+ * Itemizes an array of items by separating them with commas and a conjunction like "and" or "or".
+ */ const itemize = (values, separators, result, rest)=>{
+    if (!values && values !== 0) return values == null ? values : undefined$1;
+    if (typeof separators === "function") {
+        return itemize(map(values, separators), result, rest);
+    }
+    const first = [];
+    const last = forEach(values, (item, _, prev)=>isEmptyString(item) ? skip : (prev && first.push(prev), item.toString()));
+    let [separator, conjunction] = isArray(separators) ? separators : [
+        ,
+        separators
+    ];
+    separator !== null && separator !== void 0 ? separator : separator = ",";
+    conjunction = (conjunction !== null && conjunction !== void 0 ? conjunction : conjunction = "and")[0] === separator ? conjunction + " " : " " + // Don't add two spaces if the conjunction is the empty string.
+    (conjunction ? conjunction + " " : "");
+    const enumerated = first.length ? `${first.join(separator + " ")}${conjunction}${last}` : last !== null && last !== void 0 ? last : "";
+    return result ? result(enumerated, first.length + +(last != null)) : enumerated;
+};
 const createEnumParser = (name, values)=>{
     const levels = [];
     const ranks = {};
@@ -271,390 +501,6 @@ let collected;
     var _s_replace;
     return (_s_replace = s === null || s === void 0 ? void 0 : s.replace(match, replaceValue)) !== null && _s_replace !== void 0 ? _s_replace : s;
 };
-// #endregion
-const getRootPrototype = (value)=>{
-    let proto = value;
-    while(proto){
-        proto = Object.getPrototypeOf(value = proto);
-    }
-    return value;
-};
-const findPrototypeFrame = (frameWindow, matchPrototype)=>{
-    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
-        return frameWindow;
-    }
-    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
-        try {
-            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
-                return frameWindow;
-            }
-        } catch (e) {
-        // Cross domain issue.
-        }
-    }
-};
-/**
- * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
- * e.g., `Object` in an iframe is different from `Object` in the top frame.
- */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
-let stopInvoked = false;
-const skip2 = Symbol();
-const stop2 = (value)=>(stopInvoked = true, value);
-// #region region_iterator_implementations
-const forEachSymbol = Symbol();
-const asyncIteratorFactorySymbol = Symbol();
-const symbolIterator = Symbol.iterator;
-// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
-const ensureForEachImplementations = (target, error, retry)=>{
-    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
-        throw error;
-    }
-    let scope = findDeclaringScope(target);
-    if (!scope) {
-        throw error;
-    }
-    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
-            let projected, i = 0;
-            for (const item of target){
-                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                    if (projected === stop2) {
-                        break;
-                    }
-                    seed = projected;
-                    if (mapped) mapped.push(projected);
-                    if (stopInvoked) {
-                        stopInvoked = false;
-                        break;
-                    }
-                }
-            }
-            return mapped || seed;
-        };
-    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        let projected, item;
-        for(let i = 0, n = target.length; i < n; i++){
-            item = target[i];
-            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
-                    break;
-                }
-                seed = projected;
-                if (mapped) {
-                    mapped.push(projected);
-                }
-                if (stopInvoked) {
-                    stopInvoked = false;
-                    break;
-                }
-            }
-        }
-        return mapped || seed;
-    };
-    const genericForEachIterable = forEachIterable();
-    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        if (target[symbolIterator]) {
-            if (target.constructor === Object) {
-                return genericForEachIterable(target, projection, mapped, seed, context);
-            }
-            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
-        }
-        let projected, item, i = 0;
-        for(const key in target){
-            item = [
-                key,
-                target[key]
-            ];
-            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
-                    break;
-                }
-                seed = projected;
-                if (mapped) mapped.push(projected);
-                if (stopInvoked) {
-                    stopInvoked = false;
-                    break;
-                }
-            }
-        }
-        return mapped || seed;
-    };
-    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
-        if (this[symbolIterator] || this[symbolAsyncIterator]) {
-            if (this.constructor === Object) {
-                var _this_symbolAsyncIterator;
-                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator]();
-            }
-            const proto = Object.getPrototypeOf(this);
-            var _proto_symbolAsyncIterator;
-            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator];
-            return this[asyncIteratorFactorySymbol]();
-        }
-        return iterateEntries(this);
-    };
-    for (const proto of [
-        scope.Map.prototype,
-        scope.WeakMap.prototype,
-        scope.Set.prototype,
-        scope.WeakSet.prototype,
-        // Generator function
-        Object.getPrototypeOf(function*() {})
-    ]){
-        proto[forEachSymbol] = forEachIterable();
-        proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
-    }
-    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
-    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
-    return retry();
-};
-// #endregion
-function* range2(length = this) {
-    for(let i = 0; i < length; i++)yield i;
-}
-function* traverse2(next = this) {
-    let item = undefined;
-    while((item = next(item)) !== undefined)yield item;
-}
-function* iterateEntries(source) {
-    for(const key in source){
-        yield [
-            key,
-            source[key]
-        ];
-    }
-}
-const forEach2 = (source, projection, seed, context)=>{
-    try {
-        return source ? source[forEachSymbol](source, projection, undefined, seed, context) : source == null ? source : undefined;
-    } catch (e) {
-        return ensureForEachImplementations(source, e, ()=>forEach2(source, projection, seed, context));
-    }
-};
-let map2 = (source, projection, target = [], seed, context = source)=>{
-    try {
-        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
-    } catch (e) {
-        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
-    }
-};
-let filter2 = (items, filter = true, invert = false)=>map2(items, filter === true ? (item)=>item !== null && item !== void 0 ? item : skip2 : !filter ? (item)=>item || skip2 : filter.has ? (item)=>item == null || filter.has(item) === invert ? skip2 : item : (item, index, prev)=>!filter(item, index, prev) === invert ? item : skip2);
-const collect2 = (source, generator, includeSelf = true, collected)=>{
-    if (source == null) return source;
-    const root = collected;
-    collected !== null && collected !== void 0 ? collected : collected = new Set();
-    if (source[symbolIterator] && typeof source !== "string") {
-        for (const item of source){
-            if (collect2(item, generator, includeSelf, collected) === stop2) {
-                break;
-            }
-        }
-    } else if (!collected.has(source)) {
-        if (includeSelf) {
-            collected.add(source);
-        }
-        let generated = generator(source);
-        if (generated === stop2) return root ? stop2 : collected;
-        if (generated !== skip2) {
-            collect2(generated, generator, true, collected);
-        }
-    }
-    return collected;
-};
-const distinct2 = (source)=>source == null ? source : source instanceof Set ? source : new Set(source[symbolIterator] && typeof source !== "string" ? source : [
-        source
-    ]);
-const array2 = (source)=>source == null ? source : isArray(source) ? source : source[symbolIterator] && typeof source !== "string" ? [
-        ...source
-    ] : [
-        source
-    ];
-const some2 = (source, predicate)=>forEach2(source, (item, index, prev)=>(predicate ? predicate(item, index, prev, source) : item) ? stopInvoked = true : item) === true;
-const sortCompare = (x, y, descending)=>(descending ? -1 : 1) * (x === y ? 0 : typeof x === "string" ? typeof y === "string" ? x.localeCompare(y) : 1 : typeof y === "string" ? -1 : x == null ? y == null ? 0 : -1 : y == null ? 1 : x - y);
-const sort2 = (items, selector, descending)=>array2(items).sort(typeof selector === "function" ? (x, y)=>sortCompare(selector(x), selector(y), descending) : isArray(selector) ? selector.length ? (x, y)=>{
-        let c = 0;
-        for(let i = 0; i < selector.length && !c; i++){
-            c = sortCompare(selector[i](x), selector[i](y), descending);
-        }
-        return c;
-    } : (x, y)=>sortCompare(x, y, descending) : (x, y)=>sortCompare(x, y, selector));
-const topoSort2 = (items, dependencies, format)=>{
-    if (items == null) return items;
-    let clear = [];
-    let mapped = [];
-    const edges = new Map(map2(items, (item)=>[
-            item,
-            [
-                item,
-                [],
-                null
-            ]
-        ]));
-    for (const [item, info] of edges){
-        var _dependencies;
-        for (const dependency of (_dependencies = dependencies(item)) !== null && _dependencies !== void 0 ? _dependencies : []){
-            var _edges_get;
-            var _info, _ref;
-            var _;
-            ((_edges_get = edges.get(dependency)) === null || _edges_get === void 0 ? void 0 : _edges_get[1].push(info)) && ((_ = (_info = info)[_ref = 2]) !== null && _ !== void 0 ? _ : _info[_ref] = new Set()).add(dependency);
-        }
-        if (!info[2]) {
-            clear.push(info);
-        }
-    }
-    for (const [item, dependents] of clear){
-        mapped.push(item);
-        for (const dependent of dependents){
-            dependent[2].delete(item);
-            if (!dependent[2].size) {
-                clear.push(dependent);
-            }
-        }
-    }
-    return mapped.length === edges.size ? mapped : throwError(`Cyclic dependencies: ${itemize2(map2(edges, ([, info])=>{
-        var _info_;
-        return ((_info_ = info[2]) === null || _info_ === void 0 ? void 0 : _info_.size) ? (format = normalizeSelector(format))(info[0]) + " depends on " + itemize2(info[2], format) : skip2;
-    }))}.`);
-};
-const normalizeSelector = (selector, require = false)=>typeof selector === "function" ? selector : selector != null ? (item)=>(item = item[selector]) === undefined && require ? skip2 : item : (item)=>item;
-const setSymbol = Symbol();
-const getSymbol = Symbol();
-const pushSymbol = Symbol();
-let ensureAssignImplementations = (target, error, retry)=>{
-    if (target == null || (target === null || target === void 0 ? void 0 : target[getSymbol])) {
-        throw error;
-    }
-    let scope = findDeclaringScope(target);
-    if (!scope) {
-        throw error;
-    }
-    if (scope.Object.prototype[setSymbol]) throw error;
-    for (const { prototype } of [
-        scope.Map,
-        scope.WeakMap
-    ]){
-        prototype[setSymbol] = function(key, value) {
-            return value === void 0 ? this.delete(key) : this.get(key) !== value && !!this.set(key, value);
-        };
-        prototype[getSymbol] = prototype.get;
-    }
-    for (const { prototype } of [
-        scope.Set,
-        scope.WeakSet
-    ]){
-        prototype[setSymbol] = function(key, value, add = false) {
-            return value || add && value === void 0 ? this.has(key) ? false : !!this.add(key) : this.delete(key);
-        };
-        prototype[getSymbol] = prototype.has;
-        prototype[pushSymbol] = function(keys) {
-            for (const key of keys)key !== void 0 && this.add(key);
-            return this;
-        };
-    }
-    scope.Array.prototype[pushSymbol] = function(values) {
-        this.push(...values);
-        return this;
-    };
-    for (const { prototype } of [
-        scope.Object,
-        scope.Array
-    ]){
-        prototype[setSymbol] = function(key, value) {
-            if (value === undefined) {
-                if (this[key] !== undefined) {
-                    delete this[key];
-                    return true;
-                }
-                return false;
-            }
-            return (this[key] = value) !== value;
-        };
-        prototype[getSymbol] = function(key) {
-            return this[key];
-        };
-    }
-    return retry();
-};
-let get2 = (source, key, initialize)=>{
-    try {
-        if (source == null) return source;
-        let value = source[getSymbol](key);
-        if (value === void 0 && (value = typeof initialize === "function" ? initialize() : initialize) !== void 0) {
-            if (value === null || value === void 0 ? void 0 : value.then) return value.then((value)=>value === void 0 ? value : source[setSymbol](key, value));
-            source[setSymbol](key, value);
-        }
-        return value;
-    } catch (e) {
-        return ensureAssignImplementations(source, e, ()=>get2(source, key, initialize));
-    }
-};
-let add2 = (target, key, value)=>{
-    try {
-        return (target === null || target === void 0 ? void 0 : target[setSymbol](key, value, true)) === true;
-    } catch (e) {
-        return ensureAssignImplementations(target, e, ()=>add2(target, key, value));
-    }
-};
-let set2 = (target, key, value)=>{
-    try {
-        target[setSymbol](key, value);
-        return value;
-    } catch (e) {
-        return ensureAssignImplementations(target, e, ()=>set2(target, key, value));
-    }
-};
-const update2 = (target, key, update)=>{
-    let updated = update(get2(target, key));
-    return typeof (updated === null || updated === void 0 ? void 0 : updated.then) === "function" ? updated.then((value)=>set2(target, key, value)) : set2(target, key, updated);
-};
-let push2 = (target, ...items)=>{
-    try {
-        return target == null ? target : target[pushSymbol](items);
-    } catch (e) {
-        return ensureAssignImplementations(target, e, ()=>push2(target, ...items));
-    }
-};
-const obj2 = (source, projection)=>{
-    const target = {};
-    forEach2(source, projection ? (item, index, seed)=>(item = projection(item, index, seed)) && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item : (item)=>item && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item);
-    return target;
-};
-const isEmptyString = (s)=>s == null || typeof s === "boolean" || s.toString() === "";
-const join2 = (source, arg1, arg2)=>source == null ? source : !isIterable(source) ? isEmptyString(source) ? "" : source.toString() : filter2(typeof arg1 === "function" ? map2(source, arg1) : (arg2 = arg1, source), isEmptyString, true).join(arg2 !== null && arg2 !== void 0 ? arg2 : "");
-const indent2 = (text, indent = "  ")=>{
-    if (text == null) return text;
-    let i = 0;
-    let baseIndent = 0;
-    return replace(text, /( *)([^\r\n]*)(\r?\n?)/g, (_, lineIndent, text, br)=>{
-        if (!text) {
-            return br;
-        }
-        if (!i++) {
-            baseIndent = lineIndent.length;
-        }
-        return `${indent}${lineIndent.length >= baseIndent ? lineIndent.slice(baseIndent) : ""}${text}${br}`;
-    });
-};
-const stringify2 = JSON.stringify;
-/**
- * Itemizes an array of items by separating them with commas and a conjunction like "and" or "or".
- */ const itemize2 = (values, separators, result, rest)=>{
-    if (!values && values !== 0) return values == null ? values : undefined;
-    if (typeof separators === "function") {
-        return itemize2(map2(values, separators), result, rest);
-    }
-    const first = [];
-    const last = forEach2(values, (item, _, prev)=>isEmptyString(item) ? skip2 : (prev && first.push(prev), item.toString()));
-    let [separator, conjunction] = isArray(separators) ? separators : [
-        ,
-        separators
-    ];
-    separator !== null && separator !== void 0 ? separator : separator = ",";
-    conjunction = (conjunction !== null && conjunction !== void 0 ? conjunction : conjunction = "and")[0] === separator ? conjunction + " " : " " + // Don't add two spaces if the conjunction is the empty string.
-    (conjunction ? conjunction + " " : "");
-    const enumerated = first.length ? `${first.join(separator + " ")}${conjunction}${last}` : last !== null && last !== void 0 ? last : "";
-    return result ? result(enumerated, first.length + +(last != null)) : enumerated;
-};
 
 /**
  * Defines to which extend a piece of information relates to a natural individual which is typically someone visiting your app or website.
@@ -711,14 +557,14 @@ const DATA_PURPOSES = [
     "personalization",
     "security"
 ];
-const VALID_PURPOSE_NAMES = obj2(DATA_PURPOSES, (purpose)=>[
+const VALID_PURPOSE_NAMES = obj(DATA_PURPOSES, (purpose)=>[
         purpose,
         purpose
     ]);
-const DATA_PURPOSES_ALL = Object.freeze(fromEntries(DATA_PURPOSES.map((purpose)=>[
+const DATA_PURPOSES_ALL = Object.freeze(obj(DATA_PURPOSES, (purpose)=>[
         purpose,
         true
-    ])));
+    ]));
 const mapOptionalPurpose = (purpose, optionalPurposes)=>purpose === "personalization" && (optionalPurposes === null || optionalPurposes === void 0 ? void 0 : optionalPurposes.personalization) !== true ? "functionality" : purpose === "security" && (optionalPurposes === null || optionalPurposes === void 0 ? void 0 : optionalPurposes.security) !== true ? "necessary" : purpose;
 const mapOptionalPurposes = (purposes, optionalPurposes)=>{
     let mappedPurposes = purposes;
@@ -767,7 +613,7 @@ const DataPurposes = {
             value = purposes;
         }
         if (names) {
-            const result = map2(value, ([key, value])=>VALID_PURPOSE_NAMES[key] && value ? key : skip2);
+            const result = map(value, ([key, value])=>VALID_PURPOSE_NAMES[key] && value ? key : skip);
             return result.length || !includeDefault ? result : [
                 "necessary"
             ];
@@ -839,7 +685,7 @@ const DataVisibility = createEnumParser("data restriction", levels);
 
 const formatDataUsage = (usage)=>{
     var _usage_classification;
-    return `${(_usage_classification = usage === null || usage === void 0 ? void 0 : usage.classification) !== null && _usage_classification !== void 0 ? _usage_classification : "anonymous"} data for ${itemize2(DataPurposes.parse(usage === null || usage === void 0 ? void 0 : usage.purposes, {
+    return `${(_usage_classification = usage === null || usage === void 0 ? void 0 : usage.classification) !== null && _usage_classification !== void 0 ? _usage_classification : "anonymous"} data for ${itemize(DataPurposes.parse(usage === null || usage === void 0 ? void 0 : usage.purposes, {
         names: true
     }))}  purposes.`;
 };
@@ -932,7 +778,7 @@ const parseSchemaDataUsageKeywords = (keywords, forVariable = false)=>{
     const usage = {};
     for (const keywordGroup of keywords){
         if (!keywordGroup) continue;
-        for (const keyword of isArray(keywordGroup) ? keywordGroup : keywordGroup.split(/[,\s]+/)){
+        for (const keyword of isArray(keywordGroup) ? keywordGroup : keywordGroup.split(/[:,\s]+/)){
             if (matched = DataClassification.parse(keyword, false)) {
                 usage.classification = usage.classification ? throwError(`Data classification can only be specified once. It is already '${usage.classification}'`) : matched;
             } else if (matched = DataVisibility.parse(keyword, false)) {
@@ -967,7 +813,7 @@ const parseQualifiedTypeName = (qualifiedName)=>{
         version: version === "*" || !version ? undefined : version
     };
 };
-const formatQualifiedTypeName = ({ namespace, name, version })=>join2([
+const formatQualifiedTypeName = ({ namespace, name, version })=>join([
         namespace && namespace + "#",
         name,
         version && "@" + version
@@ -985,11 +831,11 @@ const createRootContext = (root)=>{
         refs: {
             add: (ref, id, type)=>{
                 var _refCallbacks_get;
-                update2(typeRefs, ref, (current)=>current ? throwError(`A type with the id '${id}' is already registered `) : [
+                update(typeRefs, ref, (current)=>current ? throwError(`A type with the id '${id}' is already registered `) : [
                         id,
                         type
                     ]);
-                forEach2((_refCallbacks_get = refCallbacks.get(ref)) === null || _refCallbacks_get === void 0 ? void 0 : _refCallbacks_get.splice(0), (callback)=>callback(id, type));
+                forEach((_refCallbacks_get = refCallbacks.get(ref)) === null || _refCallbacks_get === void 0 ? void 0 : _refCallbacks_get.splice(0), (callback)=>callback(id, type));
                 refCallbacks.delete(ref);
             },
             resolve: (ref, callback)=>{
@@ -998,9 +844,9 @@ const createRootContext = (root)=>{
                     callback(current[0], current[1]);
                     return;
                 }
-                get2(refCallbacks, ref, ()=>[]).push(callback);
+                get(refCallbacks, ref, ()=>[]).push(callback);
             },
-            pending: ()=>map2(refCallbacks, ([ref])=>ref)
+            pending: ()=>map(refCallbacks, ([ref])=>ref)
         }
     };
 };
@@ -1096,10 +942,10 @@ const parseDefinitions = (context)=>{
                 }
                 if (isScopeVariableDefinitionRoot(definitionKey, def)) {
                     const propertiesContext = navigateContext(navigateContext(defsContext, definitionKey), "properties");
-                    forEach2(def["properties"], ([name, scopeProperties])=>{
+                    forEach(def["properties"], ([name, scopeProperties])=>{
                         const scope = VariableServerScope.parse(name.toLowerCase());
                         const scopeContext = navigateContext(navigateContext(propertiesContext, name), "properties");
-                        forEach2(scopeProperties["properties"], ([name])=>{
+                        forEach(scopeProperties["properties"], ([name])=>{
                             var _context_schema, _ref, _scope;
                             parseJsonProperty(navigateContext(scopeContext, name), (property)=>{
                                 var _variables, _;
@@ -1115,7 +961,7 @@ const parseDefinitions = (context)=>{
                     const referencedProp = navigateContext(defsContext, definitionKey);
                     parseJsonProperty(referencedProp, (property)=>{
                         let id = context.schema.namespace + "#" + definitionKey;
-                        forEach2(referencedProp.refPaths, (ref)=>context.refs.add(ref, id, property));
+                        forEach(referencedProp.refPaths, (ref)=>context.refs.add(ref, id, property));
                     });
                 }
             }
@@ -1142,7 +988,7 @@ const parseAnnotations = (context, target, forVariable = false)=>{
         if (!version && (version = node[JsonSchemaAnnotations.Version])) {
             version && (target.version = version);
         }
-        map2(PRIVACY_ANNOTATIONS, (key)=>node[key] || skip2, keywords);
+        map(PRIVACY_ANNOTATIONS, (key)=>node[key] || skip, keywords);
         let description = node["description"];
         if (description) {
             var _description_replace;
@@ -1188,7 +1034,7 @@ const serializeAnnotations = (entity)=>{
         });
     }
     if (usage.readonly || usage.visibility || entity.dynamic) {
-        (annotations !== null && annotations !== void 0 ? annotations : annotations = {})[JsonSchemaAnnotations.Access] = filter2([
+        (annotations !== null && annotations !== void 0 ? annotations : annotations = {})[JsonSchemaAnnotations.Access] = filter([
             usage.readonly && "readonly",
             usage.visibility,
             entity.dynamic && "dynamic"
@@ -1361,7 +1207,7 @@ const parseJsonProperty = (context, assign, forVariable = false)=>{
     assign(parseAnnotations(context, property, forVariable));
 };
 
-const isIgnoredObject = (node)=>some2(node["properties"], ([key])=>// This is a TypeScript function that has sneaked into the schema. Remove.
+const isIgnoredObject = (node)=>some(node["properties"], ([key])=>// This is a TypeScript function that has sneaked into the schema. Remove.
         key.startsWith("NamedParameters") || key.startsWith("namedArgs"));
 const isJsonObjectType = (node)=>{
     let allOf;
@@ -1410,7 +1256,7 @@ const parseJsonType = (context, root, forVariable = false)=>{
     if (root) {
         let id = schema.namespace + "#" + key;
         schema.types[key] = type;
-        forEach2(context.refPaths, (refPath)=>context.refs.add(refPath.replace(/\/allOf\/\d+$/g, ""), id, type));
+        forEach(context.refPaths, (refPath)=>context.refs.add(refPath.replace(/\/allOf\/\d+$/g, ""), id, type));
         context.types.set(id, type);
     }
     for (const typeDef of [
@@ -1428,7 +1274,7 @@ const parseJsonType = (context, root, forVariable = false)=>{
             type.system = typeDef[JsonSchemaAnnotations.SystemType];
         }
     }
-    forEach2(allOf, (ref)=>{
+    forEach(allOf, (ref)=>{
         if (ref.$ref) {
             var _type;
             context.refs.resolve(ref.$ref, (id)=>{
@@ -1522,7 +1368,7 @@ const serializeType = (type)=>{
         ...serializeAnnotations(type),
         properties: {}
     };
-    forEach2(type.ownProperties, ([name, property])=>{
+    forEach(type.ownProperties, ([name, property])=>{
         jsonType.properties[name] = serializeProperty(property.type);
         if (property.required) {
             var _jsonType;
@@ -1590,7 +1436,7 @@ class JsonSchemaAdapter {
         parseJsonSchema(rootContext);
         const pending = rootContext.refs.pending();
         if (pending.length) {
-            throwError(itemize2(pending, null, (refs, n)=>`The following $ref${n !== 1 ? "s" : ""} was not resolved: ${refs}.`));
+            throwError(itemize(pending, null, (refs, n)=>`The following $ref${n !== 1 ? "s" : ""} was not resolved: ${refs}.`));
         }
         return rootContext.schemas;
     }
@@ -1642,7 +1488,7 @@ class MarkdownSchemaAdapter {
     serialize(schemas) {
         const lines = [];
         for (const schema of schemas){
-            const types = topoSort2(sort2(schema.types.values(), (type)=>type.name), (type)=>type.extends);
+            const types = topoSort(sort(schema.types.values(), (type)=>type.name), (type)=>type.extends);
             const eventType = types.find((type)=>type.system === "event");
             const eventTypes = [];
             const otherTypes = [];
@@ -1737,7 +1583,7 @@ const getMinimumUsage = (current, other)=>current ? other ? {
         readonly: current.readonly && other.readonly,
         visibility: DataVisibility.ranks[current.visibility] <= DataVisibility.ranks[other.visibility] ? current.visibility : other.visibility,
         classification: DataClassification.ranks[current.classification] <= DataClassification.ranks[other.classification] ? current.classification : other.classification,
-        purposes: fromEntries(current.purposes, ([key, value])=>value && !other.purposes[key] ? undefined : [
+        purposes: obj(current.purposes, ([key, value])=>value && !other.purposes[key] ? undefined : [
                 key,
                 value
             ])
@@ -1858,13 +1704,13 @@ const getPrimitiveTypeValidator = (type, allowNumericStrings = false)=>{
         if (!enumValues.size) {
             throw new TypeError("At least one enum value to test against is required.");
         }
-        const errorMessage = "is not the constant value " + itemize2(type.enum.map((value)=>JSON.stringify(value)), "or");
+        const errorMessage = "is not the constant value " + itemize(type.enum.map((value)=>JSON.stringify(value)), "or");
         validator = (value, errors)=>(value = inner(value, errors)) === VALIDATION_ERROR_SYMBOL ? value : enumValues.has(value) ? value : addError(errors, value, errorMessage);
     }
     return {
         validator,
         primitive,
-        enumValues: distinct2(enumValues)
+        enumValues: distinct(enumValues)
     };
 };
 function create(type, allowNumericStrings) {
@@ -2050,7 +1896,7 @@ const addTypeValidators = (type)=>{
     }
 };
 
-const subtypesOf = (types, orSelf = false)=>collect2(types, (type)=>type.extendedBy, orSelf);
+const subtypesOf = (types, orSelf = false)=>collect$1(types, (type)=>type.extendedBy, orSelf);
 const anyValue = Symbol();
 const createAbstractTypeValidator = (type)=>({
         censor: ()=>undefined,
@@ -2066,7 +1912,7 @@ const createAbstractTypeValidator = (type)=>({
     });
 const createSchemaTypeMapper = (rootTypes)=>{
     const discriminators = new Map();
-    const types = topoSort2(filter2(subtypesOf(rootTypes, true), (type)=>!type.abstract), (type)=>type.extends);
+    const types = topoSort(filter(subtypesOf(rootTypes, true), (type)=>!type.abstract), (type)=>type.extends);
     if (!types.length) {
         return {
             match: ()=>undefined,
@@ -2082,21 +1928,21 @@ const createSchemaTypeMapper = (rootTypes)=>{
         mapped.add(types[0]);
         selector = ()=>types[0];
     } else {
-        forEach2(types, (type)=>forEach2(type.properties, ([name, prop])=>{
+        forEach(types, (type)=>forEach(type.properties, ([name, prop])=>{
                 var _prop_type;
                 var _prop_type_enumValues;
-                return forEach2(prop.required && ((_prop_type_enumValues = (_prop_type = prop.type) === null || _prop_type === void 0 ? void 0 : _prop_type.enumValues) !== null && _prop_type_enumValues !== void 0 ? _prop_type_enumValues : [
+                return forEach(prop.required && ((_prop_type_enumValues = (_prop_type = prop.type) === null || _prop_type === void 0 ? void 0 : _prop_type.enumValues) !== null && _prop_type_enumValues !== void 0 ? _prop_type_enumValues : [
                     anyValue
-                ]), (value)=>get2(get2(discriminators, name, ()=>new Map()), value, ()=>[]).push(type));
+                ]), (value)=>get(get(discriminators, name, ()=>new Map()), value, ()=>[]).push(type));
             }));
-        forEach2(discriminators, ([, value])=>{
+        forEach(discriminators, ([, value])=>{
             // If there are more than 1 one value, it means there is at least one enum value.
             value.size > 1 && value.delete(anyValue);
-            return forEach2(value, ([, types])=>push2(mapped, ...types));
+            return forEach(value, ([, types])=>push(mapped, ...types));
         });
         const isOptional = (type, name)=>type.properties[name] && !type.properties[name].required;
-        const maybeOptional = distinct2(map2(discriminators, ([name])=>some2(mapped, (type)=>isOptional(type, name)) ? name : skip2));
-        const properties = sort2(sort2(discriminators, ([, value])=>value.size, true), ([name])=>maybeOptional.has(name));
+        const maybeOptional = distinct(map(discriminators, ([name])=>some(mapped, (type)=>isOptional(type, name)) ? name : skip));
+        const properties = sort(sort(discriminators, ([, value])=>value.size, true), ([name])=>maybeOptional.has(name));
         const mapSelector = (index, pending, pathValues = [])=>{
             if (!pending.length) {
                 throwError("INV: types.length > 0");
@@ -2104,16 +1950,16 @@ const createSchemaTypeMapper = (rootTypes)=>{
                 return ()=>pending[0];
             }
             if (index >= properties.length) {
-                const valuePath = join2(pathValues, (value, i)=>value == null ? skip2 : `${properties[i][0]}=${typeof value === "symbol" ? "*" : stringify2(value)}`);
-                return throwError(`The types ${itemize2(map2(pending, (type)=>type.name), "and")} can not be disambiguated by${valuePath ? " additional" : ""} values of required properties${valuePath ? ` when ${valuePath}` : ""} (root type(s): ${itemize2(rootTypes)}) - did you forget to mark a base type abstract?.`);
+                const valuePath = join(pathValues, (value, i)=>value == null ? skip : `${properties[i][0]}=${typeof value === "symbol" ? "*" : stringify(value)}`);
+                return throwError(`The types ${itemize(map(pending, (type)=>type.name), "and")} can not be disambiguated by${valuePath ? " additional" : ""} values of required properties${valuePath ? ` when ${valuePath}` : ""} (root type(s): ${itemize(rootTypes)}) - did you forget to mark a base type abstract?.`);
             }
             const [discriminatorName, discriminatorValues] = properties[index];
             const selectorMap = new Map();
             const remaining = new Set(pending);
             const mapped = new Set();
-            forEach2(discriminatorValues, ([value, typesForValue])=>{
-                const remainingForValue = filter2(typesForValue, remaining);
-                if (!remainingForValue.length || some2(pending, (pendingType)=>isOptional(pendingType, discriminatorName))) {
+            forEach(discriminatorValues, ([value, typesForValue])=>{
+                const remainingForValue = filter(typesForValue, remaining);
+                if (!remainingForValue.length || some(pending, (pendingType)=>isOptional(pendingType, discriminatorName))) {
                     // There are no remaining types for the value, or at least one of the pending types has an optional value for the discriminator
                     // which means it is not usable on this property path.
                     return;
@@ -2122,9 +1968,9 @@ const createSchemaTypeMapper = (rootTypes)=>{
                     ...pathValues,
                     value
                 ]));
-                forEach2(remainingForValue, (type)=>mapped.add(type));
+                forEach(remainingForValue, (type)=>mapped.add(type));
             });
-            const mapUnmatched = mapped.size < remaining.size ? mapSelector(index + 1, filter2(pending, mapped, true), [
+            const mapUnmatched = mapped.size < remaining.size ? mapSelector(index + 1, filter(pending, mapped, true), [
                 ...pathValues,
                 undefined
             ]) : undefined;
@@ -2137,8 +1983,8 @@ const createSchemaTypeMapper = (rootTypes)=>{
         };
         selector = mapSelector(0, types);
     }
-    const errorMessage = itemize2(types, "or", (list, n)=>` does not match the ${n > 1 ? "any of the types" : "the type"} ${list} or any of ${n > 1 ? "their" : "its"} subtypes.`);
-    const unmapped = filter2(types, mapped, true);
+    const errorMessage = itemize(types, "or", (list, n)=>` does not match the ${n > 1 ? "any of the types" : "the type"} ${list} or any of ${n > 1 ? "their" : "its"} subtypes.`);
+    const unmapped = filter(types, mapped, true);
     return {
         match: selector,
         censor: (value, context)=>{
@@ -2173,7 +2019,7 @@ const parsePropertyType = (property, definition, parseContext, allowNumericStrin
                 name += " (" + definition.format + ")";
             }
             if (enumValues) {
-                name += " [" + map2(enumValues, (value)=>JSON.stringify(value)).join(", ") + "]";
+                name += " [" + map(enumValues, (value)=>JSON.stringify(value)).join(", ") + "]";
             }
             const parsedType = {
                 source: definition,
@@ -2363,7 +2209,7 @@ const parsePropertyType = (property, definition, parseContext, allowNumericStrin
                         path: "",
                         type: parsedType,
                         source: target,
-                        message: `${formatErrorSource(target)} does not match any of the allowed types ${unionTypeList}:\n${indent2(formatValidationErrors(aggregatedErrors, "- "))}`
+                        message: `${formatErrorSource(target)} does not match any of the allowed types ${unionTypeList}:\n${indent(formatValidationErrors(aggregatedErrors, "- "))}`
                     });
                     return VALIDATION_ERROR_SYMBOL;
                 }, errors),
@@ -2592,7 +2438,7 @@ const parseProperty = (declaringType, name, definition, context, baseProperty)=>
             type
         ] : null;
         if (baseTypes && types) {
-            forEach2(types, (type)=>!baseTypes.some((baseType)=>type !== baseType && !baseType.extendedByAll.has(type)) && overrideError(`The type ${type} is not the same or an extension of the base property's ${itemize2(baseTypes, "or")}`));
+            forEach(types, (type)=>!baseTypes.some((baseType)=>type !== baseType && !baseType.extendedByAll.has(type)) && overrideError(`The type ${type} is not the same or an extension of the base property's ${itemize(baseTypes, "or")}`));
         } else if ("enumValues" in type && type.enumValues) {
             if ("enumValues" in baseType && baseType.enumValues) {
                 for (const value of type.enumValues){
@@ -2625,8 +2471,8 @@ const parseProperty = (declaringType, name, definition, context, baseProperty)=>
 };
 
 const addBaseType = (subtype, baseType)=>{
-    add2(baseType.extendedByAll, subtype);
-    add2(subtype.extendsAll, baseType);
+    add(baseType.extendedByAll, subtype);
+    add(subtype.extendsAll, baseType);
     for (const baseBaseType of baseType.extends){
         addBaseType(subtype, baseBaseType);
     }
@@ -2669,7 +2515,7 @@ const parseTypeProperties = (parsedType, context)=>{
     }
     parsedType.ownProperties = {};
     const source = parsedType.source;
-    forEach2(parsedType.extendsAll, (baseType)=>// Make sure we have all the base type's properties.
+    forEach(parsedType.extendsAll, (baseType)=>// Make sure we have all the base type's properties.
         parseTypeProperties(baseType, context));
     for (const baseType of parsedType.extendsAll){
         for(const key in baseType.properties){
@@ -2694,16 +2540,16 @@ const createEventPatchDefinition = (eventType, type)=>{
         extends: [
             formatQualifiedTypeName(eventType)
         ],
-        properties: obj2(type.properties, ([key, property])=>{
+        properties: obj(type.properties, ([key, property])=>{
             var _property_type;
             return key === CORE_EVENT_DISCRIMINATOR ? [
                 key,
                 {
                     primitive: "string",
-                    enum: map2((_property_type = property.type) === null || _property_type === void 0 ? void 0 : _property_type.enumValues, (typeName)=>`${typeName}${PATCH_EVENT_POSTFIX}`),
+                    enum: map((_property_type = property.type) === null || _property_type === void 0 ? void 0 : _property_type.enumValues, (typeName)=>`${typeName}${PATCH_EVENT_POSTFIX}`),
                     required: true
                 }
-            ] : eventType.properties[key] ? skip2 : [
+            ] : eventType.properties[key] ? skip : [
                 key,
                 {
                     ...serializePropertyType(property.type),
@@ -2726,7 +2572,7 @@ const serializeAsDefinitions = (schemas)=>{
             version: schema.version
         };
         definitions.push(definition);
-        forEach2(schema.types, ([typeName, type])=>{
+        forEach(schema.types, ([typeName, type])=>{
             var _definition;
             var _types;
             ((_types = (_definition = definition).types) !== null && _types !== void 0 ? _types : _definition.types = {})[typeName] = {
@@ -2736,7 +2582,7 @@ const serializeAsDefinitions = (schemas)=>{
                 ...type.usage,
                 extends: type.extends.map((type)=>formatQualifiedTypeName(type)),
                 system: type.source.system,
-                properties: obj2(type.ownProperties, ([key, property])=>[
+                properties: obj(type.ownProperties, ([key, property])=>[
                         key,
                         {
                             ...serializePropertyType(property.type),
@@ -2747,11 +2593,11 @@ const serializeAsDefinitions = (schemas)=>{
                     ])
             };
         });
-        forEach2(schema.variables, ([scope, variables])=>{
+        forEach(schema.variables, ([scope, variables])=>{
             var _definition;
             var _variables;
             const scopeVariableDefinitions = ((_variables = (_definition = definition).variables) !== null && _variables !== void 0 ? _variables : _definition.variables = {})[scope] = {};
-            forEach2(variables, ([variableKey, variable])=>{
+            forEach(variables, ([variableKey, variable])=>{
                 scopeVariableDefinitions[variableKey] = {
                     ...serializePropertyType(variable.type),
                     description: variable.description,
@@ -2911,7 +2757,7 @@ class TypeResolver {
         for (const [schema, context] of schemaContexts){
             // Populate the type dictionary with initial type stubs without properties and base types.
             // This allows circular references to be resolved, and schemas and their types be parsed in any order.
-            forEach2(schema.source.types, ([name, type])=>parseType([
+            forEach(schema.source.types, ([name, type])=>parseType([
                     name,
                     type
                 ], context, null));
@@ -2919,14 +2765,14 @@ class TypeResolver {
         const eventType = this._systemTypes.event;
         for (const [schema, context] of schemaContexts){
             // Parse base types so "extendedBy" is populated for all types before we parse properties..
-            forEach2(schema.types, ([, type])=>parseBaseTypes(type, context));
+            forEach(schema.types, ([, type])=>parseBaseTypes(type, context));
         }
         for (const [schema, context] of schemaContexts){
-            forEach2(schema.types, ([, type])=>parseTypeProperties(type, context));
+            forEach(schema.types, ([, type])=>parseTypeProperties(type, context));
         }
         if (eventType) {
             // Make a copy of the original event types to avoid infinite loop (that is, patch types for patch types for patch types etc...).
-            forEach2(eventType.extendedByAll, (type)=>{
+            forEach(eventType.extendedByAll, (type)=>{
                 var _type_properties_CORE_EVENT_DISCRIMINATOR;
                 var _schemaContexts_find;
                 const context = ((_schemaContexts_find = schemaContexts.find((context)=>context[0] === type.schema)) !== null && _schemaContexts_find !== void 0 ? _schemaContexts_find : throwError(`No parse context for the schema '${type.schema.name}'.`))[1];
@@ -2946,15 +2792,15 @@ class TypeResolver {
                 }
             });
         }
-        forEach2(this._types, ([, type])=>{
+        forEach(this._types, ([, type])=>{
             // Finish the types.
             addTypeValidators(type);
-            forEach2(type.extendedBy, (subtype)=>{
+            forEach(type.extendedBy, (subtype)=>{
                 var _subtype;
-                forEach2(type.referencedBy, (prop)=>subtype.referencedBy.add(prop));
-                forEach2(type.variables, ([scope, keys])=>forEach2(keys, (key)=>{
+                forEach(type.referencedBy, (prop)=>subtype.referencedBy.add(prop));
+                forEach(type.variables, ([scope, keys])=>forEach(keys, (key)=>{
                         var _variables;
-                        return get2((_variables = (_subtype = subtype).variables) !== null && _variables !== void 0 ? _variables : _subtype.variables = new Map(), scope, ()=>new Set()).add(key);
+                        return get((_variables = (_subtype = subtype).variables) !== null && _variables !== void 0 ? _variables : _subtype.variables = new Map(), scope, ()=>new Set()).add(key);
                     }));
             });
         });
@@ -2968,8 +2814,8 @@ class TypeResolver {
                 continue;
             }
             // Find variables.
-            forEach2(schema.source.variables, ([scope, keys])=>{
-                forEach2(keys, ([key, definition])=>{
+            forEach(schema.source.variables, ([scope, keys])=>{
+                forEach(keys, ([key, definition])=>{
                     if (!definition) {
                         return;
                     }
@@ -2999,22 +2845,21 @@ class TypeResolver {
                         censor: dummyProperty.censor,
                         dynamic: !!definition.dynamic
                     };
-                    tryAdd(get2(this._variables, scope, ()=>new Map()), key, variable, (current)=>{
-                        throw new Error(`The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.toString}".`);
-                    });
-                    get2(schema.variables, scope, ()=>new Map()).set(key, variable);
+                    const current = exchange(get(this._variables, scope, ()=>new Map()), key, variable);
+                    current && throwError(`The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.toString}".`);
+                    get(schema.variables, scope, ()=>new Map()).set(key, variable);
                     if ("properties" in variableType) {
                         var _variableType;
                         var _variables;
-                        get2((_variables = (_variableType = variableType).variables) !== null && _variables !== void 0 ? _variables : _variableType.variables = new Map(), scope, ()=>new Set()).add(key);
+                        get((_variables = (_variableType = variableType).variables) !== null && _variables !== void 0 ? _variables : _variableType.variables = new Map(), scope, ()=>new Set()).add(key);
                     }
                 });
             });
         }
-        this.types = obj2(this._types);
-        this.variables = obj2(this._variables, ([scope, variables])=>[
+        this.types = obj(this._types);
+        this.variables = obj(this._variables, ([scope, variables])=>[
                 scope,
-                obj2(variables, ([key, variable])=>{
+                obj(variables, ([key, variable])=>{
                     const usage = variable.usage = overrideUsage(isSchemaObjectType(variable.type) ? variable.type.usage : undefined, variable.usage);
                     const innerValidator = createAccessValidator(scope + "." + key, variable.type, usage, "variable");
                     variable.validate = variable.dynamic ? (value, current, context, errors, polymorphic)=>handleValidationErrors((errors)=>{
@@ -3075,6 +2920,26 @@ const variableScopeNames = {
    */ user: "user"
 };
 const VariableServerScope = createEnumParser("variable scope", variableScopeNames);
+const VARIABLE_SYNTAX_RULES_TEXT = "Variables must be lowercase, start with a letter and then only user letters, numbers, underscores, dots and hyphens. (Keys prefixed with '@' are reserved for internal use.)";
+/** Validates that the syntax for a key, scope or source in a variable conforms to the allowed syntax.  */ const validateVariableKeyComponent = (syntax)=>/^[@a-z][a-z0-9_.-]{0,49}$/.test(syntax);
+/**
+ * Validates that spelling of the components in a variable key conforms to the allowed syntax.
+ * If not, it returns the text for an error message, indicating which didn't, so be aware the truthy'ness of the return value is opposite
+ * of what one might expect.
+ */ const validateVariableKeySyntax = (key)=>{
+    if (!key) return undefined;
+    let invalidComponents = undefined;
+    if (!validateVariableKeyComponent(key.key)) {
+        (invalidComponents !== null && invalidComponents !== void 0 ? invalidComponents : invalidComponents = []).push("key");
+    }
+    if (!validateVariableKeyComponent(key.scope)) {
+        (invalidComponents !== null && invalidComponents !== void 0 ? invalidComponents : invalidComponents = []).push("scope");
+    }
+    if (key.source && !validateVariableKeyComponent(key.source)) {
+        (invalidComponents !== null && invalidComponents !== void 0 ? invalidComponents : invalidComponents = []).push("source");
+    }
+    return invalidComponents && `Invalid ${itemize(invalidComponents)}. ${VARIABLE_SYNTAX_RULES_TEXT}`;
+};
 /** Returns a description of a key that can be used for logging and error messages.  */ const formatVariableKey = ({ key, scope = "", entityId = "", source = "" }, error = "")=>[
         "'" + key + "'",
         source && "from '" + source + "'",
@@ -3088,6 +2953,26 @@ const extractKey = (value)=>value == null ? value : {
         scope: value.scope,
         entityId: value.entityId
     };
+const extractVariable = (variable)=>{
+    if (variable == null) return variable;
+    return {
+        scope: variable.scope,
+        key: variable.key,
+        entityId: variable.entityId,
+        created: variable.created,
+        modified: variable.modified,
+        version: variable.version,
+        expires: variable.expires,
+        ttl: variable.ttl,
+        value: variable.value
+    };
+};
+const removeLocalScopedEntityId = (variable)=>{
+    if (variable.scope !== "global") {
+        variable.entityId = undefined;
+    }
+    return variable;
+};
 
 const filterSetSymbol = Symbol();
 const filterKeys = (filter, values, key)=>{
@@ -3097,15 +2982,15 @@ const filterKeys = (filter, values, key)=>{
     let cached = filter[filterSetSymbol];
     if (!cached) {
         cached = filter[filterSetSymbol] = filter.not ? {
-            set: distinct2(filter.not),
+            set: distinct(filter.not),
             not: true
         } : {
-            set: distinct2(filter),
+            set: distinct(filter),
             not: false
         };
     }
     const { set, not } = cached;
-    return map2(values, (value)=>set.has(key ? key(value) : value) !== not ? value : skip2);
+    return map(values, (value)=>set.has(key ? key(value) : value) !== not ? value : skip);
 };
 const filterRangeValue = (value, filter, rank)=>{
     if (value == null || filter == null) {
@@ -3117,24 +3002,30 @@ const filterRangeValue = (value, filter, rank)=>{
     const valueRank = rank(value);
     return (filter.lt ? valueRank < rank(filter.lt) : filter.lte ? valueRank <= rank(filter.lte) : true) && (filter.gt ? valueRank > rank(filter.gt) : filter.gte ? valueRank >= rank(filter.gte) : true);
 };
-const consumeQueryResults = async (query, callback)=>{
+async function* iterateQueryResults(storage, query, batch = false) {
     let cursor;
     do {
-        const { variables, cursor: nextCursor } = await query(cursor);
+        const { variables, cursor: nextCursor } = await storage.query(query, {
+            cursor
+        });
         if (variables.length) {
-            await callback(variables);
+            if (batch) {
+                yield variables;
+            } else {
+                yield* variables;
+            }
         }
         cursor = nextCursor;
     }while (cursor)
-};
+}
 
 var VariableResultStatus = /*#__PURE__*/ function(VariableResultStatus) {
     VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
     VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
     VariableResultStatus[VariableResultStatus["NotModified"] = 304] = "NotModified";
+    VariableResultStatus[VariableResultStatus["BadRequest"] = 400] = "BadRequest";
     VariableResultStatus[VariableResultStatus["Forbidden"] = 403] = "Forbidden";
     VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
-    VariableResultStatus[VariableResultStatus["BadRequest"] = 405] = "BadRequest";
     VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
     VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
     return VariableResultStatus;
@@ -3335,7 +3226,7 @@ const maybeDecode = (s)=>// It qualifies:
     /[A-F0-9]{2}/gi.test(s) ? decodeURIComponent(s) : s;
 const parseTags = (tagString, prefix)=>{
     var _collectTags;
-    return array2((_collectTags = collectTags(tagString, prefix)) === null || _collectTags === void 0 ? void 0 : _collectTags.values());
+    return array((_collectTags = collectTags(tagString, prefix)) === null || _collectTags === void 0 ? void 0 : _collectTags.values());
 };
 const parseTagValue = (value, tagName = "tag")=>{
     var _parseTags;
@@ -3353,7 +3244,7 @@ const collect = (collected, tag)=>{
  */ const collectTags = (tagString, prefix = "", collected = new Map())=>{
     if (!tagString) return undefined;
     if (isIterable(tagString)) {
-        forEach2(tagString, (input)=>collectTags(input, prefix, collected));
+        forEach(tagString, (input)=>collectTags(input, prefix, collected));
         return collected;
     }
     /**
@@ -3400,4 +3291,4 @@ const collect = (collected, tag)=>{
 };
 const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, MarkdownSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };
+export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, MarkdownSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, VARIABLE_SYNTAX_RULES_TEXT, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, contextError, createRootContext, encodeTag, extractKey, extractVariable, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, iterateQueryResults, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, removeLocalScopedEntityId, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent, validateVariableKeyComponent, validateVariableKeySyntax };

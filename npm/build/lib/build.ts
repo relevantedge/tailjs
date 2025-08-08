@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { RollupOptions, rollup, watch } from "rollup";
-import { arg, pack, env } from ".";
+import { arg, pack, env, withRetries } from ".";
 
 export type BuildOptions = {
   export?: boolean;
@@ -23,14 +23,53 @@ export const build = async (
   if (pkg.externalTargets.length && exportScripts) {
     buildEndActions.push(async () => {
       const pkg = await env();
+      for (const target of pkg.externalTargets) {
+        if (!target.npm) {
+          continue;
+        }
+        const targetPath = path.join(target.path, pkg.qualifiedName);
+        if (fs.existsSync(targetPath)) {
+          await fs.promises.rm(targetPath, { recursive: true });
+        }
+
+        await fs.promises.cp("./dist", targetPath, { recursive: true });
+        const pkgJsonPath = path.join(targetPath, "package.json");
+        if (fs.existsSync(pkgJsonPath)) {
+          const pkgJson = JSON.parse(
+            await fs.promises.readFile(pkgJsonPath, "utf-8")
+          );
+          const dependencies = pkgJson.dependencies;
+          for (const lib in target.libs) {
+            if (lib === "*") {
+              for (const key in dependencies) {
+                if (key.startsWith("@tailjs/")) {
+                  delete dependencies[key];
+                }
+              }
+              continue;
+            }
+            delete dependencies[`@tailjs/${lib}`];
+          }
+          await fs.promises.writeFile(
+            pkgJsonPath,
+            JSON.stringify(pkgJson, null, 2),
+            "utf-8"
+          );
+        }
+        console.log(`Copied the package script to '${targetPath}'.`);
+      }
+
       const src = "./dist/es/index.mjs";
       if (fs.existsSync(src)) {
         for (const target of pkg.externalTargets) {
-          if (!fs.existsSync(target)) {
+          if (target.npm) {
+            continue;
+          }
+          if (!fs.existsSync(target.path)) {
             console.warn(`External target '${target}' does not exist.`);
             continue;
           }
-          const targetFile = path.join(target, pkg.name + ".js");
+          const targetFile = path.join(target.path, pkg.name + ".js");
           await fs.promises.copyFile(src, targetFile);
           console.log(`Copied the external script to '${targetFile}'.`);
         }
@@ -122,40 +161,49 @@ export const build = async (
         },
       };
 
-      console.log(`Build ${buildName} started.`);
-      if (watchMode) {
-        let resolve: any;
-        const waitForFirstBuild = new Promise((r) => (resolve = r));
-        const watcher = watch(config);
-        watcher.on("event", async (ev) => {
-          if (ev.code === "START") {
-            !pending++ && (await buildStart?.());
-
-            console.log(`Build started. ${config.input}`);
-          } else if (ev.code === "ERROR") {
-            console.log("ERROR", ev.error.cause || ev.error);
-          } else if (ev.code === "BUNDLE_END") {
-            ev.result?.close();
-          } else if (ev.code === "END") {
-            console.log(`Build ${buildName} completed.`);
-            !--pending && (await buildEnd?.());
-
-            resolve();
-          }
-        });
-
-        await waitForFirstBuild;
-      } else {
-        if (!pending++) {
-          await buildStart?.();
-        }
-        const bundle = await rollup(config);
-        await Promise.all(outputs.map((output) => bundle.write(output)));
-        console.log(`Build ${buildName} completed.`);
-        if (!--pending) {
-          await buildEnd?.();
-        }
+      if (buildStart) {
+        buildStart = withRetries(buildStart);
       }
+      if (buildEnd) {
+        buildEnd = withRetries(buildEnd);
+      }
+
+      console.log(`Build ${buildName} started.`);
+      await withRetries(async () => {
+        if (watchMode) {
+          let resolve: any;
+          const waitForFirstBuild = new Promise((r) => (resolve = r));
+          const watcher = watch(config);
+          watcher.on("event", async (ev) => {
+            if (ev.code === "START") {
+              !pending++ && (await buildStart?.());
+
+              console.log(`Build started. ${config.input}`);
+            } else if (ev.code === "ERROR") {
+              console.log("ERROR", ev.error.cause || ev.error);
+            } else if (ev.code === "BUNDLE_END") {
+              ev.result?.close();
+            } else if (ev.code === "END") {
+              console.log(`Build ${buildName} completed.`);
+              !--pending && (await buildEnd?.());
+
+              resolve();
+            }
+          });
+
+          await waitForFirstBuild;
+        } else {
+          if (!pending++) {
+            await buildStart?.();
+          }
+          const bundle = await rollup(config);
+          await Promise.all(outputs.map((output) => bundle.write(output)));
+          console.log(`Build ${buildName} completed.`);
+          if (!--pending) {
+            await buildEnd?.();
+          }
+        }
+      })();
     })
   );
 };

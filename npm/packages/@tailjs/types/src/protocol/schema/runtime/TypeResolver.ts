@@ -1,12 +1,11 @@
 import {
-  array2,
   ellipsis,
-  forEach2,
-  get2,
+  exchange,
+  forEach,
+  get,
   Nullish,
-  obj2,
+  obj,
   throwError,
-  tryAdd,
 } from "@tailjs/util";
 import {
   CORE_SCHEMA_NS,
@@ -33,6 +32,7 @@ import {
   SchemaVariable,
 } from "../..";
 
+import { PATCH_EVENT_POSTFIX } from "@constants";
 import {
   createEventPatchDefinition,
   createSchemaTypeMapper,
@@ -45,6 +45,7 @@ import {
   TypeParseContext,
 } from "./parsing";
 import {
+  addTypeValidators,
   createAccessValidator,
   createCensorAction,
   getPrimitiveTypeValidator,
@@ -52,9 +53,7 @@ import {
   overrideUsage,
   ValidatableSchemaEntity,
   VALIDATION_ERROR_SYMBOL,
-  addTypeValidators,
 } from "./validation";
-import { PATCH_EVENT_POSTFIX } from "@constants";
 
 export type SchemaDefinitionSource = {
   schema: SchemaDefinition;
@@ -142,7 +141,7 @@ export class TypeResolver {
     for (const [schema, context] of schemaContexts) {
       // Populate the type dictionary with initial type stubs without properties and base types.
       // This allows circular references to be resolved, and schemas and their types be parsed in any order.
-      forEach2(
+      forEach(
         schema.source.types,
         ([name, type]: [string, SchemaTypeDefinition]) =>
           parseType([name, type], context, null)
@@ -152,16 +151,16 @@ export class TypeResolver {
 
     for (const [schema, context] of schemaContexts) {
       // Parse base types so "extendedBy" is populated for all types before we parse properties..
-      forEach2(schema.types, ([, type]) => parseBaseTypes(type, context));
+      forEach(schema.types, ([, type]) => parseBaseTypes(type, context));
     }
 
     for (const [schema, context] of schemaContexts) {
-      forEach2(schema.types, ([, type]) => parseTypeProperties(type, context));
+      forEach(schema.types, ([, type]) => parseTypeProperties(type, context));
     }
 
     if (eventType) {
       // Make a copy of the original event types to avoid infinite loop (that is, patch types for patch types for patch types etc...).
-      forEach2(eventType.extendedByAll, (type) => {
+      forEach(eventType.extendedByAll, (type) => {
         const context = (schemaContexts.find(
           (context) => context[0] === type.schema
         ) ??
@@ -190,15 +189,15 @@ export class TypeResolver {
       });
     }
 
-    forEach2(this._types, ([, type]) => {
+    forEach(this._types, ([, type]) => {
       // Finish the types.
       addTypeValidators(type);
 
-      forEach2(type.extendedBy, (subtype) => {
-        forEach2(type.referencedBy, (prop) => subtype.referencedBy.add(prop));
-        forEach2(type.variables, ([scope, keys]) =>
-          forEach2(keys, (key) =>
-            get2((subtype.variables ??= new Map()), scope, () => new Set()).add(
+      forEach(type.extendedBy, (subtype) => {
+        forEach(type.referencedBy, (prop) => subtype.referencedBy.add(prop));
+        forEach(type.variables, ([scope, keys]) =>
+          forEach(keys, (key) =>
+            get((subtype.variables ??= new Map()), scope, () => new Set()).add(
               key
             )
           )
@@ -216,8 +215,8 @@ export class TypeResolver {
         continue;
       }
       // Find variables.
-      forEach2(schema.source.variables, ([scope, keys]) => {
-        forEach2(keys, ([key, definition]) => {
+      forEach(schema.source.variables, ([scope, keys]) => {
+        forEach(keys, ([key, definition]) => {
           if (!definition) {
             return;
           }
@@ -258,23 +257,23 @@ export class TypeResolver {
             dynamic: !!definition.dynamic,
           };
 
-          tryAdd(
-            get2(this._variables, scope, () => new Map()),
+          const current = exchange(
+            get(this._variables, scope, () => new Map()),
             key,
-            variable,
-            (current) => {
-              throw new Error(
-                `The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${
-                  current.type.toString
-                }".`
-              );
-            }
+            variable
           );
 
-          get2(schema.variables, scope, () => new Map()).set(key, variable);
+          current &&
+            throwError(
+              `The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${
+                current.type.toString
+              }".`
+            );
+
+          get(schema.variables, scope, () => new Map()).set(key, variable);
 
           if ("properties" in variableType) {
-            get2(
+            get(
               (variableType.variables ??= new Map()),
               scope,
               () => new Set()
@@ -284,10 +283,10 @@ export class TypeResolver {
       });
     }
 
-    this.types = obj2(this._types);
-    this.variables = obj2(this._variables, ([scope, variables]) => [
+    this.types = obj(this._types);
+    this.variables = obj(this._variables, ([scope, variables]) => [
       scope,
-      obj2(variables, ([key, variable]) => {
+      obj(variables, ([key, variable]) => {
         const usage = (variable.usage = overrideUsage(
           isSchemaObjectType(variable.type) ? variable.type.usage : undefined,
           variable.usage

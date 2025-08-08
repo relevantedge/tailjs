@@ -1,4 +1,4 @@
-import { forEach2, isObject, some2 } from "@tailjs/util";
+import { forEach, isObject, some } from "@tailjs/util";
 import {
   contextError,
   navigateContext,
@@ -13,7 +13,7 @@ import { SchemaSystemTypeDefinition, SchemaTypeDefinition } from "../../../..";
 import { JsonSchemaAnnotations, TypeScriptAnnotations } from "@constants";
 
 export const isIgnoredObject = (node: any) =>
-  some2(
+  some(
     node["properties"],
     ([key]: [string, string]) =>
       // This is a TypeScript function that has sneaked into the schema. Remove.
@@ -102,7 +102,7 @@ export const parseJsonType = (
     let id = schema!.namespace + "#" + key!;
     schema!.types![key!] = type;
 
-    forEach2(context.refPaths, (refPath) =>
+    forEach(context.refPaths, (refPath) =>
       context.refs.add(refPath.replace(/\/allOf\/\d+$/g, ""), id, type)
     );
     context.types.set(id, type);
@@ -127,7 +127,7 @@ export const parseJsonType = (
     }
   }
 
-  forEach2(allOf, (ref) => {
+  forEach(allOf, (ref) => {
     if (ref.$ref) {
       context.refs.resolve(ref.$ref, (id) => (type.extends ??= []).push(id));
     }

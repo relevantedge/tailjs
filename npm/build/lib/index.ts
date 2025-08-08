@@ -1,3 +1,4 @@
+export * from "./withRetries";
 export * from "./applyChunkNames";
 export * from "./applyDefaultConfiguration";
 export * from "./arg";

@@ -14,7 +14,7 @@ import {
   isPlainObject,
   isString,
   isSymbol,
-  map2,
+  map,
   tryCatch,
   undefined,
 } from "@tailjs/util";
@@ -266,7 +266,7 @@ const deserialize = (value: string | Uint8Array) => {
         )
       : value != null
       ? tryCatch(
-          () => msgDeserialize(value as any),
+          () => (!value?.length ? undefined : msgDeserialize(value as any)),
           () => (
             console.error(
               `Invalid message received.`,
@@ -325,7 +325,7 @@ export const createTransport = (
       if (isNumber(value) && bitsOrNumeric === true) return value;
 
       value = isString(value)
-        ? new Uint8Array(map2(value.length, (i) => value.charCodeAt(i) & 255))
+        ? new Uint8Array(map(value.length, (i) => value.charCodeAt(i) & 255))
         : json
         ? tryCatch(
             () => JSON.stringify(value),

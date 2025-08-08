@@ -1,14 +1,32 @@
 {
-  "dotnet": {
-    "path": "../hosts/dotnet/core/TailJs/js",
+  // "dotnet": {
+  //   "enabled": false,
+  //   "path": "../hosts/dotnet/core/TailJs/js",
+  //   "libs": [
+  //     "engine",
+  //     "maxmind",
+  //     "client",
+  //     "ravendb",
+  //     "types",
+  //     "json-schema",
+  //     "transport"
+  //   ]
+  // },
+  "lt": {
+    "enabled": true,
+    "npm": true,
+    "path": "D:/projects/rlvedge/customers/liontrust/github/src/liontrust/_tailjs",
     "libs": [
-      "engine",
-      "maxmind",
       "client",
-      "ravendb",
+      "cosmosdb",
+      "engine",
+      "next",
+      "node",
+      "react",
+      "sitecore-jss",
+      "transport",
       "types",
-      "json-schema",
-      "transport"
+      "util"
     ]
   }
 }

@@ -701,11 +701,11 @@ describe("TypeResolver", () => {
 
     expect(sessionReference.validate("1234", undefined, {})).toBe("1234");
 
-    fs.writeFileSync(
-      "c:/temp/tailjs-schema-re-serialized.json",
-      JSON.stringify(JSON.parse(adapter.serialize(resolver.schemas)), null, 2),
-      "utf-8"
-    );
+    // fs.writeFileSync(
+    //   "c:/temp/tailjs-schema-re-serialized.json",
+    //   JSON.stringify(adapter.serialize(resolver.schemas), null, 2),
+    //   "utf-8"
+    // );
   });
 
   it("Supports patches", () => {

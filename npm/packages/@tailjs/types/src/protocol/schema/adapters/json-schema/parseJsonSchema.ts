@@ -1,5 +1,5 @@
 import { TypeScriptAnnotations } from "@constants";
-import { forEach2, isObject } from "@tailjs/util";
+import { forEach, isObject } from "@tailjs/util";
 import {
   contextError,
   isIgnoredObject,
@@ -60,7 +60,7 @@ export const parseDefinitions = (context: ParseContext) => {
             navigateContext(defsContext, definitionKey),
             "properties"
           );
-          forEach2(
+          forEach(
             def["properties"],
             ([name, scopeProperties]: [string, any]) => {
               const scope = VariableServerScope.parse(name.toLowerCase())!;
@@ -68,7 +68,7 @@ export const parseDefinitions = (context: ParseContext) => {
                 navigateContext(propertiesContext, name),
                 "properties"
               );
-              forEach2(scopeProperties["properties"], ([name]) => {
+              forEach(scopeProperties["properties"], ([name]) => {
                 parseJsonProperty(
                   navigateContext(scopeContext, name),
                   (property) =>
@@ -89,7 +89,7 @@ export const parseDefinitions = (context: ParseContext) => {
 
           parseJsonProperty(referencedProp, (property) => {
             let id = context.schema!.namespace + "#" + definitionKey;
-            forEach2(referencedProp.refPaths, (ref) =>
+            forEach(referencedProp.refPaths, (ref) =>
               context.refs.add(ref, id, property)
             );
           });

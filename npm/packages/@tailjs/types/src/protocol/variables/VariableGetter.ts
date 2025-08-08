@@ -20,10 +20,10 @@ export interface ReadOnlyVariableGetter extends VariableKey {
 
   /**
    * The maximum number of milliseconds the value of this variable can be cached.
-   * If omitted or `true` the default value of 3 seconds will be used.
+   * If omitted or `true` the configured default value (3 seconds) will be used.
    * `false` or 0 means the variable will not be cached.
    *
-   * @default 0
+   * @default true
    */
   cache?: number | boolean;
 

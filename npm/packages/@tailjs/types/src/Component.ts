@@ -1,5 +1,7 @@
 import type { ExternalReference, Integer, Personalizable, Tagged } from ".";
 
+export interface DataSource extends ExternalReference, Tagged {}
+
 export interface Component extends ExternalReference, Personalizable, Tagged {
   /**
    * An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial.
@@ -9,7 +11,7 @@ export interface Component extends ExternalReference, Personalizable, Tagged {
   /**
    * Optional references to the content that was used to render the component.
    */
-  dataSource?: ExternalReference;
+  dataSource?: DataSource;
 
   /**
    * An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree.

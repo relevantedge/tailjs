@@ -1,4 +1,5 @@
 import { TrackedEvent } from "@tailjs/types";
+import { ServerTrackedEvent } from ".";
 
 export function getErrorMessage(validationResult: any) {
   return !validationResult["type"] ? validationResult["error"] : null;

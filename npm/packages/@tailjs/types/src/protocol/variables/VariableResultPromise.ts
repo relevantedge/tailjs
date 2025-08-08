@@ -177,15 +177,6 @@ export type VariableOperationResult<
   KnownTypes extends KnownVariableMap = never
 > = VariableResultPromise<OperationType, Operations, ScopeTemplate, KnownTypes>;
 
-// type GenericVariableValue =
-//   | {
-//       [property: string | number]: GenericVariableValue | null | undefined;
-//     }
-//   | (GenericVariableValue | null)[]
-//   | string
-//   | number
-//   | boolean;
-//type GenericVariableValue = any; // Default value for unknown variable types.
 type GenericVariableValue = unknown;
 
 type ReplaceKey<Target, Source> = Target extends infer Target
@@ -289,10 +280,18 @@ type MapVariableResult<
         ? Type extends "value"
           ? undefined
           : VariableResultPromiseResult<OperationType, Result>
-        : Result extends { status: VariableSuccessStatus; value: any }
-        ? Type extends "value"
-          ? Result["value"]
-          : Result
+        : Result extends { status: VariableSuccessStatus; value?: any }
+        ? OperationType extends "get"
+          ? Type extends "value"
+            ? Result["value"]
+            : Result
+          : Operation extends { value?: null | undefined }
+          ? Type extends "value"
+            ? undefined
+            : Result & { version?: undefined; value?: undefined }
+          : Type extends "value"
+          ? Result["value"] & Operation[keyof Operation & "value"]
+          : Result & Pick<Operation, keyof Operation & "value">
         : never
     ) extends infer Result
     ? Type extends "value"
@@ -335,7 +334,7 @@ export type VariableResultPromise<
           ScopeTemplate
         >
       >;
-      require<T extends {} = {}>(): Promise<
+      successOnly<T extends {} = {}>(): Promise<
         MatchScopes<
           MapVariableResult<Operations, "success", true, KnownTypes, T>,
           ScopeTemplate
@@ -418,6 +417,34 @@ const hasPollCallback = (op: any): op is { poll: VariablePollCallback } =>
 
 const sourceOperation = Symbol();
 
+export const createPollCallback = <T extends {} = any>(
+  op: {
+    poll: VariablePollCallback<T>;
+  },
+  initialResult?: any
+): ((
+  value: VariableResult
+) => MaybePromiseLike<boolean | undefined | void>) => {
+  let previous: any;
+  return (result) => {
+    if (!isVariableResult(result, false)) {
+      return true;
+    }
+    const poll = isVariableResult(result, false)
+      ? op.poll(
+          result.value,
+          initialResult
+            ? result === initialResult
+            : result[sourceOperation] === op,
+          previous
+        )
+      : true;
+
+    previous = result.value;
+    return poll;
+  };
+};
+
 export const toVariableResultPromise = <
   OperationType extends "get" | "set",
   Operations,
@@ -481,22 +508,8 @@ export const toVariableResultPromise = <
         callbacks.push([op, result, (result) => op.callback(result) === true]);
       }
       if (hasPollCallback(op)) {
-        let previous: any;
         // This is only defined for get operations.
-        callbacks.push([
-          op,
-          result,
-          (result) => {
-            if (!isVariableResult(result, false)) {
-              return true;
-            }
-            const poll = isVariableResult(result, false)
-              ? op.poll(result.value, result[sourceOperation] === op, previous)
-              : true;
-            previous = result.value;
-            return poll;
-          },
-        ]);
+        callbacks.push([op, result, createPollCallback(op)]);
       }
     }
     for (const [op, initialResult, callback] of callbacks) {
@@ -585,7 +598,7 @@ export const toVariableResultPromise = <
     {
       as: () => mapResults(1, false),
       all: () => mapResults(0, false),
-      require: () => mapResults(1, true),
+      successOnly: () => mapResults(1, true),
       value: (require = false) => mapResults(2, require),
       values: (require = false) => mapResults(2, require),
     }

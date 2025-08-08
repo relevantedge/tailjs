@@ -16,12 +16,12 @@ import {
 } from ".";
 
 /**
- *  A lock that is shared between all tabs.
+ * A lock that is shared between all tabs.
  * It would seem tempting to use the browser's native LockManager, yet that disables bf_cache, so we don't.
  */
 export const sharedLock = (
   lockId: string,
-  { timeout = 1000, encrypt = true, retries: defaultRetries = 10 } = {}
+  { timeout = 1000, encrypt = true, retries: defaultRetries = 50 } = {}
 ): (<R, TO extends number | undefined = undefined>(
   action: () => PromiseLike<R>,
   timeout?: TO,

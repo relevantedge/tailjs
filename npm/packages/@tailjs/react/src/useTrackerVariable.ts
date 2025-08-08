@@ -6,11 +6,15 @@ import {
   tail,
 } from "@tailjs/client/external";
 import { formatVariableResult, isVariableResult } from "@tailjs/types";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+export type TrackerVariablePollOptions =
+  | boolean
+  | { poll: boolean; refresh?: boolean };
 
 export function useTrackerVariable<T extends {} = any>(
   key: ClientVariableKey,
-  poll = true
+  poll: TrackerVariablePollOptions = true
 ): [
   value: ClientVariable<T> | undefined,
   update: (value: T | undefined) => Promise<void>,
@@ -20,34 +24,40 @@ export function useTrackerVariable<T extends {} = any>(
 
   const state = (useRef<
     { polling?: boolean; current?: [any]; wired?: boolean } | undefined
-  >().current ??= {});
+  >(null!).current ??= {});
 
-  state.polling = poll;
-
-  if (!state.wired) {
-    let loadedSynchronously = true;
-    tail(<GetCommand>{
-      get: {
-        ...key,
-        refresh: false,
-        callback: (current) => {
-          if (!state.current || current !== state.current?.[0]) {
-            state.current = [current];
-            // Don't update the state if we got the variable result instantly from cache or whatever.
-            !loadedSynchronously && notifyChanged(state.current[0]);
-          }
-          if (state.polling) {
-            return true;
-          } else {
-            // This handler will be unbound, so we need to create a new one next time.
-            state.wired = false;
-          }
-        },
-      },
-    });
-    loadedSynchronously = false;
-    state.wired = true;
+  if (typeof poll === "boolean") {
+    poll = { poll };
   }
+  state.polling = poll.poll;
+
+  useEffect(() => {
+    if (!state.wired) {
+      let loadedSynchronously = true;
+      tail(<GetCommand>{
+        get: {
+          ...key,
+          refresh: poll.refresh ?? false,
+          callback: (current) => {
+            if (!state.current || current !== state.current?.[0]) {
+              state.current = [current];
+              // Don't update the state if we got the variable result instantly from cache or whatever.
+              !loadedSynchronously && notifyChanged(state.current[0]);
+            }
+            if (state.polling) {
+              return true;
+            } else {
+              // This handler will be unbound, so we need to create a new one next time.
+              state.wired = false;
+            }
+          },
+        },
+      });
+      loadedSynchronously = false;
+      state.wired = true;
+    }
+  }, [state.wired]);
+
   return [
     state.current?.[0],
     (value) =>

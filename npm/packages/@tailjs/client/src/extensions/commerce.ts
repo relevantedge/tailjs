@@ -1,4 +1,5 @@
 import {
+  uniqueReferences,
   type CartAction,
   type CartEventData,
   type CartUpdatedEvent,
@@ -48,7 +49,9 @@ export function tryGetCartEventData(sourceElement: Element) {
         getBoundaryData(el)?.cart ?? trackerProperty(el, "cart")
       )) &&
       !contextCart.item &&
-      (contextCart.item = last(getBoundaryData(el)?.content)) &&
+      (contextCart.item = last(
+        uniqueReferences(getBoundaryData(el)?.content)
+      )) &&
       r(contextCart)
   );
 
@@ -66,12 +69,12 @@ export const commerce: TrackerExtensionFactory = {
             ? tracker({
                 type: "cart_updated",
                 action: "clear",
-              } as CartUpdatedEvent)
+              } satisfies CartUpdatedEvent)
             : (cart = normalizeCartEventData(cart)!) &&
               tracker({
                 ...cart,
                 type: "cart_updated",
-              } as CartUpdatedEvent);
+              } satisfies CartUpdatedEvent);
 
           return T;
         }
@@ -79,7 +82,7 @@ export const commerce: TrackerExtensionFactory = {
           tracker({
             type: "order",
             ...command.order,
-          } as OrderEvent);
+          } satisfies OrderEvent);
 
           return T;
         }

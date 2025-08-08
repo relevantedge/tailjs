@@ -1,64 +1,185 @@
 import { VariableServerScope, extractKey, VariableResultStatus } from '@tailjs/types';
 
-function _define_property$4(obj, key, value) {
-    if (key in obj) {
-        Object.defineProperty(obj, key, {
-            value: value,
-            enumerable: true,
-            configurable: true,
-            writable: true
-        });
-    } else {
-        obj[key] = value;
+const getRootPrototype = (value)=>{
+    let proto = value;
+    while(proto){
+        proto = Object.getPrototypeOf(value = proto);
     }
-    return obj;
-}
-class RavenDbConfiguration {
-    async initialize(env) {
-        this._env = env;
-        if (this._settings.x509) {
-            const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
-            var _ref;
-            const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
-            if (!cert) {
-                throw new Error("Certificate not found.");
+    return value;
+};
+const findPrototypeFrame = (frameWindow, matchPrototype)=>{
+    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+        return frameWindow;
+    }
+    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
+        try {
+            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
+                return frameWindow;
             }
-            this._cert = {
-                id: this.id,
-                cert,
-                key
-            };
+        } catch (e) {
+        // Cross domain issue.
         }
     }
-    async request(method, operation, payload) {
-        if (operation[0] !== "/") {
-            operation = "/" + operation;
-        }
-        const response = (await this._env.request({
-            method: method,
-            url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${operation}`,
-            headers: {
-                ["content-type"]: "application/json"
-            },
-            body: JSON.stringify(payload),
-            x509: this._cert
-        })).body;
-        return JSON.parse(response);
+};
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */ const findDeclaringScope = (target)=>target == null ? target : typeof window !== "undefined" ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
+let stopInvoked = false;
+const skip = Symbol();
+const stop = (value)=>(stopInvoked = true, value);
+// #region region_iterator_implementations
+const forEachSymbol = Symbol();
+const asyncIteratorFactorySymbol = Symbol();
+const symbolIterator$1 = Symbol.iterator;
+// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
+const ensureForEachImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
+        throw error;
     }
-    constructor(id, settings){
-        _define_property$4(this, "_env", void 0);
-        _define_property$4(this, "_cert", void 0);
-        _define_property$4(this, "_settings", void 0);
-        _define_property$4(this, "id", void 0);
-        this.id = id;
-        this._settings = settings;
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
+    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
+            let projected, i = 0;
+            for (const item of target){
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                    if (projected === stop) {
+                        break;
+                    }
+                    seed = projected;
+                    if (mapped) mapped.push(projected);
+                    if (stopInvoked) {
+                        stopInvoked = false;
+                        break;
+                    }
+                }
+            }
+            return mapped || seed;
+        };
+    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        let projected, item;
+        for(let i = 0, n = target.length; i < n; i++){
+            item = target[i];
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip) {
+                if (projected === stop) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) {
+                    mapped.push(projected);
+                }
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    const genericForEachIterable = forEachIterable();
+    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        if (target[symbolIterator$1]) {
+            if (target.constructor === Object) {
+                return genericForEachIterable(target, projection, mapped, seed, context);
+            }
+            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
+        }
+        let projected, item, i = 0;
+        for(const key in target){
+            item = [
+                key,
+                target[key]
+            ];
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip) {
+                if (projected === stop) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) mapped.push(projected);
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
+        if (this[symbolIterator$1] || this[symbolAsyncIterator]) {
+            if (this.constructor === Object) {
+                var _this_symbolAsyncIterator;
+                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator$1]();
+            }
+            const proto = Object.getPrototypeOf(this);
+            var _proto_symbolAsyncIterator;
+            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator$1];
+            return this[asyncIteratorFactorySymbol]();
+        }
+        return iterateEntries(this);
+    };
+    for (const proto of [
+        scope.Map.prototype,
+        scope.WeakMap.prototype,
+        scope.Set.prototype,
+        scope.WeakSet.prototype,
+        // Generator function
+        Object.getPrototypeOf(function*() {})
+    ]){
+        proto[forEachSymbol] = forEachIterable();
+        proto[asyncIteratorFactorySymbol] = proto[symbolIterator$1];
+    }
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse;
+    return retry();
+};
+// #endregion
+function* range(length = this) {
+    for(let i = 0; i < length; i++)yield i;
+}
+function* traverse(next = this) {
+    let item = undefined;
+    while((item = next(item)) !== undefined)yield item;
+}
+function* iterateEntries(source) {
+    for(const key in source){
+        yield [
+            key,
+            source[key]
+        ];
     }
 }
-
+let map = (source, projection, target = [], seed, context = source)=>{
+    try {
+        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>map(source, projection, target, seed, context));
+    }
+};
+const batch = (source, batchSize)=>{
+    if (source == null) return source;
+    const batches = [];
+    let batch = [];
+    for (const item of source){
+        batch.push(item);
+        if (batch.length === batchSize) {
+            batches.push(batch);
+            batch = [];
+        }
+    }
+    if (batch.length > 0) {
+        batches.push(batch);
+    }
+    return batches;
+};
+const unwrap = (value)=>typeof value === "function" ? value() : value;
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
-const formatError = (error, includeStackTrace)=>!error ? "(unspecified error)" : includeStackTrace && error.stack ? `${formatError(error, false)}\n${error.stack}` : error.message ? `${error.name}: ${error.message}` : "" + error;
+const formatError = (error, includeStackTrace)=>!error ? "(unspecified error)" : includeStackTrace && (error === null || error === void 0 ? void 0 : error.stack) ? `${formatError(error, false)}\n${error === null || error === void 0 ? void 0 : error.stack}` : error.message ? `${error.name}: ${error.message}` : "" + error;
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
         return await unwrap(expression);
@@ -75,6 +196,33 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     }
     return undefined;
 };
+const withRetry = async (action, { retries = 3, retryDelay = 200, errorFilter, errorHandler } = {})=>{
+    if (retries <= 0) {
+        retries = 1;
+    }
+    let previousError = undefined;
+    for(let i = 0; i < retries; i++){
+        try {
+            return await action(i, previousError);
+        } catch (error) {
+            previousError = error;
+            const filterAction = i === retries - 1 ? "throw" : errorFilter === null || errorFilter === void 0 ? void 0 : errorFilter(error, i);
+            if (filterAction === "throw") {
+                if (errorHandler) {
+                    return await errorHandler(error, i);
+                }
+                throw error;
+            } else {
+                await delay(typeof retryDelay === "function" ? retryDelay(i + 1) : retryDelay * (0.8 + 0.4 * Math.random()));
+                if (filterAction === "reset") {
+                    i = -1;
+                    previousError = undefined;
+                }
+            }
+        }
+    }
+    return void 0;
+};
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Minify friendly version of `false`. */ const F = false;
 /** Minify friendly version of `true`. */ const T = true;
@@ -82,7 +230,6 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
 const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
-const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
 function _define_property$3(obj, key, value) {
     if (key in obj) {
@@ -197,184 +344,8 @@ const createLock = (timeout)=>{
 const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap(value)), ms)) : throwError(`Invalid delay ${ms}.`);
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : arg));
-// #endregion
-const getRootPrototype = (value)=>{
-    let proto = value;
-    while(proto){
-        proto = Object.getPrototypeOf(value = proto);
-    }
-    return value;
-};
-const findPrototypeFrame = (frameWindow, matchPrototype)=>{
-    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
-        return frameWindow;
-    }
-    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
-        try {
-            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
-                return frameWindow;
-            }
-        } catch (e) {
-        // Cross domain issue.
-        }
-    }
-};
-/**
- * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
- * e.g., `Object` in an iframe is different from `Object` in the top frame.
- */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
-let stopInvoked = false;
-const skip2 = Symbol();
-const stop2 = (value)=>(stopInvoked = true, value);
-// #region region_iterator_implementations
-const forEachSymbol = Symbol();
-const asyncIteratorFactorySymbol = Symbol();
-const symbolIterator = Symbol.iterator;
-// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
-const ensureForEachImplementations = (target, error, retry)=>{
-    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
-        throw error;
-    }
-    let scope = findDeclaringScope(target);
-    if (!scope) {
-        throw error;
-    }
-    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
-            let projected, i = 0;
-            for (const item of target){
-                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                    if (projected === stop2) {
-                        break;
-                    }
-                    seed = projected;
-                    if (mapped) mapped.push(projected);
-                    if (stopInvoked) {
-                        stopInvoked = false;
-                        break;
-                    }
-                }
-            }
-            return mapped || seed;
-        };
-    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        let projected, item;
-        for(let i = 0, n = target.length; i < n; i++){
-            item = target[i];
-            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
-                    break;
-                }
-                seed = projected;
-                if (mapped) {
-                    mapped.push(projected);
-                }
-                if (stopInvoked) {
-                    stopInvoked = false;
-                    break;
-                }
-            }
-        }
-        return mapped || seed;
-    };
-    const genericForEachIterable = forEachIterable();
-    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
-        if (target[symbolIterator]) {
-            if (target.constructor === Object) {
-                return genericForEachIterable(target, projection, mapped, seed, context);
-            }
-            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
-        }
-        let projected, item, i = 0;
-        for(const key in target){
-            item = [
-                key,
-                target[key]
-            ];
-            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
-                if (projected === stop2) {
-                    break;
-                }
-                seed = projected;
-                if (mapped) mapped.push(projected);
-                if (stopInvoked) {
-                    stopInvoked = false;
-                    break;
-                }
-            }
-        }
-        return mapped || seed;
-    };
-    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
-        if (this[symbolIterator] || this[symbolAsyncIterator]) {
-            if (this.constructor === Object) {
-                var _this_symbolAsyncIterator;
-                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator]();
-            }
-            const proto = Object.getPrototypeOf(this);
-            var _proto_symbolAsyncIterator;
-            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator];
-            return this[asyncIteratorFactorySymbol]();
-        }
-        return iterateEntries(this);
-    };
-    for (const proto of [
-        scope.Map.prototype,
-        scope.WeakMap.prototype,
-        scope.Set.prototype,
-        scope.WeakSet.prototype,
-        // Generator function
-        Object.getPrototypeOf(function*() {})
-    ]){
-        proto[forEachSymbol] = forEachIterable();
-        proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
-    }
-    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
-    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
-    return retry();
-};
-// #endregion
-function* range2(length = this) {
-    for(let i = 0; i < length; i++)yield i;
-}
-function* traverse2(next = this) {
-    let item = undefined;
-    while((item = next(item)) !== undefined)yield item;
-}
-function* iterateEntries(source) {
-    for(const key in source){
-        yield [
-            key,
-            source[key]
-        ];
-    }
-}
-let map2 = (source, projection, target = [], seed, context = source)=>{
-    try {
-        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
-    } catch (e) {
-        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
-    }
-};
-const batch2 = (source, batchSize)=>{
-    if (source == null) return source;
-    const batches = [];
-    let batch = [];
-    for (const item of source){
-        batch.push(item);
-        if (batch.length === batchSize) {
-            batches.push(batch);
-            batch = [];
-        }
-    }
-    if (batch.length > 0) {
-        batches.push(batch);
-    }
-    return batches;
-};
-const stringify2 = JSON.stringify;
-const json2 = (value)=>value == null || value === "" ? undefined : typeof value === "object" ? value : JSON.parse(value + "");
+const stringify = JSON.stringify;
+const parseJson = (value)=>value == null || value === "" ? undefined$1 : typeof value === "object" ? value : JSON.parse(value + "");
 
 function _define_property$2(obj, key, value) {
     if (key in obj) {
@@ -407,6 +378,10 @@ class RavenDbTarget {
         }
     }
     async _request(method, relativeUrl, body, headers) {
+        var _this__settings_maxRetries;
+        const maxRetries = Math.max(1, (_this__settings_maxRetries = this._settings.maxRetries) !== null && _this__settings_maxRetries !== void 0 ? _this__settings_maxRetries : 5);
+        var _this__settings_retryDelay;
+        const retryDelay = Math.max(200, (_this__settings_retryDelay = this._settings.retryDelay) !== null && _this__settings_retryDelay !== void 0 ? _this__settings_retryDelay : 200);
         const url = `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${relativeUrl}`;
         const request = {
             method,
@@ -418,25 +393,38 @@ class RavenDbTarget {
             x509: this._cert,
             body: body && (typeof body === "string" ? body : JSON.stringify(body))
         };
-        try {
+        return withRetry(async ()=>{
             const response = await this._env.request(request);
             if (response.status === 500) {
-                const body = json2(response.body);
+                const body = parseJson(response.body);
                 response.error = new Error((body === null || body === void 0 ? void 0 : body.Type) ? `${body.Type}: ${body.Message}` : "(unspecified error)");
             }
             return response;
-        } catch (error) {
-            return {
-                request,
-                status: 500,
-                headers: {},
-                cookies: {},
-                body: stringify2({
-                    Message: formatError(error, true)
-                }),
-                error
-            };
-        }
+        }, {
+            retries: maxRetries,
+            retryDelay,
+            errorFilter: (error, retry)=>{
+                if (retry) {
+                    this._env.log(this, {
+                        level: "error",
+                        message: `Request to RavenDB failed on attempt ${retry + 1}.`,
+                        error
+                    });
+                }
+            },
+            errorHandler: (error)=>{
+                return {
+                    request,
+                    status: 500,
+                    headers: {},
+                    cookies: {},
+                    body: stringify({
+                        Message: formatError(error, true)
+                    }),
+                    error
+                };
+            }
+        });
     }
     constructor(settings){
         _define_property$2(this, "_settings", void 0);
@@ -472,21 +460,13 @@ function _define_property$1(obj, key, value) {
             (_storage = (_ref = (_ = (_mappings = mappings)[_scope = scope]) !== null && _ !== void 0 ? _ : _mappings[_scope] = {}).storage) !== null && _storage !== void 0 ? _storage : _ref.storage = variableStorage;
         }
     }
-    async post(events, tracker) {
-        if (!tracker.session) {
-            return;
-        }
+    async post({ events }, tracker) {
         try {
             const commands = [];
             for (let ev of events){
-                ev = {
-                    ...ev
-                };
-                // Integer primary key for the event entity.
-                const internalEventId = await this._getNextId();
                 commands.push({
                     Type: "PUT",
-                    Id: `events/${internalEventId}`,
+                    Id: `events/${ev.id}`,
                     Document: {
                         ...ev,
                         "@metadata": {
@@ -576,17 +556,33 @@ function _define_property(obj, key, value) {
 }
 const UpdateExpiresScript = `this.ttl ? (this["@metadata"]["@expires"]=new Date(Date.now()+this.ttl).toISOString()) : delete this["@metadata"]["@expires"];`;
 class RavenDbVariableStorage extends RavenDbTarget {
+    async initialize(env) {
+        await super.initialize(env);
+        if (this._cleanExpiredFrequency) {
+            const response = await this._request("POST", `admin/expiration/config`, {
+                Disabled: false,
+                DeleteFrequencyInSec: this._cleanExpiredFrequency
+            });
+            if (response.error) {
+                env.log(this, {
+                    level: "error",
+                    message: "Cannot configure document expiration in RavenDB.",
+                    error: response.error
+                });
+            }
+        }
+    }
     async get(keys) {
         const results = [];
-        for (const batch of batch2(keys, 100)){
-            const response = await this._request("GET", `docs?${batch.map((key)=>`id=${keyToDocumentId(key)}`).join("&")}`);
+        for (const keyBatch of batch(keys, 100)){
+            const response = await this._request("GET", `docs?${keyBatch.map((key)=>`id=${keyToDocumentId(key)}`).join("&")}`);
             const timestamp = now();
-            const body = json2(response.body);
+            const body = parseJson(response.body);
             const batchResults = body === null || body === void 0 ? void 0 : body.Results;
             let i = 0;
-            for (const _ of batch){
+            for (const _ of keyBatch){
                 const result = mapDocumentResult(response.status, batchResults === null || batchResults === void 0 ? void 0 : batchResults[i++], timestamp);
-                results.push(result.status === 200 ? mapVariableResult(200, result) : result.status === 404 ? mapNotFoundResult(batch[i]) : mapErrorResult(batch[i], result));
+                results.push(result.status === 200 ? mapVariableResult(200, result) : result.status === 404 ? mapNotFoundResult(keyBatch[i]) : mapErrorResult(keyBatch[i], result));
             }
         }
         return results;
@@ -636,7 +632,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
                 }, {
                     "If-Match": JSON.stringify(version)
                 });
-                let body = json2(response.body);
+                let body = parseJson(response.body);
                 let result = mapDocumentResult(response.status, body === null || body === void 0 ? void 0 : body.ModifiedDocument, timestamp, body);
                 if (result.status === 404) {
                     return mapNotFoundResult(setter);
@@ -652,7 +648,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
                     var _body_Results;
                     // Get current version of the variable.
                     response = await this._request("GET", href);
-                    body = json2(response.body);
+                    body = parseJson(response.body);
                     result = mapDocumentResult(response.status, body === null || body === void 0 ? void 0 : (_body_Results = body.Results) === null || _body_Results === void 0 ? void 0 : _body_Results[0], timestamp);
                     if (// RavenDB returns status 404 for get requests when exactly one document is requested,
                     // so in this case we can count on it. Otherwise it's always 200.
@@ -672,8 +668,8 @@ class RavenDbVariableStorage extends RavenDbTarget {
                 return mapErrorResult(setter, result);
             });
         const results = [];
-        for (const batch of batch2(requests, 100)){
-            results.push(...await Promise.all(batch.map((request)=>request())));
+        for (const requestBatch of batch(requests, 100)){
+            results.push(...await Promise.all(requestBatch.map((request)=>request())));
         }
         return results;
     }
@@ -731,7 +727,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
             }
             const rql = queryToRql(query, {
                 fixed: i - 1 === offset && skipId ? [
-                    `id() > ${stringify2(skipId)}`
+                    `id() > ${stringify(skipId)}`
                 ] : undefined,
                 append: page ? `order by id() limit ${page}` : undefined
             });
@@ -740,7 +736,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
             if (response.error) {
                 throw response.error;
             }
-            const json = json2(response.body);
+            const json = parseJson(response.body);
             var _json_Results;
             for (const result of (_json_Results = json === null || json === void 0 ? void 0 : json.Results) !== null && _json_Results !== void 0 ? _json_Results : []){
                 const variable = mapDocumentResult(200, result, timestamp).document;
@@ -758,8 +754,9 @@ class RavenDbVariableStorage extends RavenDbTarget {
             cursor
         };
     }
-    constructor(...args){
-        super(...args), _define_property(this, "id", "ravendb-variables");
+    constructor({ cleanExpiredFrequency = 60, ...settings }){
+        super(settings), _define_property(this, "id", "ravendb-variables"), _define_property(this, "_cleanExpiredFrequency", void 0);
+        this._cleanExpiredFrequency = cleanExpiredFrequency && cleanExpiredFrequency > 0 ? cleanExpiredFrequency : undefined;
     }
 }
 const keyToDocumentId = (key)=>`${key.scope}/${key.entityId}/${key.key}`;
@@ -845,7 +842,7 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
         }
         if ((keys === null || keys === void 0 ? void 0 : keys.exclude) != false) {
             // Document ID prefixes unless we have specific keys (because those map to specific document IDs).
-            const filters = `${entityIds.map((entityId)=>`startsWith(id(),${stringify2(keyToDocumentId({
+            const filters = `${entityIds.map((entityId)=>`startsWith(id(),${stringify(keyToDocumentId({
                     scope: query.scope,
                     entityId,
                     key: ""
@@ -855,7 +852,7 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
         if (keys) {
             // Specific document IDs must match (or not match).
             const comparer = keys.exclude ? "!=" : "==";
-            const keyFilter = entityIds.flatMap((entityId)=>map2(keys.values, (key)=>`id() ${comparer} ${stringify2(keyToDocumentId({
+            const keyFilter = entityIds.flatMap((entityId)=>map(keys.values, (key)=>`id() ${comparer} ${stringify(keyToDocumentId({
                         scope: query.scope,
                         entityId,
                         key
@@ -869,7 +866,7 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
         }
     } else if (keys) {
         const comparer = keys.exclude ? "!=" : "==";
-        const keyFilter = map2(keys.values, (key)=>`key ${comparer} ${stringify2(key)}`).join(" or ");
+        const keyFilter = map(keys.values, (key)=>`key ${comparer} ${stringify(key)}`).join(" or ");
         if (keyFilter) {
             where.push(`exact(${keyFilter})`);
         } else if (!keys.exclude) {
@@ -885,4 +882,4 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
     };
 };
 
-export { RavenDbConfiguration, RavenDbExtension, RavenDbTracker, RavenDbVariableStorage };
+export { RavenDbExtension, RavenDbTracker, RavenDbVariableStorage };

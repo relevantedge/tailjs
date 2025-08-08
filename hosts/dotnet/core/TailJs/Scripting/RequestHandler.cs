@@ -192,6 +192,7 @@ public class RequestHandler : IRequestHandler
           .AppendLine(",...extensions]});")
           .AppendLine("await handler.initialize();return handler;}")
           .ToString();
+        
         var bootstrap = (ScriptObject)
           _engine.Evaluate(new DocumentInfo() { Category = ModuleCategory.Standard }, script);
 

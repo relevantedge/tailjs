@@ -58,10 +58,11 @@ export interface TailJsMiddlewareConfiguration
 
   /**
    * The path to tail.js resources directory.
+   * If `false`, an "empty" filesystem is used, that is nothing can get read or written.
    *
    * @default ./res
    */
-  resourcesPath?: string;
+  resourcesPath?: string | false;
 }
 
 export interface DisposableTracker extends Tracker {

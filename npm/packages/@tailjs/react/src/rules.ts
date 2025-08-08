@@ -1,6 +1,6 @@
-import { Component, FunctionComponent } from "react";
-import { Nullish } from "./internal";
-import { concat2 } from "@tailjs/util";
+import type { Component, FunctionComponent } from "react";
+type Nullish = null | undefined;
+import { concat } from "@tailjs/util";
 
 export type ExcludeRule = (type: any) => boolean;
 
@@ -63,7 +63,7 @@ export const concatRules = (
   first: IncludeExcludeRules | Nullish,
   second: IncludeExcludeRules | Nullish
 ): IncludeExcludeRules | undefined =>
-  first || second ? concat2(first, second) : undefined;
+  first || second ? concat(first, second) : undefined;
 
 export const compileIncludeExcludeRules = (
   include: IncludeExcludeRules | Nullish,

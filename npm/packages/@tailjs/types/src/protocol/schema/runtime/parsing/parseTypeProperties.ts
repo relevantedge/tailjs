@@ -1,4 +1,4 @@
-import { forEach2 } from "@tailjs/util";
+import { forEach } from "@tailjs/util";
 import { parseProperty, TypeParseContext } from ".";
 import { SchemaObjectType } from "../../../..";
 import { getMinimumUsage } from "../validation";
@@ -15,7 +15,7 @@ export const parseTypeProperties = (
 
   const source = parsedType.source;
 
-  forEach2(parsedType.extendsAll, (baseType) =>
+  forEach(parsedType.extendsAll, (baseType) =>
     // Make sure we have all the base type's properties.
     parseTypeProperties(baseType, context)
   );

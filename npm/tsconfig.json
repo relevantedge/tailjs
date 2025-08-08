@@ -19,7 +19,7 @@
       "@tailjs/client": ["packages/@tailjs/client/src"],
       "@tailjs/client/external": ["packages/@tailjs/client/src/external.pkg"],
       "@tailjs/client/script": ["packages/@tailjs/client/src/script.pkg"],
-
+      "@tailjs/cosmosdb": ["packages/@tailjs/cosmosdb/src"],
       "@tailjs/engine": ["packages/@tailjs/engine/src"],
 
       "@tailjs/express": ["packages/@tailjs/express/src"],
@@ -33,6 +33,8 @@
       "@tailjs/ravendb": ["packages/@tailjs/ravendb/src"],
 
       "@tailjs/react": ["packages/@tailjs/react/src"],
+      "@tailjs/react/jsx": ["packages/@tailjs/react/src/jsxx.pkg"],
+      "@tailjs/react/webpack": ["packages/@tailjs/react/src/webpack.pkg"],
 
       "@tailjs/sitecore-cdp": ["packages/@tailjs/react/src"],
 

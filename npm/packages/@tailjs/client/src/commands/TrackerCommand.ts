@@ -1,6 +1,6 @@
 import { TrackedEvent } from "@tailjs/types";
 import type {
-  BoundaryCommand,
+  TrackingBoundaryDataCommand,
   CartCommand,
   ChangeUserCommand,
   ConsentCommand,
@@ -15,11 +15,13 @@ import type {
   ToggleCommand,
   UseTrackerCommand,
   ViewCommand,
+  ConfigurationCommand,
 } from "..";
 import { Nullish } from "@tailjs/util";
 
-export type TrackEventCommand = Omit<TrackedEvent, "id"> &
-  Partial<Pick<TrackedEvent, "id">>;
+export type TrackEventCommand = Omit<TrackedEvent, "id"> & {
+  id?: string;
+} & (Record<keyof any, unknown> | {});
 
 export type TrackerCommand =
   | (
@@ -33,13 +35,14 @@ export type TrackerCommand =
       | TagAttributesCommand
       | ToggleCommand
       | ViewCommand
-      | BoundaryCommand
+      | TrackingBoundaryDataCommand
       | ChangeUserCommand
       | CartCommand
       | OrderCommand
       | FormCommand
       | ConsentCommand
       | UseTrackerCommand
+      | ConfigurationCommand
     ) &
       UnlockApiCommand;
 

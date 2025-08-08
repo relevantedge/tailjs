@@ -1,4 +1,4 @@
-import { OmitUnion } from "../src";
+import { match, OmitUnion } from "../src";
 import {
   appendQueryString,
   formatUri,
@@ -75,7 +75,7 @@ describe("parsers.ts", () => {
         foo: "abc",
         bar: ["1", "2", null, "item3", false, undefined, "itæm4"],
       })
-    ).toBe("foo=abc&bar=1,2,item3,false,it%C3%A6m4");
+    ).toBe("foo=abc&bar=1,2,,item3,false,,it%C3%A6m4");
 
     expect(appendQueryString("www.test.com", { foo: 32 })).toBe(
       "www.test.com?foo=32"

@@ -3,9 +3,9 @@ import {
   CLIENT_SCRIPT_QUERY,
   CONTEXT_NAV_QUERY,
   EVENT_HUB_QUERY,
-  INIT_SCRIPT_QUERY,
   PLACEHOLDER_SCRIPT,
-  SCHEMA_QUERY,
+  SCHEMA_TYPES_QUERY,
+  TRACKER_CONFIG_PLACEHOLDER,
 } from "@constants";
 
 import defaultSchema from "@tailjs/types/schema";
@@ -25,11 +25,10 @@ import {
   UserConsent,
   ValidationError,
   VariableGetResponse,
-  VariableResultStatus,
 } from "@tailjs/types";
 
-import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 import { DefaultCryptoProvider } from ".";
+import { CommerceExtension, TrackerCoreEvents } from "./extensions";
 
 import {
   CallbackResponse,
@@ -38,6 +37,7 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
+  EngineHost,
   getDefaultLogSourceName,
   InMemoryStorage,
   isValidationError,
@@ -46,8 +46,7 @@ import {
   RequestHandlerConfiguration,
   SchemaBuilder,
   serializeLogMessage,
-  TrackedEventBatch,
-  trackedResponseVariables,
+  ServerTrackedEvent,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
@@ -55,7 +54,6 @@ import {
   TrackerInitializationOptions,
   TrackerPostOptions,
   TrackerServerConfiguration,
-  trackerVariableKey,
   ValidationErrorResult,
   VariableStorageCoordinator,
 } from "./shared";
@@ -65,49 +63,42 @@ import {
   createTransport,
   decodeUtf8,
   defaultJsonTransport,
-  from64u,
   httpEncode,
 } from "@tailjs/transport";
 import {
-  concat2,
   createLock,
   deferred,
   DeferredAsync,
-  distinct2,
-  filter2,
+  filter,
   formatError,
-  hasKeys2,
-  indent2,
+  hasKeys,
+  indent,
   isJsonObject,
   isJsonString,
   isPlainObject,
   isString,
-  join2,
-  map2,
+  join,
+  map,
   match,
-  merge2,
-  obj2,
+  MaybePromise,
+  merge,
+  now,
+  Nullish,
+  obj,
   parseQueryString,
   parseUri,
   PickRequired,
   ReplaceProperties,
   SimpleObject,
-  skip2,
+  skip,
   throwError,
   unwrap,
 } from "@tailjs/util";
 import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
-import {
-  generateClientBootstrapScript,
-  generateClientExternalNavigationScript,
-} from "./lib";
+import { generateClientExternalNavigationScript } from "./lib";
 
 const scripts = {
-  main: {
-    text: clientScripts.main.text,
-    gzip: from64u(clientScripts.main.gzip),
-    br: from64u(clientScripts.main.br),
-  },
+  production: clientScripts.production,
   debug: clientScripts.debug,
 };
 
@@ -143,11 +134,13 @@ export class RequestHandler {
 
   private _extensions: TrackerExtension[];
   private _initialized = false;
-  private _script: undefined | string | Uint8Array;
+  private _script: string;
 
   private readonly _clientConfig: TrackerClientConfiguration;
   private readonly _config: RequestHandlerConfiguration;
   private readonly _defaultConsent: UserConsent;
+
+  private readonly _host: EngineHost;
 
   public readonly instanceId: string;
 
@@ -168,6 +161,7 @@ export class RequestHandler {
 
   constructor(config: RequestHandlerConfiguration) {
     let {
+      host,
       trackerName,
       endpoint,
       extensions,
@@ -175,15 +169,16 @@ export class RequestHandler {
       client,
       clientIdGenerator,
       defaultConsent,
-    } = (config = merge2({}, [config, DEFAULT], { overwrite: false }));
+    } = (config = merge({}, [config, DEFAULT], { overwrite: false }));
 
     this._config = Object.freeze(config);
+    this._host = host;
 
     this._trackerName = trackerName;
     this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
 
     this._defaultConsent = defaultConsent;
-    this._extensionFactories = filter2(extensions);
+    this._extensionFactories = filter(extensions);
 
     this._cookies = new CookieMonster(cookies);
     this._clientIdGenerator =
@@ -193,7 +188,7 @@ export class RequestHandler {
       consent: cookies.namePrefix + ".consent",
       session: cookies.namePrefix + ".session",
       device: cookies.namePrefix + ".device",
-      deviceByPurpose: obj2(DataPurposes.names, (purpose) => [
+      deviceByPurpose: obj(DataPurposes.names, (purpose) => [
         purpose,
         cookies.namePrefix + (purpose === "necessary" ? "" : "," + purpose),
       ]),
@@ -259,6 +254,7 @@ export class RequestHandler {
     return this._getClientScripts(tracker, true, initialCommands, nonce);
   }
 
+  private _scriptCache: CachedScript[] = [];
   public async initialize() {
     if (this._initialized) return;
 
@@ -266,7 +262,6 @@ export class RequestHandler {
       if (this._initialized) return;
 
       let {
-        host,
         crypto,
         encryptionKeys,
         schemas,
@@ -274,13 +269,13 @@ export class RequestHandler {
         environment,
         sessionTimeout,
       } = this._config;
+
       try {
         // Initialize extensions. Defaults + factories.
         this._extensions = [
-          Timestamps,
           new TrackerCoreEvents(),
           new CommerceExtension(),
-          ...filter2(
+          ...filter(
             await Promise.all(
               this._extensionFactories.map(async (factory) => {
                 let extension: TrackerExtension | null = null;
@@ -301,7 +296,7 @@ export class RequestHandler {
           extension.registerTypes?.(schemaBuilder);
         }
         this._schema = new TypeResolver(
-          (await schemaBuilder.build(host)).map((schema) => ({ schema }))
+          (await schemaBuilder.build(this._host)).map((schema) => ({ schema }))
         );
 
         // Initialize environment.
@@ -324,7 +319,7 @@ export class RequestHandler {
         (storage.ttl ??= {})["device"] ??= 10 * 1000; // 10 seconds is enough to sort out race conditions.
 
         (this as any).environment = new TrackerEnvironment(
-          host,
+          this._host,
           crypto ?? new DefaultCryptoProvider(encryptionKeys),
           new VariableStorageCoordinator(
             {
@@ -356,12 +351,17 @@ export class RequestHandler {
                   }
                   return true;
                 }
-              )) ?? undefined;
+              )) ??
+              throwError(
+                `This script '${this._config.debugScript}' does not exist.`
+              );
           } else {
             this._script =
               (await this.environment.readText("js/tail.debug.map.js")) ??
               scripts.debug;
           }
+        } else {
+          this._script = scripts.production;
         }
 
         // Initialize storage and extensions with the tracker environment.
@@ -381,9 +381,18 @@ export class RequestHandler {
           })
         );
 
-        this.environment.log(this, "Request handler initialized.", "info");
+        this.environment.log(this, {
+          level: "info",
+          message: "Request handler initialized.",
+          details: {
+            config: {
+              ...this._config,
+              extensions: map(this._extensions, (extension) => extension.id),
+            },
+          },
+        });
       } catch (error) {
-        host.log(
+        this._host.log(
           serializeLogMessage({
             level: "error",
             message:
@@ -402,7 +411,7 @@ export class RequestHandler {
     tracker: Tracker,
     events: ParseResult[]
   ): ParseResult[] {
-    return map2(events, (ev) => {
+    return map(events, (ev) => {
       if (isValidationError(ev)) return ev;
       try {
         const eventType = this._schema.getEventType(ev);
@@ -418,13 +427,13 @@ export class RequestHandler {
           eventType.censor(ev, {
             trusted: trustedContext,
             consent: consent,
-          }) ?? skip2
+          }) ?? skip
         );
       } catch (e) {
         return {
           error:
             e instanceof ValidationError
-              ? `Invalid data for '${ev.type}' event:\n${indent2(e.message)}`
+              ? `Invalid data for '${ev.type}' event:\n${indent(e.message)}`
               : formatError(e),
           source: ev,
         };
@@ -434,11 +443,10 @@ export class RequestHandler {
 
   public async post(
     tracker: Tracker,
-    eventBatch: TrackedEventBatch,
+    eventBatch: TrackedEvent[],
     options: TrackerPostOptions
   ): Promise<PostResponse> {
     const context = { passive: !!options?.passive };
-    let events = eventBatch;
     await this.initialize();
 
     let parsed = this._validateEvents(tracker, eventBatch);
@@ -454,7 +462,7 @@ export class RequestHandler {
     })[] = [];
 
     function collectValidationErrors(parsed: ParseResult[]) {
-      const events: TrackedEvent[] = [];
+      const events: ServerTrackedEvent[] = [];
       for (const item of parsed) {
         if (isValidationError(item)) {
           validationErrors.push({
@@ -465,34 +473,78 @@ export class RequestHandler {
             error: item.error,
           });
         } else {
-          events.push(item);
+          events.push(item as ServerTrackedEvent);
         }
       }
       return events;
     }
 
+    const validateServerEvents = async (
+      parsed: ParseResult[],
+      timestamp: number,
+      fromClient: boolean
+    ): Promise<ParseResult[]> => {
+      const results: ParseResult[] = [];
+      for (const result of parsed) {
+        if (!isValidationError(result)) {
+          if (result.timestamp) {
+            if (result.timestamp > 0) {
+              // Allow events with any timestamp to be posted from trusted contexts.
+              if (fromClient && !tracker.trustedContext) {
+                results.push({
+                  error:
+                    "When explicitly specified, timestamps are interpreted relative to current. As such, a positive value would indicate that the event happens in the future which is currently not supported.",
+                  source: result,
+                });
+                continue;
+              }
+            } else {
+              result.timestamp = timestamp + result.timestamp;
+            }
+          } else {
+            result.timestamp = timestamp;
+          }
+          result.id ??= await tracker.env.nextId();
+        }
+        results.push(result);
+      }
+
+      return results;
+    };
+
     const patchExtensions = this._extensions.filter((ext) => ext.patch);
     const callPatch = async (
       index: number,
       results: ParseResult[]
-    ): Promise<TrackedEvent[]> => {
-      const extension = patchExtensions[index];
-      const events = collectValidationErrors(
-        this._validateEvents(tracker, results)
+    ): Promise<ServerTrackedEvent[]> => {
+      if (!tracker.session) return [];
+      let timestamp = now();
+      const validated = await validateServerEvents(
+        this._validateEvents(tracker, results),
+        timestamp,
+        !index
       );
+      const events = collectValidationErrors(validated);
+
+      const extension = patchExtensions[index];
       if (!extension) return events;
+
       try {
+        const extensionEvents = await extension.patch!(
+          { events },
+          async (events) => {
+            return await callPatch(index + 1, events);
+          },
+          tracker,
+          context
+        );
+
+        timestamp = now();
         return collectValidationErrors(
-          this._validateEvents(
-            tracker,
-            await extension.patch!(
-              events,
-              async (events) => {
-                return await callPatch(index + 1, events);
-              },
-              tracker,
-              context
-            )
+          await validateServerEvents(
+            this._validateEvents(tracker, extensionEvents),
+            timestamp,
+            false
           )
         );
       } catch (e) {
@@ -501,17 +553,20 @@ export class RequestHandler {
       }
     };
 
-    eventBatch = await callPatch(0, parsed);
+    const patchedEventBatch = await callPatch(0, parsed);
     const extensionErrors: Record<string, Error> = {};
     if (options.routeToClient) {
       // TODO: Find a way to push these. They are for external client-side trackers.
-      tracker._clientEvents.push(...events);
+      tracker._clientEvents.push(...patchedEventBatch);
     } else {
       await Promise.all(
         this._extensions.map(async (extension) => {
           try {
-            (await extension.post?.(eventBatch, tracker, context)) ??
-              Promise.resolve();
+            (await extension.post?.(
+              { events: patchedEventBatch },
+              tracker,
+              context
+            )) ?? Promise.resolve();
           } catch (e) {
             extensionErrors[extension.id] =
               e instanceof Error ? e : new Error(e?.toString());
@@ -520,11 +575,67 @@ export class RequestHandler {
       );
     }
 
-    if (validationErrors.length || hasKeys2(extensionErrors)) {
+    if (validationErrors.length || hasKeys(extensionErrors)) {
       throw new PostError(validationErrors, extensionErrors);
     }
 
     return {};
+  }
+
+  private _clientKeys: CachedClientKey[] = [];
+
+  private async _getClientEncryptionKey(request: ClientRequest) {
+    const clientId = await this._clientIdGenerator.generateClientId(
+      this.environment,
+      request,
+      true
+    );
+    var keyIndex =
+      this.environment.hash(clientId, true, false) % this._config.clientKeys!;
+    return (this._clientKeys[keyIndex] ??= {
+      key: this.environment.hash(
+        this._config.clientEncryptionKeySeed! + keyIndex,
+        64
+      ),
+      index: keyIndex,
+    });
+  }
+
+  private _getConfiguredClientScript(
+    key: CachedClientKey | undefined,
+    endpoint: string
+  ) {
+    const keyIndex = key ? key.index : this._config.clientKeys! + 1;
+    let cached = this._scriptCache[keyIndex];
+    if (cached == null) {
+      const clientConfig = {
+        ...this._clientConfig,
+        src: endpoint, //matchAnyPath ? requestPath : this._clientConfig.src,
+        encryptionKey: key?.key,
+        dataTags: undefined,
+      };
+
+      const tempKey = "" + Math.random();
+      const script = this._script.replace(
+        `"${TRACKER_CONFIG_PLACEHOLDER}"`,
+        JSON.stringify(
+          key
+            ? httpEncode([
+                tempKey,
+                createTransport(tempKey)[0](clientConfig, true),
+              ])
+            : clientConfig
+        )
+      );
+
+      this._scriptCache[keyIndex] = cached = {
+        plain: script,
+        br: this._host.compress?.(script, "br"),
+        gzip: this._host.compress?.(script, "gzip"),
+      };
+    }
+
+    return cached;
   }
 
   public async processRequest(
@@ -547,7 +658,7 @@ export class RequestHandler {
     const headers = Object.fromEntries(
       Object.entries((sourceHeaders ??= {}))
         .filter(([, v]) => !!v)
-        .map(([k, v]) => [k.toLowerCase(), join2(v, ",")] as [string, string])
+        .map(([k, v]) => [k.toLowerCase(), join(v, ",")] as [string, string])
     );
 
     let trackerInitializationOptions: TrackerInitializationOptions | undefined;
@@ -555,21 +666,10 @@ export class RequestHandler {
     let trackerSettings = deferred(async () => {
       clientIp ??=
         headers["x-forwarded-for"]?.[0] ??
-        obj2(parseQueryString(headers["forwarded"]))?.["for"] ??
+        obj(parseQueryString(headers["forwarded"]))?.["for"] ??
         undefined;
 
-      let clientEncryptionKey: string | undefined;
-      if (this._config.clientEncryptionKeySeed) {
-        clientEncryptionKey = this.environment.hash(
-          (this._config.clientEncryptionKeySeed || "") +
-            (await this._clientIdGenerator.generateClientId(
-              this.environment,
-              request,
-              true
-            )),
-          64
-        );
-      }
+      const clientEncryptionKey = await this._getClientEncryptionKey(request);
 
       return {
         headers,
@@ -599,15 +699,15 @@ export class RequestHandler {
         requestHandler: this,
         defaultConsent: this._defaultConsent,
         cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
+        additionalPurposes: this._config.additionalPurposes,
         clientEncryptionKey: this._config.json
           ? undefined
           : clientEncryptionKey,
         transport: this._config.json
           ? defaultJsonTransport
-          : createTransport(clientEncryptionKey),
-        cookieTransport: createTransport(clientEncryptionKey), // Cookies are always encrypted.
+          : createTransport(clientEncryptionKey.key),
       } as PickRequired<TrackerServerConfiguration, "transport"> & {
-        clientEncryptionKey?: string;
+        clientEncryptionKey?: CachedClientKey;
       };
     });
 
@@ -647,9 +747,8 @@ export class RequestHandler {
     ) => {
       if (response) {
         response.headers ??= {};
-        if (resolveTracker.resolved) {
-          const resolvedTracker = await resolveTracker();
-
+        const resolvedTracker = resolveTracker.resolved;
+        if (resolvedTracker) {
           if (sendCookies) {
             response.cookies = await this.getClientCookies(resolvedTracker);
           } else {
@@ -686,40 +785,7 @@ export class RequestHandler {
 
         switch (method.toUpperCase()) {
           case "GET": {
-            if ((queryValue = join2(query?.[INIT_SCRIPT_QUERY])) != null) {
-              // This is set by most modern browsers.
-              // It prevents external scripts to try to get a hold of the storage key via XHR.
-              const secDest = headers["sec-fetch-dest"];
-              if (secDest && secDest !== "script") {
-                // Crime! Deny in a non-helpful way.
-                return result({
-                  status: 400,
-                  headers: {
-                    ...SCRIPT_CACHE_HEADERS,
-                    vary: "sec-fetch-dest",
-                  },
-                });
-              }
-              const { clientEncryptionKey } = await trackerSettings();
-              return result({
-                status: 200,
-                body: generateClientBootstrapScript(
-                  {
-                    ...this._clientConfig,
-                    src: matchAnyPath ? requestPath : this._clientConfig.src,
-                    encryptionKey: clientEncryptionKey,
-                  },
-                  true
-                ),
-                headers: {
-                  "content-type": "application/javascript",
-                  ...SCRIPT_CACHE_HEADERS,
-                  vary: "sec-fetch-dest",
-                },
-              });
-            }
-
-            if ((queryValue = join2(query?.[CLIENT_SCRIPT_QUERY])) != null) {
+            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
               return result({
                 status: 200,
                 body: await this._getClientScripts(resolveTracker, false),
@@ -732,7 +798,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join2(query?.[CONTEXT_NAV_QUERY])) != null) {
+            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
               // The user navigated via the context menu in their browser.
               // If the user has an active session we respond with a small script, that will push the request ID
               // that caused the navigation to the other browser tabs.
@@ -742,7 +808,7 @@ export class RequestHandler {
               trackerInitializationOptions = { passive: true };
 
               const [, requestId, targetUri] =
-                match(join2(queryValue), /^([0-9]*)(.+)$/) ?? [];
+                match(join(queryValue), /^([0-9]*)(.+)$/) ?? [];
               if (!targetUri) return result({ status: 400 });
 
               if (
@@ -776,14 +842,18 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join2(query?.[SCHEMA_QUERY])) != null) {
+            if ((queryValue = join(query?.[SCHEMA_TYPES_QUERY])) != null) {
               let serialized: string;
               if (queryValue === "native") {
                 serialized = JSON.stringify(this._schema.definitions, null, 2);
               } else {
-                serialized = new JsonSchemaAdapter(
-                  CORE_SCHEMA_NS + ":runtime"
-                ).serialize(this._schema.schemas);
+                serialized = JSON.stringify(
+                  new JsonSchemaAdapter(CORE_SCHEMA_NS + ":runtime").serialize(
+                    this._schema.schemas
+                  ),
+                  null,
+                  2
+                );
               }
               return result({
                 status: 200,
@@ -797,38 +867,55 @@ export class RequestHandler {
 
             // Default for GET is to send script.
 
+            // This is set by most modern browsers.
+            // It prevents external scripts to try to get a hold of the configuration key via XHR.
+            const secDest = headers["sec-fetch-dest"];
+            if (secDest && secDest !== "script" && secDest !== "document") {
+              return result({
+                status: 400,
+                body: `Request destination '${secDest}' not allowed.`,
+                headers: {
+                  ...SCRIPT_CACHE_HEADERS,
+                  vary: "sec-fetch-dest",
+                },
+              });
+            }
+
+            const { clientEncryptionKey } = await trackerSettings();
+            const script = this._getConfiguredClientScript(
+              clientEncryptionKey,
+              matchAnyPath ? requestPath : this._clientConfig.src
+            );
+
+            const accept =
+              headers["accept-encoding"]
+                ?.split(",")
+                .map((value) => value.toLowerCase().trim()) ?? [];
+
             const scriptHeaders = {
               "content-type": "application/javascript",
               ...SCRIPT_CACHE_HEADERS,
+              vary: "sec-fetch-dest",
             };
 
-            // Check if we are using a debugging script.
-            let script = this._script;
-            if (!script) {
-              const accept =
-                headers["accept-encoding"]
-                  ?.split(",")
-                  .map((value) => value.toLowerCase().trim()) ?? [];
-              if (accept.includes("br")) {
-                script = scripts.main.br;
-                scriptHeaders["content-encoding"] = "br";
-              } else if (accept.includes("gzip")) {
-                script = scripts.main.gzip;
-                scriptHeaders["content-encoding"] = "gzip";
-              } else {
-                script = scripts.main.text;
-              }
+            let body: Uint8Array | string | Nullish;
+            if (accept.includes("br") && (body = await script.br)) {
+              scriptHeaders["content-encoding"] = "br";
+            } else if (accept.includes("gzip") && (body = await script.gzip)) {
+              scriptHeaders["content-encoding"] = "gzip";
+            } else {
+              body = script.plain;
             }
+
             return result({
               status: 200,
-              body: script,
-              cacheKey: "script",
+              body,
               headers: scriptHeaders,
             });
           }
 
           case "POST": {
-            if ((queryValue = join2(query?.[EVENT_HUB_QUERY])) != null) {
+            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
               body = await unwrap(body);
 
               if (body == null || (!isJsonObject(body) && body.length === 0)) {
@@ -913,26 +1000,6 @@ export class RequestHandler {
                       .all();
                   }
                 }
-                // It's better that the client explicitly requests the variables it wants to know about if changed.
-                // const responseVariables = distinct2(
-                //   map2(
-                //     concat2(response.variables?.get, response.variables?.set),
-                //     (result) => (result ? trackerVariableKey(result) : skip2)
-                //   )
-                // );
-                // resolvedTracker
-                //   .getChangedVariables()
-                //   .forEach((variable, key) => {
-                //     if (
-                //       !responseVariables?.has(key) &&
-                //       trackedResponseVariables.has(key)
-                //     ) {
-                //       ((response.variables ??= {}).get ??= []).push({
-                //         status: VariableResultStatus.Success,
-                //         ...variable,
-                //       });
-                //     }
-                //   });
 
                 return result(
                   response.variables
@@ -1019,8 +1086,8 @@ export class RequestHandler {
       trackerScript.push(PLACEHOLDER_SCRIPT(trackerRef, true));
     }
 
-    const inlineScripts: string[] = [join2(trackerScript)];
-    const otherScripts: ClientScript[] = [];
+    const inlineScripts: string[] = [join(trackerScript)];
+    const externalScripts: (ClientScript & { src: string })[] = [];
 
     for (const extension of this._extensions) {
       const scripts =
@@ -1034,6 +1101,8 @@ export class RequestHandler {
             inlineScripts.push(script.inline);
             return;
           }
+        } else {
+          externalScripts.push(script);
         }
       }
     }
@@ -1043,14 +1112,17 @@ export class RequestHandler {
         ? JSON.stringify(this._clientConfig.key) + ","
         : "";
 
-      if (tracker.resolved) {
-        const pendingEvents = tracker.resolved.clientEvents;
+      const resolvedTracker = tracker.resolved;
+      if (resolvedTracker) {
+        const pendingEvents = resolvedTracker.clientEvents;
         pendingEvents.length &&
           inlineScripts.push(
-            `${trackerRef}(${keyPrefix}${join2(
+            `${trackerRef}(${keyPrefix}${join(
               pendingEvents,
               (event) =>
-                typeof event === "string" ? event : JSON.stringify(event),
+                typeof event === "string"
+                  ? event
+                  : resolvedTracker.httpClientEncrypt(event),
               ", "
             )});`
           );
@@ -1060,12 +1132,12 @@ export class RequestHandler {
           `${trackerRef}(${keyPrefix}${
             isString(initialCommands)
               ? JSON.stringify(initialCommands)
-              : httpEncode(initialCommands)
+              : resolvedTracker?.httpClientEncrypt(initialCommands)
           });`
         );
       }
 
-      otherScripts.push({
+      externalScripts.push({
         src: `${endpoint ?? this.endpoint}${
           this._trackerName && this._trackerName !== DEFAULT.trackerName
             ? `#${this._trackerName}`
@@ -1075,8 +1147,8 @@ export class RequestHandler {
       });
     }
 
-    const js = join2(
-      [{ inline: join2(inlineScripts) }, ...otherScripts],
+    const js = join(
+      [{ inline: join(inlineScripts) }, ...externalScripts],
       (script) => {
         if ("inline" in script) {
           return html
@@ -1086,11 +1158,11 @@ export class RequestHandler {
             : script.inline;
         } else {
           return html
-            ? `<script${map2(
+            ? `<script${map(
                 this._config.client?.scriptBlockerAttributes,
                 ([key, value]) => ` ${key}="${value.replaceAll('"', "&quot;")}"`
-              )?.join("")} src='${script.src}?${INIT_SCRIPT_QUERY}${
-                BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : ""
+              )?.join("")} src='${script.src}${
+                BUILD_REVISION_QUERY ? "?" + BUILD_REVISION_QUERY : ""
               }'${script.defer !== false ? " defer" : ""}></script>`
             : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify(
                 { src: script.src, async: script.defer }
@@ -1117,3 +1189,11 @@ export class RequestHandler {
     });
   }
 }
+
+type CachedClientKey = { key: string; index: number };
+
+type CachedScript = {
+  br: MaybePromise<Uint8Array | Nullish>;
+  gzip: MaybePromise<Uint8Array | Nullish>;
+  plain: string;
+};

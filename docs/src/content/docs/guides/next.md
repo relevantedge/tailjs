@@ -3,39 +3,66 @@ title: Next.js
 sidebar: { order: 8 }
 ---
 
-This intgration enables you to run tail.js in a Next.js solution.
-When the package is configured, tail.js will very conveniently be deployed with the rest of your solution without any additional steps.
-(for example if you are using Vercel for hosting).
-T
+This integration enables you to run tail.js in a Next.js solution.
+When the package is configured, tail.js will conveniently be deployed with the rest of your solution without any additional steps (for example if you are using Vercel for hosting).
+
+### Installation
+
+To get started add the @tailjs/next and @tailjs/react packages to your project, 
+and then use the CLI to bootstrap the configuration files and API route.
 
 ```sh
+
 # or npm or yarn
-pnpm add @tailjs/next
+
+pnpm add @tailjs/next @tailjs/react
+
+# This will initialize the required configuration files and routing.
+
+npx tailjs-next-init
+
 ```
 
-Next you add an API route with the code below
+### Configure Next.js to use the tail.js plugin.
 
-```ts title="/src/pages/api/t.js.ts"
-import { tailjs } from "@tailjs/next";
+tail.js uses a webpack plugin to track components, so you will also need to update your `next.config` like the below.
+ (The example assumes your config file is in typescript)
 
-export default tailjs({
-  // This is important to change if you have named the API end-point
-  // to something different than the default.
-  endpoint: "/api/t.js",
-  // Additional options.
-});
+:::note
+tail.js does currently not support Turbopack (which is the default in Next 15's dev mode).
+:::
+
+```ts title="/next.config.ts"
+import { TailJsPlugin } from "@tailjs/react/webpack"; 
+import type { NextConfig } from "next"; 
+
+const nextConfig: NextConfig = {
+  // ... Your existing configuration here.
+
+  webpack: (config) => {
+
+    // ...Your existing webpack configuration (if any).
+
+    // The TailJsPlugin must be the _last_ plugin.    
+    config.plugins = [...(config.plugins ?? []), new TailJsPlugin()];
+    return config;
+
+  }, 
+
+  // ... More of your existing configuration here.
+
+}; 
+
+export default nextConfig; 
+
 ```
 
-Assuming you are using React you must also update your `/src/pages/_app.ts` to wrap everything in a `Tracker` component.
+### Migration from versions before 0.40
 
-```jsx title="src/pages/_app.ts" ins={3,5}
-export default function App(Component) {
-  // Your other global tags...
-  <Tracker>
-    <Component />
-  </Tracker>;
-  // ...
-}
+Previously, wrapper components were required (the `ConfiguredTracker` components in `/src/app/api/tailjs` ). Please remove those (including where they are used).
+
+If you have custom mapping logic in `tailjs.client.config.ts` please also note that the signature for the `map` function has changed to:
+
+```ts
+(currentState: State | undefined, type: ElementType, props: Record<string, any>) => State | null | undefined | void.
 ```
-
-And that is it.

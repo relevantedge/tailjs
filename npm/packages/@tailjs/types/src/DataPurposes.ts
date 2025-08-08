@@ -1,12 +1,10 @@
 import {
-  fromEntries,
   isArray,
   isString,
-  keys2,
-  map2,
+  map,
   Nullish,
-  obj2,
-  skip2,
+  obj,
+  skip,
   throwError,
 } from "@tailjs/util";
 import { SCHEMA_TYPE_PROPERTY, type DataUsage } from ".";
@@ -21,13 +19,10 @@ const DATA_PURPOSES: DataPurposeName[] = [
   "security",
 ];
 
-const VALID_PURPOSE_NAMES = obj2(DATA_PURPOSES, (purpose) => [
-  purpose,
-  purpose,
-]);
+const VALID_PURPOSE_NAMES = obj(DATA_PURPOSES, (purpose) => [purpose, purpose]);
 
 export const DATA_PURPOSES_ALL: DataPurposes = Object.freeze(
-  fromEntries(DATA_PURPOSES.map((purpose) => [purpose, true]))
+  obj(DATA_PURPOSES, (purpose) => [purpose, true])
 );
 
 /**
@@ -160,8 +155,8 @@ export const DataPurposes: {
     }
 
     if (names) {
-      const result = map2(value, ([key, value]) =>
-        VALID_PURPOSE_NAMES[key] && value ? key : skip2
+      const result = map(value, ([key, value]) =>
+        VALID_PURPOSE_NAMES[key] && value ? key : skip
       );
       return result.length || !includeDefault ? result : ["necessary"];
     }

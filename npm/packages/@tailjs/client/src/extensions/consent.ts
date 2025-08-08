@@ -8,7 +8,7 @@ import {
   UserConsent,
   VariablePollCallback,
 } from "@tailjs/types";
-import { Clock, F, Nullish, T, clock, map2, restrict } from "@tailjs/util";
+import { Clock, F, Nullish, T, clock, map } from "@tailjs/util";
 import {
   ConsentCommand,
   TrackerExtensionFactory,
@@ -21,8 +21,8 @@ export const consent: TrackerExtensionFactory = {
   setup(tracker) {
     const getCurrentConsent = async (
       callback?: VariablePollCallback<UserConsent>
-    ) =>
-      (await tracker.variables
+    ) => {
+      return (await tracker.variables
         .get({
           scope: "session",
           key: CONSENT_INFO_KEY,
@@ -31,6 +31,7 @@ export const consent: TrackerExtensionFactory = {
           passive: !callback,
         })
         .value()) as UserConsent | undefined;
+    };
 
     const updateConsent = async <C extends UserConsent | Nullish>(
       consent: C
@@ -48,10 +49,10 @@ export const consent: TrackerExtensionFactory = {
       }
 
       await tracker.events.post(
-        restrict<ConsentEvent>({
+        {
           type: "consent",
           consent,
-        }),
+        } satisfies ConsentEvent,
         {
           async: false,
           variables: {
@@ -63,7 +64,7 @@ export const consent: TrackerExtensionFactory = {
     };
 
     (() => {
-      // TODO: Make injectable to support more than one.
+      // TODO: Make injectable to support other than GCMv2 compatible cookie disclaimers.
       // Ideally, it could be injected in the init script from the request handler.
       // However, hooking into the main categories of Google's consent mode v2 should cover most cases.
 
@@ -74,6 +75,7 @@ export const consent: TrackerExtensionFactory = {
       const GCMv2Mappings: Record<string, DataPurposeName> = {
         // Performance
         analytics_storage: "performance",
+
         // Functionality
         functionality_storage: "functionality",
 
@@ -116,13 +118,13 @@ export const consent: TrackerExtensionFactory = {
                 // Read from the end of the buffer to see if there is any ["consent", "update", ...] entry
                 // since last time we checked.
                 if (item?.[0] === "consent" && item[1] === "update") {
-                  map2(
+                  map(
                     GCMv2Mappings,
                     ([key, code]) =>
                       item[2][key] === "granted" &&
                       ((purposes[code] = true),
                       (anonymous &&=
-                        // Security is considered "necessary" for some external purpose by tail.js
+                        // Security is considered "necessary" by tail.js,
                         // and does not deactivate anonymous tracking by itself.
                         code === "security" || code === "necessary"))
                   );
@@ -146,9 +148,9 @@ export const consent: TrackerExtensionFactory = {
         if (isUpdateConsentCommand(command)) {
           const getter = command.consent.get;
           if (getter) {
-            getCurrentConsent((current, _, previous) => {
-              return current ? getter(current, previous) : true;
-            });
+            getCurrentConsent((current, _, previous) =>
+              current ? getter(current, previous) : true
+            );
           }
 
           const setter = command.consent.set;
@@ -169,7 +171,7 @@ export const consent: TrackerExtensionFactory = {
             const poller = (externalConsentSources[key] ??= clock({
               frequency: externalSource.frequency ?? 1000,
             }));
-            let previousConsent: DataUsage | undefined;
+            let previousConsent: UserConsent | undefined;
 
             const pollConsent = async () => {
               if (!document.hasFocus()) return;
@@ -182,6 +184,7 @@ export const consent: TrackerExtensionFactory = {
                 newConsent &&
                 !DataUsage.equals(previousConsent, newConsent)
               ) {
+                newConsent.source ??= key;
                 const [updated, current] = await updateConsent(newConsent);
                 if (updated) {
                   debug(current, "Consent was updated from " + key);

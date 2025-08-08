@@ -1,5 +1,5 @@
 import { LogLevel, LogMessage } from "@tailjs/engine";
-import { get2, merge2, throwError } from "@tailjs/util";
+import { get, merge, throwError } from "@tailjs/util";
 import path from "path";
 import fs from "fs";
 import winston from "winston";
@@ -59,7 +59,7 @@ export class DefaultLogger implements NativeHostLogger {
   private readonly _groupLoggers = new Map<string, winston.Logger>();
 
   constructor(settings: DefaultLoggerSettings) {
-    this._settings = merge2(
+    this._settings = merge(
       {},
       [
         settings,
@@ -75,8 +75,8 @@ export class DefaultLogger implements NativeHostLogger {
     );
   }
 
-  _rootPath: string | undefined;
-  initialize(rootPath: string) {
+  _rootPath: string | null | undefined;
+  initialize(rootPath: string | null) {
     this._rootPath = rootPath;
     return;
   }
@@ -107,39 +107,35 @@ export class DefaultLogger implements NativeHostLogger {
       }
     }
 
-    if (this._settings.basePath) {
-      const logger = get2(
-        this._groupLoggers,
-        message.group ?? "default",
-        () => {
-          const directory = path.join(
-            this._rootPath ?? throwError("Root path has not been initialized."),
-            this._settings.basePath as string,
-            message.group || ""
+    if (this._settings.basePath && this._rootPath !== null) {
+      const logger = get(this._groupLoggers, message.group ?? "default", () => {
+        const directory = path.join(
+          this._rootPath ?? throwError("Root path has not been initialized."),
+          this._settings.basePath as string,
+          message.group || ""
+        );
+        if (!directory.startsWith(this._rootPath!)) {
+          throwError(
+            `Invalid path for the group '${message.group}' (${directory}).`
           );
-          if (!directory.startsWith(this._rootPath!)) {
-            throwError(
-              `Invalid path for the group '${message.group}' (${directory}).`
-            );
-          }
-          if (!fs.existsSync(directory)) {
-            fs.mkdirSync(directory, { recursive: true });
-          }
-
-          return winston.createLogger({
-            levels: tailJsLogLevels,
-            format: winston.format.json(),
-            transports: [
-              new winston.transports.DailyRotateFile({
-                datePattern: "YYYYMMDD-HH",
-                filename: path.join(directory, "%DATE%.log.json"),
-                maxSize: this._settings.maxSize,
-                maxFiles: this._settings.maxFiles,
-              }),
-            ],
-          });
         }
-      );
+        if (!fs.existsSync(directory)) {
+          fs.mkdirSync(directory, { recursive: true });
+        }
+
+        return winston.createLogger({
+          levels: tailJsLogLevels,
+          format: winston.format.json(),
+          transports: [
+            new winston.transports.DailyRotateFile({
+              datePattern: "YYYYMMDD-HH",
+              filename: path.join(directory, "%DATE%.log.json"),
+              maxSize: this._settings.maxSize,
+              maxFiles: this._settings.maxFiles,
+            }),
+          ],
+        });
+      });
 
       logger.log(message);
     }

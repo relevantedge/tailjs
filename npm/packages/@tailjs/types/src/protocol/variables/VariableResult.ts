@@ -9,9 +9,9 @@ export enum VariableResultStatus {
   Success = 200,
   Created = 201,
   NotModified = 304,
+  BadRequest = 400,
   Forbidden = 403,
   NotFound = 404,
-  BadRequest = 405,
   Conflict = 409,
   Error = 500,
 }
@@ -39,6 +39,7 @@ export interface VariableNotFoundResult extends VariableResult {
   status: VariableResultStatus.NotFound;
   value?: undefined;
   version?: undefined;
+  message?: string;
 }
 
 export interface VariableValueErrorResult extends VariableResult {
@@ -75,16 +76,26 @@ export const isVariableResult: {
  */
 
 export const isSuccessResult: {
-  <T = any>(
+  (
     value: any,
     /** Whether "not found" is considered a success. */
     requireFound?: true
   ): value is
     | {
         status: VariableResultStatus.Success | VariableResultStatus.Created;
-        value: T | null;
+        version: string;
+        value: {};
       }
-    | { status: VariableResultStatus.NotModified };
+    | {
+        status: VariableResultStatus.Success;
+        version?: undefined;
+        value?: undefined;
+      }
+    | {
+        status: VariableResultStatus.NotModified;
+        version?: undefined;
+        value?: undefined;
+      };
 
   <T extends {} = any>(
     value: any,

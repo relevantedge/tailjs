@@ -1,29 +1,38 @@
 import {
-  ParsableTags,
-  TagCollection,
+  BoundaryDataTag,
+  ComponentTrackingBehavior,
+  ExtendedTrackingBoundaryData,
+  appendTrackingData,
   collectTags,
+  normalizeTrackingData,
+  uniqueTags,
   type Tag,
+  type TrackingBoundaryData,
 } from "@tailjs/types";
 import {
   F,
   T,
   concat,
   flatMap,
-  flatMap2,
-  forEach2,
+  forEach,
+  get,
   isFunction,
   isIterable,
   isPlainObject,
   isRegEx,
   isString,
-  join2,
+  join,
   matches,
   nil,
   parseBoolean,
+  parseJson,
   parseRegex,
   replace,
+  set,
+  sort,
   stop,
   testRegex,
+  trySet,
   type Nullish,
 } from "@tailjs/util";
 
@@ -37,20 +46,93 @@ import {
   matchSelector,
   trackerConfig,
 } from "..";
-import type { BoundaryData, TagMappings } from "../..";
+import type { TagMappings } from "../..";
 
-export const boundaryData = new WeakMap<Node, BoundaryData<true>>();
-export const getBoundaryData = (el: Node) => boundaryData.get(el);
+export const boundaryData = new WeakMap<
+  any,
+  {
+    merged: TrackingBoundaryData<true>;
+    layers: Map<any, TrackingBoundaryData<true>>;
+  }
+>();
+
+export const getBoundaryData = (
+  el: any
+): TrackingBoundaryData<true> | undefined => {
+  if (el == null) {
+    return undefined;
+  }
+
+  let data = boundaryData.get(el)?.merged;
+  if (
+    !data &&
+    (el as HTMLElement).getAttribute &&
+    (data = normalizeTrackingData(
+      parseJson((el as HTMLElement).getAttribute("data-tailjs"), true)
+    ))
+  ) {
+    boundaryData.set(el, {
+      merged: data!,
+      layers: new Map([[null, data!]]),
+    });
+  }
+  return data;
+};
+
+export const updateBoundaryData = (
+  el: any,
+  data:
+    | ExtendedTrackingBoundaryData
+    | { clear: boolean }
+    | Nullish
+    | ((
+        current: TrackingBoundaryData<true> | undefined
+      ) => TrackingBoundaryData | Nullish),
+  layer: any = null,
+  debug = false
+): ExtendedTrackingBoundaryData<true> | undefined => {
+  if (el == null) {
+    return;
+  }
+  let current = boundaryData.get(el);
+  if (typeof data === "function") {
+    data = data(current?.merged);
+  } else if (data && "clear" in data) {
+    boundaryData.delete(el);
+    return undefined;
+  }
+  layer ??= data?.layer;
+
+  const normalized = normalizeTrackingData(data);
+
+  if (current) {
+    if (trySet(current.layers, layer, normalized ?? undefined)) {
+      if (!current.layers.size) {
+        boundaryData.delete(el);
+        current = undefined;
+      } else {
+        current.merged = appendTrackingData(
+          undefined,
+          sort(current.layers.values(), (layer) => layer.layerPriority ?? 0)
+        )!;
+      }
+    }
+  } else if (normalized) {
+    boundaryData.set(
+      el,
+      (current = {
+        merged: normalized,
+        layers: new Map([[layer, normalized]]),
+      })
+    );
+  }
+
+  flushPropertyCache();
+  return current?.merged;
+};
 
 export const trackerPropertyName = (name: string, css = F) =>
-  (css ? "--track-" : "track-") + name;
-
-// const trackerProperty = (
-//   el: Element,
-//   name: string,
-//   value = attr(el, trackerPropertyName(name)),
-//   css = cssProperty(el as Element, trackerPropertyName(name, T))
-// ) => (value ? (css ? value + " " + css : value) : css);
+  (css ? "--track-" : "data-track-") + name;
 
 type MatchAttributeRule = readonly [
   match: RegExp,
@@ -72,21 +154,19 @@ type CacheMatchRules = [
 const matchAttributeNames = (
   el: Element | Nullish,
   cached: CacheMatchRules | Nullish,
-  tags: TagCollection,
-  prefix?: string | boolean,
+  tags: undefined | BoundaryDataTag[],
+  prefix?: string | boolean | Nullish,
   value?: string,
   eligible?: boolean
-) =>
+) => (
   cached?.[1] &&
-  forEach2(
-    attributeNames(el),
-    (name) =>
-      (cached[0][name] ??=
+    forEach(attributeNames(el), (name) => {
+      return (cached[0][name] ??=
         ((eligible = F),
         isString(
           (prefix =
             // No cache. Let's loop through them then.
-            forEach2(
+            forEach(
               cached[1],
               ([match, selector, prefix], _) =>
                 testRegex(name, match) &&
@@ -99,16 +179,31 @@ const matchAttributeNames = (
             ))
         ) && // The empty string is also "true" since it means presence of the attribute without a value (as in `<div tag-yes />).
           (!(value = el!.getAttribute(name)!) || parseBoolean(value)) &&
-          collectTags(value, replace(prefix, /\-/g, ":"), tags),
-        eligible))
-  );
+          (tags = collectTags(
+            value,
+            prefix ? { prefix: replace(prefix, /\-/g, ":") } : undefined,
+            tags
+          )),
+        eligible));
+    }),
+  tags
+);
 
 // We cache the tracker configuration's rules for tag mappings.
-let cachedTagMapper: (el: Element, tags: TagCollection) => void = () => {};
+let cachedTagMapper:
+  | undefined
+  | ((
+      el: Element,
+      tags: BoundaryDataTag[] | undefined
+    ) => BoundaryDataTag[] | undefined);
+
 let cachedMappings: TagMappings | undefined;
-const parseTagAttributes = (el: Element, tags: TagCollection) => {
+const parseTagAttributes = (
+  el: Element,
+  tags: BoundaryDataTag[] | undefined
+) => {
   if (cachedMappings === (cachedMappings = trackerConfig.tags)) {
-    return cachedTagMapper(el, tags);
+    return cachedTagMapper!(el, tags);
   }
 
   const parse = (rule: TagMappings[string]): MatchAttributeRule[] =>
@@ -117,7 +212,7 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
         : isRegEx(rule)
         ? [[rule]]
         : isIterable(rule)
-        ? flatMap(rule, parse)
+        ? flatMap(rule, parse, 1)
         : [
             isPlainObject(rule)
               ? [parseRegex(rule.match)!, rule.selector, rule.prefix]
@@ -128,16 +223,18 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
       // Start by checking whether we have any of the good ol', documented, "tail.js official" tag attributes.
       [
         [/^(?:track\-)?tags?(?:$|\-)(.*)/],
-        ...parse(flatMap2(cachedMappings, ([, value]) => value, 1)),
+        ...parse(flatMap(cachedMappings, ([, value]) => value, 1)),
       ],
     ];
 
-  (cachedTagMapper = (el: Element, tags: TagCollection) =>
-    matchAttributeNames(el, cache, tags))(el, tags);
+  return (cachedTagMapper = (
+    el: Element,
+    tags: BoundaryDataTag[] | undefined
+  ) => matchAttributeNames(el, cache, tags))(el, tags);
 };
 
 const cssPropertyWithBase = (el: Element, name: string) =>
-  join2(
+  join(
     concat(
       cssProperty(el, trackerPropertyName(name, T)),
       cssProperty(el, trackerPropertyName("base-" + name, T))
@@ -152,7 +249,7 @@ const parsedCssRules: {
 
 const parseCssMappingRules = (
   el: Element,
-  tags: TagCollection,
+  tags: undefined | BoundaryDataTag[],
   rulesString = cssPropertyWithBase(el, "attributes")
 ) => {
   rulesString &&
@@ -169,35 +266,18 @@ const parseCssMappingRules = (
       ]),
       tags
     );
-  collectTags(cssPropertyWithBase(el, "tags"), undefined, tags);
+  return (tags = collectTags(cssPropertyWithBase(el, "tags"), undefined, tags));
 };
 
-let currentBoundaryData: BoundaryData<true> | Nullish;
-export const trackerProperty = (
-  el: Element,
-  name: string,
-  inherit:
-    | boolean
-    | ((el: NodeWithParentElement, distance: number) => boolean) = F,
-  boundaryData?: (el: BoundaryData<true>) => string | Nullish
-): string | null =>
-  (inherit
-    ? forAncestorsOrSelf(
-        el,
-        (el, r) => r(trackerProperty(el, name, F)),
-        isFunction(inherit) ? inherit : undefined
-      )
-    : join2(
-        concat(
-          attr(el, trackerPropertyName(name)),
-          cssProperty(el, trackerPropertyName(name, T))
-        ),
-        " "
-      )) ??
-  (boundaryData &&
-    (currentBoundaryData = getBoundaryData(el)) &&
-    boundaryData(currentBoundaryData)) ??
-  nil;
+let currentBoundaryData: TrackingBoundaryData | Nullish;
+let boundaryDataValue: any;
+let trackerPropertyCache = new WeakMap<
+  any,
+  [direct: Map<string, { value: any }>, inherit: Map<string, { value: any }>]
+>();
+setInterval(() => flushPropertyCache, 500); // Flush cache.
+
+const flushPropertyCache = () => (trackerPropertyCache = new WeakMap());
 
 let propertyValue: string | Nullish;
 export const trackerFlag = (
@@ -206,32 +286,78 @@ export const trackerFlag = (
   inherit:
     | boolean
     | ((el: NodeWithParentElement, distance: number) => boolean) = F,
-  boundaryData?: (data: BoundaryData) => boolean | Nullish
-) =>
+  boundaryData?: (
+    data: TrackingBoundaryData & { track?: ComponentTrackingBehavior }
+  ) => boolean | Nullish
+): boolean | Nullish =>
   (propertyValue = trackerProperty(el, name, inherit, boundaryData as any)) ===
-    "" || (propertyValue == nil ? propertyValue : parseBoolean(propertyValue));
+    "" || (propertyValue == nil ? undefined : parseBoolean(propertyValue));
+
+export const trackerProperty = <T = string>(
+  el: Element,
+  name: string,
+  inherit:
+    | boolean
+    | ((el: NodeWithParentElement, distance: number) => boolean) = F,
+  boundaryData?: (el: TrackingBoundaryData) => T | Nullish
+): string | T | Nullish => {
+  if (!el) {
+    return undefined;
+  }
+  let cached = trackerPropertyCache.get(el)?.[+inherit].get(name);
+
+  if (cached) {
+    return cached.value;
+  }
+
+  return set(
+    get(trackerPropertyCache, el, () => [new Map(), new Map()])[+inherit],
+    name,
+    (cached = {
+      value:
+        boundaryData &&
+        (currentBoundaryData = getBoundaryData(el)) &&
+        (boundaryDataValue = boundaryData(currentBoundaryData)) != null
+          ? boundaryDataValue
+          : (inherit
+              ? forAncestorsOrSelf(
+                  el,
+                  (el, r) => r(trackerProperty(el, name, F, boundaryData)),
+                  isFunction(inherit) ? inherit : undefined
+                )
+              : attr(el, trackerPropertyName(name)) ||
+                cssProperty(el, trackerPropertyName(name, T))) || undefined,
+    })
+  ).value;
+};
 
 export type ParsedTags = { tags?: Tag[] };
 
-export const parseTags = (
+export const getBoundaryTags = (
   sourceEl: Element | Nullish,
-  stoppingCriterion?: (el: Element, distance: number) => boolean,
-  elementTagData?: (el: Element) => ParsableTags,
-  tags?: TagCollection
-): ParsedTags =>
-  !sourceEl
-    ? {}
-    : ((tags ??= new Map()),
-      parseCssMappingRules(sourceEl, tags),
-      forAncestorsOrSelf(
-        sourceEl,
-        (el) => {
-          parseTagAttributes(el, tags!);
-          collectTags(elementTagData?.(el), undefined, tags!);
-        },
-        stoppingCriterion
-      ),
-      tags.size ? { tags: [...tags.values()] } : {});
+  eventType?: string | Nullish,
+  tags?: BoundaryDataTag[]
+): ParsedTags => {
+  if (sourceEl) {
+    const parentStack: Element[] = [];
+    // Initialize element stack, so we can process it top/down.
+    // This is required for tags from deeper levels to override values.
+    forAncestorsOrSelf(sourceEl, (el) => parentStack.unshift(el));
+    tags = parseCssMappingRules(sourceEl, tags);
+    forEach(parentStack, (el) => {
+      tags = collectTags(
+        getBoundaryData(el)?.tags,
+        undefined,
+        (tags = parseTagAttributes(el, tags!))
+      );
+    });
+
+    if (tags?.length) {
+      return { tags: uniqueTags(tags, eventType) };
+    }
+  }
+  return {};
+};
 
 let styleElement: Node;
 export const injectCssDefaults = (document: Document) => {

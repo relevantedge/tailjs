@@ -2,7 +2,7 @@ import {
   PrettifyIntersection,
   createEvent,
   delay,
-  forEachAsync,
+  forEachAwait,
   isFunction,
   stop,
   throwError,
@@ -80,11 +80,13 @@ export const request: {
       )
     );
 
-    return cancel
+    const payload = cancel
       ? false
       : (serialized = encrypt
           ? httpEncrypt(currentData, true)
           : JSON.stringify(currentData));
+
+    return payload && payload.length ? payload : false;
   };
 
   if (beacon) {
@@ -100,8 +102,8 @@ export const request: {
   } else {
     let retries = 1;
     return await requestLock(() =>
-      forEachAsync(1, async (retry) => {
-        if (!prepareRequestData(retry)) return stop();
+      forEachAwait(1, async (retry) => {
+        if (!prepareRequestData(retry)) return stop;
 
         const response = await fetch(url, {
           method: currentData != null ? "POST" : "GET",

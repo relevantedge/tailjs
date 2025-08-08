@@ -1,3 +1,4 @@
+import { MaybePromise, Nullish } from "@tailjs/util";
 import { ChangeHandler, HostResponse, HttpRequest, LogMessage } from "./shared";
 
 export interface ResourceEntry {
@@ -33,4 +34,9 @@ export interface EngineHost {
   request<Binary extends boolean = false>(
     request: HttpRequest<Binary>
   ): Promise<HostResponse<Binary extends true ? Uint8Array : string>>;
+
+  compress?(
+    data: Uint8Array | string,
+    algorithm: "br" | "gzip"
+  ): MaybePromise<Uint8Array | Nullish>;
 }

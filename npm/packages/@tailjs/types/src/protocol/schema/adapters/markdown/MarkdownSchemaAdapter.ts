@@ -1,4 +1,4 @@
-import { sort2, topoSort2 } from "@tailjs/util";
+import { sort, topoSort } from "@tailjs/util";
 import {
   DataPurposes,
   Schema,
@@ -55,8 +55,8 @@ export class MarkdownSchemaAdapter implements SchemaAdapter {
   serialize(schemas: readonly Schema[]): string | undefined {
     const lines: string[] = [];
     for (const schema of schemas) {
-      const types = topoSort2(
-        sort2(schema.types.values(), (type) => type.name),
+      const types = topoSort(
+        sort(schema.types.values(), (type) => type.name),
         (type) => type.extends
       );
 

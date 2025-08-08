@@ -1,7 +1,7 @@
 import type { Component, ExternalReference } from "@tailjs/types";
-import { T, add, map2, nil, push, split, toString } from "@tailjs/util";
+import { T, add, map, nil, push, split, toString } from "@tailjs/util";
 import { attr } from ".";
-import type { BoundaryCommand } from "..";
+import type { TrackingBoundaryDataCommand } from "..";
 
 type MappedComponent = [
   command: {
@@ -15,9 +15,9 @@ type MappedComponent = [
 export function scanAttributes(
   attributeName: string,
   references: MappedComponent[0][]
-): BoundaryCommand[] {
+): TrackingBoundaryDataCommand[] {
   if (!references) return [];
-  const commands: BoundaryCommand[] = [];
+  const commands: TrackingBoundaryDataCommand[] = [];
 
   const seen = new Set<any>();
   document.querySelectorAll(`[${attributeName}]`).forEach((el) => {
@@ -62,7 +62,7 @@ export function scanAttributes(
       }
       push(
         commands,
-        ...map2(stack, (data) => ({ add: T, ...data, boundary: el }))
+        ...map(stack, (data) => ({ add: T, ...data, boundary: el }))
       );
       const next = el.nextElementSibling!; // Ignore TS null error.
       if (el.tagName === "WBR") {

@@ -18,6 +18,7 @@
     "iife",
     "Initializable",
     "Jsonable",
+    "jsxs",
     "lfsr",
     "loslessly",
     "maxmind",
@@ -58,9 +59,11 @@
     "unnest",
     "unparam",
     "unsalvageable",
+    "upserts",
     "uuidv",
     "Validatable",
     "Voidefined",
+    "Voidish",
     "weirdee"
   ],
   "[python]": {

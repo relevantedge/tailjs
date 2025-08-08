@@ -1,4 +1,4 @@
-import { join2, throwError } from "@tailjs/util";
+import { join, throwError } from "@tailjs/util";
 
 export type QualifiedSchemaTypeName = {
   namespace?: string;
@@ -24,4 +24,4 @@ export const formatQualifiedTypeName = ({
   name,
   version,
 }: QualifiedSchemaTypeName) =>
-  join2([namespace && namespace + "#", name, version && "@" + version]);
+  join([namespace && namespace + "#", name, version && "@" + version]);

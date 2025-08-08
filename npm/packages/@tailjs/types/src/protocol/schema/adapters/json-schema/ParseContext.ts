@@ -1,11 +1,11 @@
 import {
-  flatMap2,
-  forEach2,
-  get2,
-  map2,
-  skip2,
+  flatMap,
+  forEach,
+  get,
+  map,
+  skip,
   throwError,
-  update2,
+  update,
 } from "@tailjs/util";
 import {
   AnySchemaTypeDefinition,
@@ -57,12 +57,12 @@ export const createRootContext = (root: any): ParseContext => {
     types: new Map(),
     refs: {
       add: (ref, id, type) => {
-        update2(typeRefs, ref, (current) =>
+        update(typeRefs, ref, (current) =>
           current
             ? throwError(`A type with the id '${id}' is already registered `)
             : [id, type]
         );
-        forEach2(refCallbacks.get(ref)?.splice(0), (callback) =>
+        forEach(refCallbacks.get(ref)?.splice(0), (callback) =>
           callback(id, type)
         );
         refCallbacks.delete(ref);
@@ -73,10 +73,10 @@ export const createRootContext = (root: any): ParseContext => {
           callback(current[0], current[1]);
           return;
         }
-        get2(refCallbacks, ref, () => []).push(callback);
+        get(refCallbacks, ref, () => []).push(callback);
       },
 
-      pending: () => map2(refCallbacks, ([ref]) => ref),
+      pending: () => map(refCallbacks, ([ref]) => ref),
     },
   };
 };

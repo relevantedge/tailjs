@@ -132,10 +132,9 @@ export const parseType = (
             "INV: An embedded type is referenced by exactly one property (the one that embeds it)."
           );
         }
-      } else {
-        namePath.unshift(referencingProperty.declaringType.name);
-        break;
       }
+      namePath.unshift(referencingProperty.declaringType.name);
+      break;
     }
 
     name = namePath.join("_");

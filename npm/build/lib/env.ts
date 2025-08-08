@@ -1,7 +1,7 @@
 import { findWorkspaceDir } from "@pnpm/find-workspace-dir";
 import * as fs from "fs";
 import * as path from "path";
-import { getExternalTargets } from ".";
+import { ExternalScriptTarget, getExternalTargets } from ".";
 
 export interface PackageEnvironment {
   path: string;
@@ -10,7 +10,7 @@ export interface PackageEnvironment {
   workspace: string;
   config: Record<string, any>;
   workspaceConfig: Record<string, any>;
-  externalTargets: string[];
+  externalTargets: ExternalScriptTarget[];
   updatePackage: (
     update: (current: Record<string, any>) => Record<string, any> | false | void
   ) => void;
@@ -44,7 +44,7 @@ export const env = async (): Promise<PackageEnvironment> => {
     workspace: workspace,
     externalTargets: (await getExternalTargets())
       .filter((target) => target.libs[name] || target.libs["*"])
-      .map((target) => target.path),
+      .map((target) => target),
     config,
     workspaceConfig: getPackageJson(workspace).config,
     updatePackage: (update) => {

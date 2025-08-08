@@ -543,7 +543,7 @@ A form field value in a` FormEvent ` .
 |corrections|integer|||The number of times the field was changed after initially being filled.|
 |activeTime|duration|||How long the user was active in the field (field had focus on active tab).|
 |totalTime|duration|||How long the user was in the field (including if the user left the tab and came back).|
-|value|string|direct||The value of the form field. Be careful with this one.<br><br>The default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.|
+|value|string|||The value of the form field. Be careful with this one.<br><br>The default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.|
 |fillOrder|integer|||This field's number in the order the form was filled. A field is "filled" the first time the user types something in it.<br><br>If a checkbox or pre-filled drop down is left unchanged it will not get assigned a number.|
 |lastField|boolean|||The field was the last one to be filled before the form was either submitted or abandoned.|
 

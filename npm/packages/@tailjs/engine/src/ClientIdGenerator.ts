@@ -1,4 +1,4 @@
-import { filter2, join2, map2, skip2 } from "@tailjs/util";
+import { filter, join, map, skip } from "@tailjs/util";
 import { ClientRequestHeaders, TrackerEnvironment } from ".";
 
 /**
@@ -52,7 +52,7 @@ export class DefaultClientIdGenerator implements ClientIdGenerator {
   ): Promise<string> {
     const data = [
       stationary ? "" : request.clientIp,
-      ...map2(this._headers, (header) => request.headers[header] + "" || skip2),
+      ...map(this._headers, (header) => request.headers[header] + "" || skip),
     ];
     // console.log(
     //   `Generated ${

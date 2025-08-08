@@ -1,19 +1,19 @@
 import {
+  IterationProjection,
+  IterationSource,
   MINUTE,
   MaybeUndefined,
   Nullish,
-  forEach2,
+  filter,
+  forEach,
   isArray,
-  isBoolean,
-  isIterable,
-  isNumber,
-  isObject,
-  isString,
   map,
-  push,
   replace,
   round,
+  skip,
+  stop,
   symbolIterator,
+  tryCatch,
   undefined,
 } from ".";
 
@@ -95,74 +95,11 @@ export const ansi = <Buffer extends string[] | undefined = undefined>(
   buffer?: Buffer
 ): Buffer extends undefined ? string : string[] =>
   buffer
-    ? (ansiSupported && push(buffer, "\x1B[", ps, "m"),
-      isArray(value) ? push(buffer, ...value) : push(buffer, value),
-      ansiSupported && push(buffer, "\x1B[m"),
+    ? (ansiSupported && buffer.push("\x1B[", ps + "", "m"),
+      isArray(value) ? buffer.push(...value) : buffer.push(value),
+      ansiSupported && buffer.push("\x1B[m"),
       buffer)
     : (ansi(value, ps, []).join("") as any);
-
-const indent = (buffer: string[], n: number, ...values: string[]) => (
-  push(buffer, "  ".repeat(n), ...values), buffer
-);
-const br = (buffer: string[], indents = 0) => (
-  indents > 0 && indent(buffer, indents), push(buffer, "\n"), buffer
-);
-
-const prettyPrint = (
-  value: any,
-  buffer: string[] = [],
-  indents = 0,
-  terminator = ""
-) => {
-  const wrap = (
-    start: string,
-    end: string,
-    content: (buffer: string[]) => void
-  ) => {
-    ansi(start, 90, buffer);
-    const subBuffer: string[] = [];
-    content(subBuffer);
-    subBuffer.length &&
-      (br(buffer, indents), push(buffer, ...subBuffer)) &&
-      indent(buffer, indents);
-
-    ansi(end, 90, buffer);
-  };
-
-  if (value == null) {
-    ansi(value === undefined ? "(undefined)" : "(null)", "37;2", buffer);
-  } else if (isIterable(value)) {
-    wrap("[", "]", (buffer) =>
-      forEach2(
-        value,
-        (value) => (
-          indent(buffer, indents),
-          prettyPrint(value, buffer, indents + 1, ",\n")
-        )
-      )
-    );
-  } else if (isObject(value)) {
-    wrap("{", "}", (buffer) =>
-      forEach2(
-        value,
-        ([key, value]) => (
-          indent(buffer, indents + 1),
-          ansi(["" + (key as any), ":"], "90;3", buffer),
-          push(buffer, " "),
-          prettyPrint(value, buffer, indents + 1, ",\n")
-        )
-      )
-    );
-  } else if (isString(value)) {
-    ansi(value, 36, buffer);
-  } else if (isNumber(value) || isBoolean(value)) {
-    ansi("" + value, 33, buffer);
-  } else {
-    push(buffer, value);
-  }
-  terminator && push(buffer, terminator);
-  return buffer;
-};
 
 type UppercaseLetter =
   | "A"
@@ -352,4 +289,137 @@ export const getTextStats = (
     readTime: round(MINUTE * (words / 238)),
     boundaries,
   };
+};
+
+const isEmptyString = (s: any) =>
+  s == null || typeof s === "boolean" || s.toString() === "";
+
+export const join: {
+  /** Joins the specified values with the specified separator (default ""). `null`, `undefined`, empty strings and booleans are omitted. */
+  <Source>(source: Source, separator?: string): Source extends Nullish
+    ? Source
+    : string;
+  /** Joins the projection of the specified values with the specified separator (default ""). `null`, `undefined`, empty strings and booleans are omitted. */
+  <
+    Source extends IterationSource,
+    Projected,
+    Signal extends typeof skip | typeof stop | never,
+    Accumulator extends Projected = any
+  >(
+    source: Source,
+    projection?: IterationProjection<Source, Accumulator, Projected | Signal>,
+    separator?: string
+  ): Source extends Nullish ? Source : string;
+} = (source: any, arg1: any, arg2?: any) =>
+  source == null
+    ? source
+    : typeof source === "string"
+    ? source
+    : source[symbolIterator]
+    ? filter(
+        typeof arg1 === "function"
+          ? map(source, arg1)
+          : ((arg2 = arg1), source),
+        isEmptyString,
+        true
+      ).join(arg2 ?? "")
+    : typeof source === "boolean"
+    ? ""
+    : source.toString();
+
+export const indent = <T extends string | Nullish>(
+  text: T,
+  indent = "  "
+): T extends Nullish ? T : string => {
+  if (text == null) return text as any;
+  let i = 0;
+  let baseIndent = 0;
+  return replace(text, /( *)([^\r\n]*)(\r?\n?)/g, (_, lineIndent, text, br) => {
+    if (!text) {
+      return br;
+    }
+    if (!i++) {
+      baseIndent = lineIndent.length;
+    }
+    return `${indent}${
+      lineIndent.length >= baseIndent ? lineIndent.slice(baseIndent) : ""
+    }${text}${br}`;
+  }) as any;
+};
+
+export const stringify: <T>(value: T) => T extends undefined ? T : string =
+  JSON.stringify;
+
+export const parseJson = <Value = any>(
+  value: any,
+  undefinedIfInvalid = false
+): Value extends Nullish | "" ? undefined : Value =>
+  value == null || value === ""
+    ? undefined
+    : typeof value === "object"
+    ? value
+    : undefinedIfInvalid
+    ? tryCatch(
+        () => JSON.parse(value + ""),
+        () => {}
+      )
+    : JSON.parse(value + "");
+
+/**
+ * Itemizes an array of items by separating them with commas and a conjunction like "and" or "or".
+ */
+export const itemize: {
+  <Source extends IterationSource>(
+    values: Source,
+    conjunction?:
+      | null
+      | string
+      | [comma: string | Nullish, conjunction: string | Nullish],
+    result?: (enumerated: string, n: number) => string
+  ): Source extends Nullish ? Source : string;
+  <
+    Source extends IterationSource,
+    Projected,
+    Accumulator extends Projected,
+    Signal extends typeof skip | typeof stop | never
+  >(
+    values: Source,
+    format: IterationProjection<Source, Accumulator, Projected | Signal>,
+    conjunction?:
+      | string
+      | [comma: string | Nullish, conjunction: string | Nullish],
+    result?: (enumerated: string, n: number) => string
+  ): Source extends Nullish ? Source : string;
+} = (values: any, separators?: any, result?: any, rest?: any) => {
+  if (!values && values !== 0) return values == null ? values : undefined;
+
+  if (typeof separators === "function") {
+    return itemize(map(values, separators), result, rest);
+  }
+
+  const first: string[] = [];
+  const last = forEach(values, (item, _, prev) =>
+    isEmptyString(item) ? skip : (prev && first.push(prev), item.toString())
+  );
+
+  let [separator, conjunction] = isArray(separators)
+    ? separators
+    : [, separators];
+
+  separator ??= ",";
+  conjunction =
+    (conjunction ??= "and")[0] === separator
+      ? // The conjunction starts with the separator for "1, 2, or 3".
+        conjunction + " "
+      : " " +
+        // Don't add two spaces if the conjunction is the empty string.
+        (conjunction ? conjunction + " " : "");
+
+  const enumerated = first.length
+    ? `${first.join(separator + " ")}${conjunction}${last}`
+    : last ?? "";
+
+  return result
+    ? result(enumerated, first.length + +(last != null))
+    : (enumerated as any);
 };

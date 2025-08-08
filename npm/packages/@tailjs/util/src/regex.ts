@@ -1,5 +1,4 @@
 import {
-  IDENTITY,
   If,
   MaybeUndefined,
   Nullable,
@@ -8,9 +7,10 @@ import {
   isArray,
   isBoolean,
   isString,
-  join2,
+  join,
   map,
-  nil,
+  skip,
+  stop,
   undefined,
   type ConstToNormal,
   type IterableOrSelf,
@@ -45,11 +45,9 @@ export const testRegex = <Nulls>(
 export const matches = <R, Nulls>(
   s: Nullable<string, Nulls>,
   regex: RegExp | Nullish,
-  selector: (...args: string[]) => R | Nullish
-): MaybeUndefined<Nulls, ConstToNormal<R>[]> => match(s, regex, selector, true);
-
-let matchProjection: any;
-let collected: any[];
+  projection: (...args: string[]) => R | typeof skip | typeof stop | Nullish
+): MaybeUndefined<Nulls, ConstToNormal<R>[]> =>
+  match(s, regex, projection, true);
 
 /**
  * Matches a regular expression against a string and projects the matched parts, if any.
@@ -58,36 +56,44 @@ export const match: {
   <R, Nulls, Collect extends boolean = false>(
     s: Nullable<string, Nulls>,
     regex: RegExp | Nullish,
-    selector: (...args: (string | undefined)[]) => R | Nullish,
-    collect?: Collect
+    projection: (
+      ...groups: (string | undefined)[]
+    ) => R | typeof skip | typeof stop | Nullish,
+    map?: Collect
   ): MaybeUndefined<Nulls, If<Collect, ConstToNormal<R>[], R | undefined>>;
   (s: string | Nullish, match: RegExp | Nullish): RegExpMatchArray | undefined;
 } = <R>(
   s: string,
   regex: RegExp,
-  selector?: (...args: (string | undefined)[]) => R,
-  collect = false
-) =>
-  (s ?? regex) == nil
-    ? undefined
-    : selector
-    ? ((matchProjection = undefined),
-      collect
-        ? ((collected = []),
-          match(
-            s,
-            regex,
-            (...args) =>
-              (matchProjection = selector(...args)) != null &&
-              collected.push(matchProjection)
-          ))
-        : s.replace(
-            // Replace seems to be a compact way to get the details of each match
-            regex,
-            (...args) => (matchProjection = selector(...args)) as any
-          ),
-      matchProjection)
-    : s.match(regex) ?? undefined;
+  projection?: (...groups: (string | undefined)[]) => R,
+  map = false
+) => {
+  regex.lastIndex = 0;
+  let lastMatch = regex.exec(s);
+  if (!projection) {
+    return lastMatch;
+  }
+  let returnValue: any = map ? [] : undefined;
+
+  while (lastMatch) {
+    const value = projection(...lastMatch);
+    if (value === stop) {
+      break;
+    }
+    if (value !== skip) {
+      if (map) {
+        returnValue.push(value);
+      } else {
+        returnValue = value;
+      }
+    }
+    lastMatch = regex.global ? regex.exec(s) : null;
+    if (!lastMatch?.[0].length && ++regex.lastIndex >= s.length) {
+      break;
+    }
+  }
+  return returnValue;
+};
 
 /**
  * Replaces reserved characters to get a regular expression that matches the string.
@@ -99,7 +105,7 @@ export const escapeRegEx = <T extends string | Nullish>(
 
 const REGEX_NEVER = /\z./g;
 const unionOrNever = (parts: (string | Nullish)[], joined?: string) =>
-  (joined = join2(distinct(filter(parts, (part) => part?.length)), "|"))
+  (joined = join(distinct(filter(parts, (part) => part?.length)), "|"))
     ? new RegExp(joined, "gu")
     : REGEX_NEVER;
 
@@ -135,12 +141,12 @@ export const parseRegex = <T>(
                   split(
                     text!,
                     new RegExp(
-                      `(?<!(?<!\\\\)\\\\)[${join2(separators, escapeRegEx)}]`
+                      `(?<!(?<!\\\\)\\\\)[${join(separators, escapeRegEx)}]`
                     )
                   ),
                   (text) =>
                     text &&
-                    `^${join2(
+                    `^${join(
                       // Split on non-escaped asterisk (Characterized by a leading backslash that is not itself an escaped backslash).
                       split(text, /(?<!(?<!\\)\\)\*/),
                       (part) =>
@@ -167,7 +173,7 @@ export const split = <T extends string | Nullish>(
   s == null
     ? undefined
     : trim
-    ? split(s, separator, false)!.filter(IDENTITY)
+    ? filter(split(s, separator, false))
     : (s.split(separator) as any);
 
 /**
@@ -178,3 +184,23 @@ export const replace = <T extends string | Nullish>(
   match: RegExp,
   replaceValue: string | ((...args: string[]) => string)
 ): T => s?.replace(match, replaceValue as any) ?? (s as any);
+
+/**
+ * Constructs a regex where whitespace is ignored in the pattern (like .NET's RegexOptions.IgnorePatternWhitespace)
+ * 
+ * e.g. `
+  \\b    # word boundary
+  (\\w+) # one or more word chars
+  \\s*   # optional whitespace
+  =      # equals sign
+  \\s*   # optional whitespace
+  (\\d+) # one or more digits
+`
+ */
+export const regex = (pattern: string, flags?: string) =>
+  new RegExp(
+    pattern
+      .replace(/(^|\n)\s*#.*$/gm, "") // Remove comments
+      .replace(/\s+/g, ""), // Remove whitespace
+    flags
+  );

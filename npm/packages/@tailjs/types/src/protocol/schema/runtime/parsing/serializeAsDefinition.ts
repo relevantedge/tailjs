@@ -1,4 +1,4 @@
-import { forEach2, map2, obj2, skip2, throwError } from "@tailjs/util";
+import { forEach, map, obj, skip, throwError } from "@tailjs/util";
 import {
   AnySchemaTypeDefinition,
   CORE_EVENT_DISCRIMINATOR,
@@ -26,13 +26,13 @@ export const createEventPatchDefinition = (
     description: `Patch type for ${type.id}.`,
     ...type.usage,
     extends: [formatQualifiedTypeName(eventType)],
-    properties: obj2(type.properties, ([key, property]) =>
+    properties: obj(type.properties, ([key, property]) =>
       key === CORE_EVENT_DISCRIMINATOR
         ? [
             key,
             {
               primitive: "string",
-              enum: map2(
+              enum: map(
                 (property.type as SchemaPrimitiveType)?.enumValues,
                 (typeName) => `${typeName}${PATCH_EVENT_POSTFIX}`
               ),
@@ -40,7 +40,7 @@ export const createEventPatchDefinition = (
             } satisfies SchemaPropertyDefinition,
           ]
         : eventType.properties[key]
-        ? skip2
+        ? skip
         : [
             key,
             {
@@ -67,30 +67,16 @@ export const serializeAsDefinitions = (
       version: schema.version,
     };
     definitions.push(definition);
-    forEach2(schema.types, ([typeName, type]) => {
-      (definition.types ??= {})[typeName] = {
-        version: type.version,
-        description: type.description,
-        abstract: type.abstract,
-        ...type.usage,
-        extends: type.extends.map((type) => formatQualifiedTypeName(type)),
-        system: (type.source as SchemaSystemTypeDefinition).system,
-        properties: obj2(type.ownProperties, ([key, property]) => [
-          key,
-          {
-            ...serializePropertyType(property.type),
-            description: property.description,
-            ...property.usage,
-            required: property.required,
-          } satisfies SchemaPropertyDefinition,
-        ]),
-      } as SchemaSystemTypeDefinition;
+    forEach(schema.types, ([typeName, type]) => {
+      if (!type.embedded) {
+        (definition.types ??= {})[typeName] = serializeObjectType(type);
+      }
     });
 
-    forEach2(schema.variables, ([scope, variables]) => {
+    forEach(schema.variables, ([scope, variables]) => {
       const scopeVariableDefinitions = ((definition.variables ??= {})[scope] =
         {});
-      forEach2(variables, ([variableKey, variable]) => {
+      forEach(variables, ([variableKey, variable]) => {
         scopeVariableDefinitions[variableKey] = {
           ...serializePropertyType(variable.type),
           description: variable.description,
@@ -104,10 +90,32 @@ export const serializeAsDefinitions = (
   return definitions;
 };
 
+const serializeObjectType = (type: SchemaObjectType) =>
+  ({
+    version: type.version,
+    description: type.description,
+    abstract: type.abstract,
+    ...type.usage,
+    extends: type.extends.map((type) => formatQualifiedTypeName(type)),
+    system: (type.source as SchemaSystemTypeDefinition).system,
+    properties: obj(type.ownProperties, ([key, property]) => [
+      key,
+      {
+        ...serializePropertyType(property.type),
+        description: property.description,
+        ...property.usage,
+        required: property.required,
+      } satisfies SchemaPropertyDefinition,
+    ]),
+  } as SchemaSystemTypeDefinition);
+
 const serializePropertyType = (
   type: SchemaPropertyType
 ): AnySchemaTypeDefinition => {
   if (isSchemaObjectType(type)) {
+    if (type.embedded) {
+      return serializeObjectType(type);
+    }
     return {
       reference: formatQualifiedTypeName(type),
     };

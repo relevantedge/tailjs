@@ -24,6 +24,15 @@ export type Freeze<T> = T extends SimpleObject | readonly any[]
   : T;
 
 /** Makes all properties and properties on nested objects required. */
+export type AllPartial<T> = T extends null | undefined
+  ? T
+  : T extends (...args: any) => any
+  ? T
+  : {
+      [P in keyof T]?: AllPartial<T[P]>;
+    };
+
+/** Makes all properties and properties on nested objects required. */
 export type AllRequired<T, Nulls = never> = T extends undefined | Nulls
   ? never
   : T extends null

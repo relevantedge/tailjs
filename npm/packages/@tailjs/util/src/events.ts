@@ -1,4 +1,4 @@
-import { filter, reduce } from ".";
+import { filter, forEach } from ".";
 
 export type Rebinder = () => boolean;
 export type Unbinder = () => boolean;
@@ -35,8 +35,10 @@ export const joinEventBinders = (
 ): Binders => (
   (binders = filter(binders)),
   [
-    () => reduce(binders, (changed, binder) => binder![0]() || changed, false),
-    () => reduce(binders, (changed, binder) => binder![1]() || changed, false),
+    () =>
+      forEach(binders, (binder, _, changed) => binder![0]() || changed, false),
+    () =>
+      forEach(binders, (binder, _, changed) => binder![1]() || changed, false),
   ]
 );
 
@@ -106,7 +108,7 @@ export const createChainedEvent = <T = void, Args extends any[] = []>(): [
   const register = (
     handler: ChainedEventHandler<Args, T>,
     // Make sure that handler gets rebound at their previous priority without jumping discrete increments.
-    // (It is deseriable to be able to specfiy priority 0 or  10 without having to think about how many 0s there are)
+    // (It is desirable to be able to specify priority 0 or  10 without having to think about how many 0s there are)
     priority = (tail?.[1][1] ?? 0) + 0.000001
   ) => {
     const registerNode = (node?: Node) => {

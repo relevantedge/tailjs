@@ -5,6 +5,8 @@ export interface ElementInfo {
   /** The tag name of the activated element.  */
   tagName?: string;
 
+  className?: string;
+
   /** The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image) */
   text?: string;
 

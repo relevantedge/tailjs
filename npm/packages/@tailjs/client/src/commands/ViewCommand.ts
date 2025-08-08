@@ -1,11 +1,12 @@
-import { Content } from "@tailjs/types";
+import { ExtendedTrackingBoundaryData } from "@tailjs/types";
+import { CurrentView } from "../interfaces";
 import { commandTest } from "./shared";
 
 /**
- * Trigers a manual {@link ViewEvent} with the view context set to the specified value.
+ * Triggers a manual {@link ViewEvent} (or patches the current) with the view context set to the specified value.
  */
 export interface ViewCommand {
-  view: Content | null;
+  view: CurrentView | ExtendedTrackingBoundaryData["view"] | undefined;
 }
 
 export const isViewCommand = commandTest<ViewCommand>("view");

@@ -14,18 +14,18 @@ import {
   Nullable,
   T,
   Unbinder,
-  array2,
+  array,
   createEventBinders,
   createTimeout,
-  forEach2,
+  forEach,
   isArray,
   nil,
   parseBoolean,
   parseUri,
   replace,
-  restrict,
   round,
   tryCatch,
+  stop as stopIteration,
   type MaybeUndefined,
   type Nullish,
 } from "@tailjs/util";
@@ -50,10 +50,11 @@ export const forAncestorsOrSelf = <T = any>(
   let i = 0;
   let returnValue: any;
   let stop = F;
+  let actionResult: any;
   while (
     el?.["nodeType"] === 1 &&
     !stoppingCriterion(el as Element, i++) &&
-    action(
+    (actionResult = action(
       el as Element,
       (value, replace) => (
         value != nil &&
@@ -61,7 +62,8 @@ export const forAncestorsOrSelf = <T = any>(
         T
       ),
       i - 1
-    ) !== F &&
+    )) !== F &&
+    actionResult !== stopIteration &&
     !stop
   ) {
     const prev = el;
@@ -76,8 +78,8 @@ export const forAncestorsOrSelf = <T = any>(
 
 export type AttributeValueType =
   /**
-   * The normalized attribute value, int the sense it gets trimmed and lowercased.
-   * The empty spring is considered undefined.
+   * The normalized attribute value, in the sense it gets trimmed and lowercased.
+   * The empty string is considered undefined.
    *
    * This is the default.
    */
@@ -214,11 +216,6 @@ export const inElementScope = (
     value(tagName(el) === name || undefined)
   );
 
-export const normalizedAttribute = (
-  node: NodeWithParentElement | Nullish,
-  name: string
-) => attr(node, name)?.trim()?.toLowerCase();
-
 let value: string | undefined;
 
 export const booleanAttribute = (
@@ -268,13 +265,13 @@ export const getScreenPos = <T extends Element | Nullish>(
   includeFold = T
 ): MaybeUndefined<ScreenPosition> =>
   (screenPos = getPos(el, mouseEvent)) &&
-  (restrict<ScreenPosition>({
+  ({
     xpx: screenPos.x,
     ypx: screenPos.y,
     x: round(screenPos.x / body.offsetWidth, 4),
     y: round(screenPos.y / body.offsetHeight, 4),
     pageFolds: includeFold ? screenPos.y / window.innerHeight : undefined,
-  }) as any);
+  } satisfies ScreenPosition);
 
 let x: number;
 let y: number;
@@ -349,15 +346,13 @@ export const listen = <K extends keyof AllMaps>(
   ) => any,
   options: AddEventListenerOptions = { capture: true, passive: true }
 ): Binders => {
-  name = array2(name) as any;
+  name = array(name) as any;
   return createEventBinders(
     listener,
     (listener) =>
-      forEach2(name, (name) =>
-        target.addEventListener(name, listener, options)
-      ),
+      forEach(name, (name) => target.addEventListener(name, listener, options)),
     (listener) =>
-      forEach2(name, (name) =>
+      forEach(name, (name) =>
         target.removeEventListener(name, listener, options)
       )
   );

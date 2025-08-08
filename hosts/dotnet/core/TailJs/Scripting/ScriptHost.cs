@@ -5,23 +5,27 @@ using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 
 namespace TailJs.Scripting;
 
 internal class ScriptHost : IScriptEngineExtension
 {
+  private static readonly JsonSerializerOptions LogJsonSerializerOptions = new() { WriteIndented = true };
   private readonly IResourceManager _resources;
 
   private readonly IScriptLoggerFactory? _loggerFactory;
   private readonly Uint8ArrayConverter _uint8Converter;
   private readonly CancellationToken _hostDisposed;
+
+  private readonly ConcurrentDictionary<
+    string,
+    (long LastEvent, int EpochCount, int TotalCount)
+  > _logThrottleCounts = new();
 
   public ScriptHost(
     IResourceManager resources,
@@ -99,7 +103,7 @@ internal class ScriptHost : IScriptEngineExtension
         var httpResponse = await client.Instance.SendAsync(httpRequest, _hostDisposed).ConfigureAwait(false);
 
         var headers = (IScriptObject)response["headers"];
-        var cookies = ((IScriptObject)response["cookies"]);
+        var cookies = (IScriptObject)response["cookies"];
         foreach (var header in httpResponse.Headers)
         {
           var name = header.Key.ToLowerInvariant();
@@ -181,6 +185,7 @@ internal class ScriptHost : IScriptEngineExtension
   internal object? Write(string path, object data, bool text)
   {
     return Inner().AsPromiseLike();
+
     async Task<bool> Inner()
     {
       if (text)
@@ -235,13 +240,6 @@ internal class ScriptHost : IScriptEngineExtension
     }
   }
 
-  private readonly ConcurrentDictionary<
-    string,
-    (long LastEvent, int EpochCount, int TotalCount)
-  > _logThrottleCounts = new();
-
-  private static readonly JsonSerializerOptions LogJsonSerializerOptions = new() { WriteIndented = true };
-
   internal void Log(string messageJson)
   {
     try
@@ -256,6 +254,7 @@ internal class ScriptHost : IScriptEngineExtension
       {
         logMessage.Append(message.Source).Append(": ");
       }
+
       logMessage.Append(message.Message);
       if (!string.IsNullOrEmpty(message.Group))
       {
@@ -342,6 +341,7 @@ internal class ScriptHost : IScriptEngineExtension
           {
             logMessage.Append(".)");
           }
+
           if (throttleStats.EpochCount == 3)
           {
             logMessage

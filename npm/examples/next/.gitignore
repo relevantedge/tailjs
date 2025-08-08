@@ -36,3 +36,9 @@ yarn-error.log*
 next-env.d.ts
 
 /res
+/_res
+/tmp
+
+cosmos.local.ts
+
+.env

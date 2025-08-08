@@ -1,4 +1,4 @@
-import { distinct2, itemize2 } from "@tailjs/util";
+import { distinct, itemize } from "@tailjs/util";
 import {
   SchemaEnumTypeDefinition,
   SchemaPrimitiveTypeDefinition,
@@ -115,7 +115,7 @@ export const getPrimitiveTypeValidator = (
 
     const errorMessage =
       "is not the constant value " +
-      itemize2(
+      itemize(
         (type.enum as any[]).map((value: any) => JSON.stringify(value)),
         "or"
       );
@@ -130,7 +130,7 @@ export const getPrimitiveTypeValidator = (
   return {
     validator,
     primitive,
-    enumValues: distinct2(enumValues),
+    enumValues: distinct(enumValues),
   };
 };
 

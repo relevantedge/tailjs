@@ -1,26 +1,33 @@
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
 
 import { createTransport } from "@tailjs/transport";
-import { isTrackedEvent } from "@tailjs/types";
+import {
+  TrackingBoundaryData,
+  appendTrackingData,
+  clearSchemaMetadata,
+  isTrackedEvent,
+} from "@tailjs/types";
 import {
   F,
   FOREVER,
   T,
-  array2,
+  array,
   assign,
   filter,
-  flatMap2,
-  forEach2,
+  flatMap,
+  forEach,
+  formatDuration,
+  formatTimestamp,
   isArray,
   isJsonString,
   isString,
-  map2,
+  map,
+  merge,
   nil,
   now,
-  push,
   remove,
   sort,
-  stop2,
+  stop,
   throwError,
   tryCatch,
   type Nullish,
@@ -32,7 +39,9 @@ import {
   TrackerCommand,
   TrackerExtension,
   TrackerExtensionFactory,
+  checkTrackingEnabled,
   defaultExtensions,
+  isConfigurationCommand,
   isExtensionCommand,
   isFlushCommand,
   isGetCommand,
@@ -52,6 +61,7 @@ import {
   addStateListener,
   createEventQueue,
   createVariableStorage,
+  debug,
   errorLogger,
   httpDecode,
   isTracker,
@@ -59,6 +69,7 @@ import {
   nextId,
   setStorageKey,
   trackerConfig,
+  updateBoundaryData,
   window,
 } from "./lib";
 
@@ -72,18 +83,26 @@ export const initializeTracker = (
     // Decode the temporary key for decrypting the configuration payload.
     [clientEncryptionKey, config] =
       httpDecode<[key: string, configuration: any]>(config)!;
+
     // Decrypt
     config = createTransport(clientEncryptionKey, { decodeJson: true })[1](
       config as any
     )!;
   }
-  assign(trackerConfig, config);
+
+  merge(trackerConfig, [config as TrackerClientConfiguration], {
+    overwrite: true,
+  });
+  if (window[trackerConfig.name]?.[isTracker]) {
+    tracker = window[trackerConfig.name];
+    return tracker;
+  }
 
   setStorageKey(remove(trackerConfig, "encryptionKey"));
 
   const apiProtectionKey = remove(trackerConfig, "key");
 
-  const queuedCommands = window[trackerConfig.name]?._ ?? [];
+  const queuedCommands: any[][] = window[trackerConfig.name]?._ ?? [];
   if (!isArray(queuedCommands)) {
     throwError(
       `The global variable for the tracker "${trackerConfig.name}" is used for something else than an array of queued commands.`
@@ -116,7 +135,7 @@ export const initializeTracker = (
     );
   };
 
-  const pendingStateCommands: TrackerCommand[] = [];
+  const pendingPostConfigurationCommands: TrackerCommand[] = [];
 
   const trackerContext: TrackerContext = {
     applyEventExtensions(event) {
@@ -124,9 +143,9 @@ export const initializeTracker = (
       event.timestamp ??= now();
 
       insertArgs = T;
-      const skip = forEach2(
+      const skip = forEach(
         extensions,
-        ([, extension]) => extension.decorate?.(event) === F && stop2(true)
+        ([, extension]) => extension.decorate?.(event) === F && stop(true)
       );
 
       return skip ? undefined : event;
@@ -144,6 +163,17 @@ export const initializeTracker = (
   // Main
   const events = createEventQueue(VAR_URL, trackerContext);
 
+  let boundaryDataDefaults: TrackingBoundaryData<true> | undefined = {
+    track: { ...trackerConfig.defaultTracking },
+    layer: "default",
+    layerPriority: -10,
+  };
+
+  if (!checkTrackingEnabled(document.body)) {
+    ((boundaryDataDefaults ??= {}).track ??= {}).disable = true;
+    trackerConfig.disabled = true;
+  }
+
   let mainArgs: TrackerCommand[] | null = nil;
   let currentArg = 0;
   let insertArgs = F;
@@ -153,7 +183,7 @@ export const initializeTracker = (
   let ready = false;
   tracker = ((...commands: (TrackerCommand | string)[]) => {
     if (!ready) {
-      queuedCommands.push(...commands);
+      queuedCommands.push([commands]);
       return;
     }
 
@@ -169,7 +199,9 @@ export const initializeTracker = (
 
     if (isString(commands[0])) {
       const payload = commands[0];
-      commands = isJsonString(payload)
+      commands = !payload
+        ? []
+        : isJsonString(payload)
         ? JSON.parse(payload)
         : httpDecode(payload);
     }
@@ -177,9 +209,11 @@ export const initializeTracker = (
     let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
 
     commands = filter(
-      flatMap2(commands, (command) =>
-        isString(command) ? httpDecode<TrackerCommand>(command) : command
-      ),
+      flatMap(commands, (command) =>
+        command && isString(command)
+          ? httpDecode<TrackerCommand>(command)
+          : command
+      ) as TrackerCommand[],
       (command) => {
         if (!command) return F;
 
@@ -192,6 +226,19 @@ export const initializeTracker = (
         } else if (isToggleCommand(command)) {
           trackerConfig.disabled = command.disable;
           return F;
+        } else if (isConfigurationCommand(command)) {
+          boundaryDataDefaults = appendTrackingData(boundaryDataDefaults, {
+            track: command.track,
+          });
+
+          if (boundaryDataDefaults?.track?.disable != null) {
+            trackerConfig.disabled = boundaryDataDefaults.track.disable;
+          }
+          if (boundaryDataDefaults) {
+            boundaryDataDefaults.layer = "defaults";
+            boundaryDataDefaults.layerPriority = -10;
+          }
+          updateBoundaryData(document.body, boundaryDataDefaults);
         } else if (isFlushCommand(command)) {
           flush = T;
           return F;
@@ -204,7 +251,7 @@ export const initializeTracker = (
           !isListenerCommand(command) &&
           !isExtensionCommand(command)
         ) {
-          pendingStateCommands.push(command);
+          pendingPostConfigurationCommands.push(command);
           return F;
         }
         // #endregion
@@ -212,7 +259,7 @@ export const initializeTracker = (
       }
     );
 
-    if (!commands.length && !flush) {
+    if (!commands || (!commands.length && !flush) || trackerConfig.disabled) {
       return;
     }
 
@@ -230,7 +277,7 @@ export const initializeTracker = (
     // Put events last to allow listeners and interceptors from the same batch to work on them.
     // Sets come before gets to avoid unnecessary waiting
     // Extensions then listeners are first so they can evaluate the rest.
-    const expanded: TrackerCommand[] = sort(commands, getCommandRank);
+    const expanded = sort(commands as TrackerCommand[], getCommandRank);
 
     // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
     if (
@@ -244,64 +291,65 @@ export const initializeTracker = (
       return;
 
     mainArgs = expanded;
+    try {
+      for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
+        const command = mainArgs![currentArg];
 
-    for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
-      const command = mainArgs![currentArg];
+        if (!command) continue;
 
-      if (!command) continue;
-
-      trackerContext.validateKey(key ?? command.key),
-        tryCatch(
-          () => {
-            const command = mainArgs![currentArg];
-            callListeners("command", command);
-            insertArgs = F;
-            if (isTrackedEvent(command)) {
-              events.post(command);
-            } else if (isGetCommand(command)) {
-              variables.get(array2(command.get));
-            } else if (isSetCommand(command)) {
-              variables.set(array2(command.set));
-            } else if (isListenerCommand(command)) {
-              push(listeners, command.listener);
-            } else if (isExtensionCommand(command)) {
-              let extension: TrackerExtension | Nullish;
-              if (
-                (extension = tryCatch(
-                  () => command.extension.setup(tracker),
-                  (e) => logError(command.extension.id, e)
-                )!)
-              ) {
-                push(extensions, [
-                  command.priority ?? 100,
-                  extension,
-                  command.extension,
-                ]);
-                sort(extensions, ([priority]) => priority);
-              }
-            } else if (isTrackerAvailableCommand(command)) {
-              command(tracker); // Variables have already been loaded once.
-            } else {
-              let success = F;
-              for (const [, extension] of extensions) {
-                if ((success = extension.processCommand?.(command) ?? F)) {
-                  break;
+        trackerContext.validateKey(key ?? command.key),
+          tryCatch(
+            () => {
+              const command = mainArgs![currentArg];
+              callListeners("command", command);
+              insertArgs = F;
+              if (isTrackedEvent(command)) {
+                events.post(command);
+              } else if (isGetCommand(command)) {
+                variables.get(array(command.get));
+              } else if (isSetCommand(command)) {
+                variables.set(array(command.set));
+              } else if (isListenerCommand(command)) {
+                listeners.push(command.listener);
+              } else if (isExtensionCommand(command)) {
+                let extension: TrackerExtension | Nullish;
+                if (
+                  (extension = tryCatch(
+                    () => command.extension.setup(tracker),
+                    (e) => logError(command.extension.id, e)
+                  )!)
+                ) {
+                  extensions.push([
+                    command.priority ?? 100,
+                    extension,
+                    command.extension,
+                  ]);
+                  sort(extensions, ([priority]) => priority);
                 }
+              } else if (isTrackerAvailableCommand(command)) {
+                command(tracker); // Variables have already been loaded once.
+              } else {
+                let success = F;
+                for (const [, extension] of extensions) {
+                  if ((success = extension.processCommand?.(command) ?? F)) {
+                    break;
+                  }
+                }
+                !success &&
+                  logError(
+                    ERR_INVALID_COMMAND,
+                    command,
+                    "Loaded extensions:",
+                    map(extensions, (extension) => extension[2].id)
+                  );
               }
-              !success &&
-                logError(
-                  ERR_INVALID_COMMAND,
-                  command,
-                  "Loaded extensions:",
-                  map2(extensions, (extension) => extension[2].id)
-                );
-            }
-          },
-          (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
-        );
+            },
+            (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
+          );
+      }
+    } finally {
+      mainArgs = nil;
     }
-
-    mainArgs = nil;
     if (flush) {
       events.post([], { flush });
     }
@@ -327,7 +375,7 @@ export const initializeTracker = (
     // Make sure we have a session on the server before posting anything.
     // As part of this, we also get the device session ID.
     if (event === "ready") {
-      const [session, consent] = await variables
+      const [session, consent, deviceInfo] = await variables
         .get([
           {
             scope: "session",
@@ -342,26 +390,67 @@ export const initializeTracker = (
             refresh: true,
             cache: FOREVER,
           },
+          {
+            scope: "device",
+            key: SCOPE_INFO_KEY,
+            cache: true,
+          },
         ])
-        .values(true);
+        .values(false);
+
+      if (!session) {
+        console.warn("No session. Tracking is disabled;");
+        return;
+      }
+
+      debug(
+        {
+          consent: clearSchemaMetadata(consent),
+          session: {
+            firstSeenDate: formatTimestamp(session.firstSeen),
+            lastSeenDate: formatTimestamp(session.lastSeen),
+            duration: formatDuration(session.lastSeen - session.firstSeen),
+            ...clearSchemaMetadata(session),
+          },
+          device: deviceInfo
+            ? {
+                firstSeenDate: formatTimestamp(deviceInfo.firstSeen),
+                lastSeenDate: formatTimestamp(deviceInfo.lastSeen),
+                duration: formatDuration(
+                  deviceInfo.lastSeen - deviceInfo.firstSeen
+                ),
+                ...clearSchemaMetadata(deviceInfo),
+              }
+            : "(anonymous session)",
+        },
+        "Session and device info"
+      );
 
       trackerContext.deviceSessionId = session.deviceSessionId;
+
+      unbind();
+
+      updateBoundaryData(document.body, boundaryDataDefaults);
+
+      // Now we accept commands.
+      ready = true;
+      tracker(...map(defaultExtensions, (extension) => ({ extension })));
+
+      // Now we also accept command unrelated to configuration, listeners and extensions.
+      globalStateResolved = true;
 
       if (!session.hasUserAgent) {
         postUserAgentEvent(tracker);
         session.hasUserAgent = true;
       }
-      globalStateResolved = true;
-      pendingStateCommands.length && tracker(pendingStateCommands);
 
-      unbind();
-
-      // Now we accept commands.
-      ready = true;
-      tracker(
-        ...map2(defaultExtensions, (extension) => ({ extension })),
-        ...queuedCommands
-      );
+      pendingPostConfigurationCommands.length &&
+        tracker(pendingPostConfigurationCommands);
+      for (const commandGroup of queuedCommands) {
+        if (commandGroup.length) {
+          (tracker as any)(...commandGroup);
+        }
+      }
       tracker({ set: { scope: "view", key: "loaded", value: true } });
     }
   }, true);

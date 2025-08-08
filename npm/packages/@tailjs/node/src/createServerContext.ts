@@ -95,6 +95,7 @@ export const createServerContext: {
 
     const host = new NativeHost({
       rootPath: finalConfig!.resourcesPath ?? "./res",
+      logger: finalConfig!.logger,
     });
     finalConfig!.extensions ??= [
       (console.warn(

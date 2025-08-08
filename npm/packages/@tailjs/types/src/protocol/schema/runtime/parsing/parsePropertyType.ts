@@ -1,4 +1,4 @@
-import { indent2, isArray, map2, throwError } from "@tailjs/util";
+import { indent, isArray, map, throwError } from "@tailjs/util";
 import { createSchemaTypeMapper, parseType, TypeParseContext } from ".";
 import {
   SchemaObjectType,
@@ -40,7 +40,7 @@ export const parsePropertyType = (
       if (enumValues) {
         name +=
           " [" +
-          map2(enumValues, (value) => JSON.stringify(value)).join(", ") +
+          map(enumValues, (value) => JSON.stringify(value)).join(", ") +
           "]";
       }
 
@@ -245,7 +245,13 @@ export const parsePropertyType = (
           "Object-typed properties can only be parsed in the context of a named property (none was provided)."
         );
       }
-      return parseType(definition, parseContext, property, typeNamePostfix);
+      const type = parseType(
+        definition,
+        parseContext,
+        property,
+        typeNamePostfix
+      );
+      return type;
     }
 
     if (!("union" in definition)) {
@@ -327,7 +333,7 @@ export const parsePropertyType = (
                   source: target,
                   message: `${formatErrorSource(
                     target
-                  )} does not match any of the allowed types ${unionTypeList}:\n${indent2(
+                  )} does not match any of the allowed types ${unionTypeList}:\n${indent(
                     formatValidationErrors(aggregatedErrors, "- ")
                   )}`,
                 });

@@ -4,16 +4,16 @@
 import { type TrackerClientConfiguration } from "@tailjs/client/external";
 import {
   JsonSchemaAdapter,
+  OptionalPurposes,
   SchemaDefinition,
   UserConsent,
-  type DataPurposes,
 } from "@tailjs/types";
 import {
-  add2,
+  add,
   AllRequired,
   ellipsis,
-  forEach2,
-  get2,
+  forEach,
+  get,
   JsonObject,
   required,
   throwError,
@@ -116,7 +116,7 @@ export type RequestHandlerConfiguration = {
   /**
    * The configuration for the client-side tracker.
    */
-  client?: TrackerClientConfiguration;
+  client?: Partial<TrackerClientConfiguration>;
 
   /**
    * The specific logic that maps a cookie-less client request to a unique'ish identifier.
@@ -149,23 +149,7 @@ export type RequestHandlerConfiguration = {
    * That is, consent for inactive purposes cannot be controlled independently if not active.
    *
    */
-  additionalPurposes?: Pick<DataPurposes, "personalization" | "security">;
-
-  /**
-   * Whether device cookies should be split by purpose (performance, functionality etc.) or just be shared in one,
-   * if the user has consented to any of these. No device cookies are stored without consent.
-   *
-   * Depending on your preferences, you may found one of the approaches more convenient when documenting the cookies
-   * used on your site.
-   *
-   *  Regardless, tail.js will not store data for purposes the user has not consented to, and existing data will get purged
-   *  if the user withdraws their consent, so it should not make any difference from a legal point of view whether one or multiple cookies are used.
-   *
-   * This setting only apply to device data since non-essential session data will not be persisted at the client.
-   *
-   * @default false
-   */
-  cookiePerPurpose?: boolean;
+  additionalPurposes?: Partial<OptionalPurposes>;
 
   /**
    * Mappings of on or more backends that provides variables in the different scopes.
@@ -182,6 +166,12 @@ export type RequestHandlerConfiguration = {
 
   /** Settings for the tracker environment. */
   environment?: TrackerEnvironmentSettings;
+
+  /**
+   * The number of different client keys. A version of client script will be cached for each of these.
+   * @default 5
+   */
+  clientKeys?: number;
 };
 
 export const DEFAULT:
@@ -219,7 +209,6 @@ export const DEFAULT:
     },
   } satisfies Partial<TrackerClientConfiguration> as any,
   clientEncryptionKeySeed: "tailjs",
-  cookiePerPurpose: false,
   json: false,
   defaultConsent: {
     classification: "anonymous",
@@ -227,8 +216,10 @@ export const DEFAULT:
   },
 
   environment: {
-    idLength: 12,
+    idLength: 10,
   },
+
+  clientKeys: 5,
 };
 
 export type SchemaPatchFunction = (
@@ -276,19 +267,19 @@ export class SchemaBuilder {
    * If the intended target schema is not present, `undefined` is passed which gives an opportunity to do nothing or throw an error.
    */
   public patchSchema(namespace: string, patch: SchemaPatchFunction) {
-    get2(this._patches, namespace, () => []).push(patch);
+    get(this._patches, namespace, () => []).push(patch);
   }
 
   private _applyPatches(schemas: SchemaDefinition[]) {
     const usedPatches = new Set<SchemaPatchFunction>();
     for (const schema of schemas) {
-      forEach2(this._patches.get(schema.namespace), (patch) => {
+      forEach(this._patches.get(schema.namespace), (patch) => {
         usedPatches.add(patch);
         patch(schema);
       });
     }
-    forEach2(this._patches, ([, patches]) =>
-      forEach2(patches, (patch) => !usedPatches.has(patch) && patch(undefined))
+    forEach(this._patches, ([, patches]) =>
+      forEach(patches, (patch) => !usedPatches.has(patch) && patch(undefined))
     );
   }
 
@@ -320,7 +311,7 @@ export class SchemaBuilder {
     }
     const usedNamespaces = new Set<string>();
     for (const schema of schemas) {
-      if (!add2(usedNamespaces, schema.namespace)) {
+      if (!add(usedNamespaces, schema.namespace)) {
         throwError(
           `A schema with the namespace '${schema.namespace}' has been registered more than once.`
         );

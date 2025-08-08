@@ -24,4 +24,13 @@ export const trackerConfig: Required<
   captureContextMenu: true,
 
   tags: { default: ["data-id", "data-name"] },
+
+  defaultTracking: {
+    clicks: true,
+    disable: false,
+    formFields: { values: "checkbox-only", privacy: "anonymous" },
+    forms: true,
+    impressions: false,
+    region: false,
+  },
 };

@@ -48,7 +48,11 @@ export type KnownTrackerKeys = {
 export type TrackerEnvironmentSettings = {
   /**
    * The length of the ShortUids generated.
-   * @default 12
+   * The default of 10 is the largest number that can be represented as an 64 bit integer,
+   * which may be convenient in data warehouse scenarios because they compress well.
+   * (ZZZZZZZZZZ base 62 = 839299365868340223 base 10)
+   *
+   * @default 10
    */
   idLength?: number;
 
@@ -95,7 +99,7 @@ export class TrackerEnvironment {
     host: EngineHost,
     crypto: CryptoProvider,
     storage: VariableStorageCoordinator,
-    { idLength = 12, tags, uidGenerator }: TrackerEnvironmentSettings = {}
+    { idLength = 10, tags, uidGenerator }: TrackerEnvironmentSettings = {}
   ) {
     this._host = host;
     this._crypto = crypto;

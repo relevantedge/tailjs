@@ -8,7 +8,7 @@ import {
   VariableSetResult,
   VariableSuccessResult,
 } from "@tailjs/types";
-import { filter2, flatMap2, map2 } from "@tailjs/util";
+import { filter, flatMap, map } from "@tailjs/util";
 import {
   InMemoryStorage,
   VariableStorage,
@@ -16,8 +16,13 @@ import {
   VariableStorageCoordinator,
 } from "../src";
 import { SessionInfoSchema } from "./test-schemas";
+import ShortUniqueId from "short-unique-id";
 
 describe("VariableStorageCoordinator", () => {
+  it("Baboo", () => {
+    const uids = new ShortUniqueId({ length: 10 });
+    console.log(uids.approxMaxBeforeCollision());
+  });
   const createTypeResolver = () => {
     return new TypeResolver([
       {
@@ -621,10 +626,10 @@ describe("VariableStorageCoordinator", () => {
       { trusted: true }
     );
 
-    const sessionIds = map2(100, (i) => "session" + i);
-    const userIds = map2(20, (i) => "user" + i);
+    const sessionIds = map(100, (i) => "session" + i);
+    const userIds = map(20, (i) => "user" + i);
     await coordinator.set(
-      map2(
+      map(
         sessionIds,
         (entityId) =>
           ({
@@ -698,7 +703,7 @@ describe("VariableStorageCoordinator", () => {
     expect(cursor).toBeUndefined();
 
     await coordinator.set(
-      map2(userIds, (entityId) => ({
+      map(userIds, (entityId) => ({
         scope: "user" as const,
         key: "test1",
         entityId: entityId,
@@ -807,7 +812,7 @@ describe("VariableStorageCoordinator", () => {
     expect(cursor).toBeUndefined();
 
     await coordinator.set(
-      flatMap2(
+      flatMap(
         sessionIds.slice(0, 20),
         (entityId, i) =>
           [
@@ -841,7 +846,7 @@ describe("VariableStorageCoordinator", () => {
 
     expect(variables.length).toBe(120); // Half of the test 1 variables have been deleted and 20 session:test2, 20 user:test2 and 10 user:test4 have been added.
     expect(
-      filter2(variables, (variable) => variable.value.test === "CDP").length
+      filter(variables, (variable) => variable.value.test === "CDP").length
     ).toBe(20);
     expect(cursor).toBeUndefined();
 

@@ -1,15 +1,17 @@
-import { itemize2, MaybeNullish, Nullish } from "@tailjs/util";
+import { itemize, MaybeNullish, Nullish } from "@tailjs/util";
 import {
   DataClassification,
   DataPurposes,
+  OptionalPurposes,
   PurposeTestOptions,
   SchemaDataUsage,
+  UserConsent,
 } from ".";
 
 export const formatDataUsage = (usage?: DataUsage) =>
-  `${usage?.classification ?? "anonymous"} data for ${itemize2(
+  `${usage?.classification ?? "anonymous"} data for ${itemize(
     DataPurposes.parse(usage?.purposes, { names: true })
-  )}  purposes.`;
+  )} purposes.`;
 
 export const validateConsent = (
   target: DataUsage,
@@ -80,15 +82,16 @@ export const DataUsage = {
   anonymous: {
     classification: "anonymous",
     purposes: {},
-  } as DataUsage,
-  clone: <T extends DataUsage | Nullish>(
+  } as UserConsent,
+  clone: <T extends UserConsent | Nullish>(
     usage: T
-  ): MaybeNullish<T, DataUsage> =>
+  ): MaybeNullish<T, UserConsent> =>
     usage &&
     ({
       classification: usage.classification,
       purposes: { ...usage.purposes },
-    } satisfies DataUsage as any),
+      source: usage.source,
+    } satisfies UserConsent as any),
 
   equals: (usage1: DataUsage | Nullish, usage2: DataUsage | Nullish) =>
     usage1 === usage2 ||
@@ -100,7 +103,30 @@ export const DataUsage = {
         optionalPurposes: true,
       })),
 
-  serialize: (usage: DataUsage): string | null => {
+  applyOptional: <T extends UserConsent | Nullish>(
+    usage: T,
+    optional: Partial<OptionalPurposes> = {}
+  ): T => {
+    if (!usage) {
+      return usage;
+    }
+    if (!optional.security) {
+      usage.purposes.security = true;
+    }
+    if (!optional.personalization) {
+      usage.purposes.personalization = usage.purposes.functionality;
+    }
+    return usage;
+  },
+
+  serialize: (
+    usage: UserConsent,
+    optional?: Partial<OptionalPurposes>
+  ): string | null => {
+    if (!optional?.security) {
+      usage = { ...usage, purposes: { ...usage.purposes } };
+      delete usage.purposes.security;
+    }
     const purposes = DataPurposes.parse(usage.purposes, {
       names: true,
       includeDefault: false,
@@ -109,22 +135,27 @@ export const DataUsage = {
     return (!usage.classification || usage.classification === "anonymous") &&
       !purposes?.length
       ? null
-      : `${usage.classification}:${purposes}`;
+      : `${usage.classification}:${purposes}${
+          usage.source ? ` (${usage.source})` : ""
+        }`;
   },
 
   deserialize: (
     usageString: string | Nullish,
-    defaultUsage?: DataUsage
-  ): DataUsage => {
+    defaultUsage?: UserConsent
+  ): UserConsent => {
     if (!usageString)
       return defaultUsage
         ? DataUsage.clone(defaultUsage)
         : { classification: "anonymous", purposes: {} };
-    const [classification, purposes] = usageString.split(":");
+    const match =
+      usageString.match(
+        /^\s*([^:]+):((?:\s+[^(]|[^\s])*)(?:\s+\((.+)\)\s*$)?/
+      ) ?? [];
     return {
-      classification:
-        DataClassification.parse(classification, false) ?? "anonymous",
-      purposes: DataPurposes.parse(purposes, { validate: false }) ?? {},
+      classification: DataClassification.parse(match[1], false) ?? "anonymous",
+      purposes: DataPurposes.parse(match[2], { validate: false }) ?? {},
+      source: match[3],
     };
   },
 };

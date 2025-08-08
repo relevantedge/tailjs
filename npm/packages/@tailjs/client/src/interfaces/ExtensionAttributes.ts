@@ -1,11 +1,11 @@
 import type {
   CartAction,
   CartEventData,
-  ConsentEvent,
-  FormEvent,
+  DataClassification,
+  FormFieldTrackingLevel,
+  TrackingBehavior,
 } from "@tailjs/types";
-import { ParsableTags } from "@tailjs/types";
-import { BoundaryData } from "..";
+import { ParsableTags, TrackingBoundaryData } from "@tailjs/types";
 
 /***
  * Attributes that can be added to HTML elements to extend tracking.
@@ -15,61 +15,54 @@ export interface TrackerAttributes {
   /**
    * The DOM element represents a layout area where components are inserted.
    */
-  ["track-area"]?: BoundaryData["area"];
+  ["data-track-area"]?: TrackingBoundaryData["area"];
 
   /**
    * The DOM element represents a component
    */
-  ["track-component"]?: string | BoundaryData["component"];
+  ["data-track-component"]?: string | TrackingBoundaryData["components"];
 
   /**
    * The DOM element represents a container for content.
    */
-  ["track-content"]?: BoundaryData["content"];
+  ["data-track-content"]?: TrackingBoundaryData["content"];
 
   /**
    * These tags will be added to user activations with this DOM element or any of its descendants.
    */
-  ["track-tags"]?: ParsableTags;
+  ["data-track-tags"]?: ParsableTags;
 
   /**
    * Track clicks on this DOM element as if it was a button (clicks are tracked by default for A and BUTTON elements).
    * If the `track-cart` attribute is present the element is already assumed to be a button.
    */
-  ["track-button"]?: boolean | 0 | 1 | "";
+  ["data-track-button"]?: boolean | 0 | 1 | "";
 
   /**
    * An element with this attribute modifies the cart.
    * If not an object it is shorthand for the {@link CartCommandParameters.action} property where `true` or the empty string means `add`.
    */
-  ["track-cart"]?: "" | true | CartAction | CartEventData;
+  ["data-track-cart"]?: "" | true | CartAction | CartEventData;
 
   /**
    * Whether clicks are tracked or not.
    * This needs to be set to `true` on links and buttons rendered from server-side React components
    * if the tracker context should be included in the click events.
    */
-  ["track-clicks"]?: boolean;
+  ["data-track-clicks"]?: boolean;
 
   /**
-   * Used to indicate that the form field should be included in the {@link FormEvent} if the form is submitted.
-   * It can be put on either each field individually or the entire form.
-   *
-   * Be careful NOT TO INADVERTENTLY TRACK PERSONAL DATA.
-   * If you do it on purpose it may be perfectly fine depending on which backends you have connected.
-   *
-   * This attribute has no effect unless the user has consented via an {@link ConsentEvent}.
+   * Corresponds to setting {@link TrackingBehavior.forms}.
    */
-  ["track-field"]?: boolean;
+  ["data-track-form"]?: boolean;
 
   /**
-   * Corresponds to setting {@link TrackerAttributes["track-fields"]} on all fields. (Those with `track-fields` set to false will not be tracked).
-   *
+   * Corresponds to setting {@link TrackingBehavior.formFields.values}.
    */
-  ["track-form"]?: boolean;
+  ["data-track-field"]?: FormFieldTrackingLevel;
 
   /**
-   * Defines the maximum amount of characters that will be sent when used in combination with {@link TrackerAttributes["track-fields"]} or {@link TrackerAttributes["track-form"]}.
+   * Corresponds to setting {@link TrackingBehavior.formFields.privacy}.
    */
-  ["track-max-length"]?: number;
+  ["data-track-field-privacy"]?: DataClassification;
 }

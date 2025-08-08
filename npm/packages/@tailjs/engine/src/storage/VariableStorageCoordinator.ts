@@ -4,6 +4,7 @@ import {
   DataPurposes,
   DataUsage,
   extractKey,
+  extractVariable,
   filterKeys,
   filterRangeValue,
   formatValidationErrors,
@@ -23,6 +24,7 @@ import {
   toVariableResultPromise,
   TypeResolver,
   ValidatableSchemaEntity,
+  validateVariableKeySyntax,
   VALIDATION_ERROR_SYMBOL,
   Variable,
   VariableGetResult,
@@ -38,28 +40,30 @@ import {
   VariableServerScope,
   VariableSetResult,
   VariableSetter,
+  VariableValueErrorResult,
   VariableValueSetter,
   WithCallbacks,
 } from "@tailjs/types";
 import {
   AllRequired,
-  array2,
+  array,
   ArrayOrSelf,
   delay,
   Falsish,
-  forEach2,
+  forEach,
   formatError,
   isArray,
-  itemize2,
-  keyCount2,
-  map2,
-  merge2,
+  itemize,
+  keyCount,
+  map,
+  MaybePromise,
+  merge,
   now,
   Nullish,
-  skip2,
-  some2,
+  skip,
+  some,
   throwError,
-  truish2,
+  truish,
 } from "@tailjs/util";
 import {
   clearTrace,
@@ -167,6 +171,13 @@ const DEFAULT_SETTINGS: AllRequired<
 export const isTransientErrorObject = (error: any) =>
   error?.["transient"] || (error?.message + "").match(/\btransient\b/i) != null;
 
+export interface VariableCache {
+  get(key: VariableKey): MaybePromise<Variable | undefined>;
+
+  /** TODO: Bulk purge operations do not clear the cache. */
+  set?(key: VariableKey, variable: Variable | undefined): MaybePromise<void>;
+}
+
 export type VariableStorageContext = {
   /** The current entity IDs for session and user scope. */
   scope?: {
@@ -186,6 +197,8 @@ export type VariableStorageContext = {
   dynamicVariables?: {
     [P in VariableServerScope]?: { [P in string]?: (key: VariableKey) => any };
   };
+
+  cache?: VariableCache;
 };
 
 const mapValidationContext = (
@@ -231,7 +244,7 @@ const retryDelay = (settings: RetrySettings) =>
 const validateEntityId = <T extends { scope: string; entityId?: string }>(
   target: T,
   context: VariableStorageContext
-): T => {
+): T | null => {
   if (context.scope == null || target.scope === "global") {
     if (target.entityId == undefined) {
       throwError(
@@ -242,9 +255,7 @@ const validateEntityId = <T extends { scope: string; entityId?: string }>(
   }
   const expectedId = context.scope[target.scope + "Id"];
   if (expectedId == undefined) {
-    throwError(
-      `No ID is available for ${target.scope} scope in the current session.`
-    );
+    return null; //No ID available for scope in context.
   }
   if (target.entityId && expectedId !== target.entityId) {
     throwError(
@@ -271,6 +282,19 @@ const DEFAULT_USAGE: SchemaDataUsage = {
   readonly: false,
   visibility: "public",
   ...DataUsage.anonymous,
+};
+
+const invalidVariableKeyToErrorResult = (
+  key: VariableKey & { scope?: string | null }
+): VariableValueErrorResult | undefined => {
+  const errorMessage = validateVariableKeySyntax(key);
+  return errorMessage
+    ? {
+        status: VariableResultStatus.BadRequest,
+        ...key,
+        error: errorMessage,
+      }
+    : undefined;
 };
 
 export class VariableStorageCoordinator<
@@ -312,7 +336,7 @@ export class VariableStorageCoordinator<
           ? this._types.subset(scopeMappings.schemas)
           : this._types
       );
-      forEach2(scopeMappings.prefixes, ([prefix, config]) => {
+      forEach(scopeMappings.prefixes, ([prefix, config]) => {
         if (!config) return;
 
         this._storageTypeResolvers.set(
@@ -325,7 +349,7 @@ export class VariableStorageCoordinator<
     ({
       retries: { patch: this._patchRetries, error: this._errorRetries },
       errorLogger: this._errorLogger,
-    } = this._settings = merge2(settings, [defaultContext, DEFAULT_SETTINGS], {
+    } = this._settings = merge(settings, [defaultContext, DEFAULT_SETTINGS], {
       overwrite: false,
     }));
   }
@@ -344,7 +368,7 @@ export class VariableStorageCoordinator<
       )
     );
   }
-  private _getVariable(key: {
+  private _getSchemaVariable(key: {
     scope: string;
     key: string;
     source?: string | null;
@@ -360,7 +384,7 @@ export class VariableStorageCoordinator<
     for (const [, result] of results) {
       clearTrace(result);
       if (isVariableResult(result)) {
-        const variable = this._getVariable(result);
+        const variable = this._getSchemaVariable(result);
         if (variable && "properties" in variable.type) {
           result.schema = {
             type: variable.type.id,
@@ -420,8 +444,20 @@ export class VariableStorageCoordinator<
 
         let index = 0;
         for (const getter of getters) {
+          const syntaxErrorResult = invalidVariableKeyToErrorResult(getter);
+          if (syntaxErrorResult) {
+            results.set(getter, syntaxErrorResult);
+            continue;
+          }
           try {
-            validateEntityId(getter, context);
+            if (validateEntityId(getter, context) === null) {
+              results.set(getter, {
+                status: VariableResultStatus.NotFound,
+                ...extractKey(getter),
+                message: `No ID is available for ${getter.scope} scope in the current session.`,
+              });
+              continue;
+            }
           } catch (error) {
             results.set(
               getter,
@@ -437,11 +473,17 @@ export class VariableStorageCoordinator<
             continue;
           }
 
-          const type = this._getVariable(getter);
+          const type = this._getSchemaVariable(getter);
           if (type) {
             const targetPurpose = getter.purpose;
-            if (type.dynamic) {
+            const cached =
+              getter.cache && !getter.refresh && context.cache
+                ? await context.cache.get(getter)
+                : undefined;
+
+            if (type.dynamic || cached) {
               let value =
+                cached ??
                 context.dynamicVariables?.[getter.scope]?.[getter.key]?.(
                   getter
                 );
@@ -460,9 +502,11 @@ export class VariableStorageCoordinator<
                   results.set(getter, {
                     status: VariableResultStatus.Error,
                     ...extractKey(getter),
-                    error: `Validation of the dynamically generated variable value failed: ${formatValidationErrors(
-                      errors
-                    )}.`,
+                    error: `Validation of the ${
+                      cached ? "cached" : "dynamically generated"
+                    } variable ${formatVariableKey(
+                      getter
+                    )} value failed: ${formatValidationErrors(errors)}.`,
                   });
                   continue;
                 }
@@ -506,7 +550,7 @@ export class VariableStorageCoordinator<
           results.set(getter, {
             status: VariableResultStatus.BadRequest,
             ...extractKey(getter),
-            error: formatVariableKey(getter, "is not defined"),
+            error: formatVariableKey(getter, "is not defined in the schema"),
           });
         }
 
@@ -653,6 +697,17 @@ export class VariableStorageCoordinator<
           }
         }
 
+        for (const [key, variable] of results) {
+          removeLocalScopeIds(variable, context);
+          removeLocalScopeIds(variable, context);
+          if (
+            variable.status === VariableResultStatus.Created &&
+            context.cache?.set
+          ) {
+            context.cache.set(key, extractVariable(variable));
+          }
+        }
+
         return this._assignResultSchemas(results);
       }
     ) as any;
@@ -691,10 +746,22 @@ export class VariableStorageCoordinator<
 
       let index = 0;
       for (const setter of setters) {
+        const syntaxErrorResult = invalidVariableKeyToErrorResult(setter);
+        if (syntaxErrorResult) {
+          results.set(setter, syntaxErrorResult);
+          continue;
+        }
         let type: SchemaVariable | undefined;
         try {
-          validateEntityId(setter, context);
-          type = this._getVariable(setter);
+          if (validateEntityId(setter, context) === null) {
+            results.set(setter, {
+              status: VariableResultStatus.NotFound,
+              ...extractKey(setter),
+              message: `No ID is available for ${setter.scope} scope in the current session.`,
+            });
+            continue;
+          }
+          type = this._getSchemaVariable(setter);
         } catch (error) {
           results.set(
             setter,
@@ -894,6 +961,16 @@ export class VariableStorageCoordinator<
         }
       }
 
+      for (const [key, variable] of results) {
+        removeLocalScopeIds(variable, context);
+        if (isSuccessResult(variable) && context.cache?.set) {
+          context.cache.set(
+            key,
+            variable.version ? extractVariable(variable) : undefined
+          );
+        }
+      }
+
       return this._assignResultSchemas(results);
     }) as any;
   }
@@ -905,7 +982,7 @@ export class VariableStorageCoordinator<
     purgeFilter: boolean
   ): Promise<R> {
     const mapped: VariableStorageQuery[] = [];
-    for (let query of this._storage.splitSourceQueries(truish2(filters))) {
+    for (let query of this._storage.splitSourceQueries(truish(filters))) {
       const contextScopes = context.scope;
       if (contextScopes != null && query.scope !== "global") {
         const scopeEntityId = contextScopes[query.scope + "Id"];
@@ -916,16 +993,16 @@ export class VariableStorageCoordinator<
 
           if (invalidEntityIds?.length) {
             throwError(
-              `The entity IDs ${itemize2(
-                invalidEntityIds
-              )} are not allowed in ${query.scope} scope.`
+              `The entity IDs ${itemize(invalidEntityIds)} are not allowed in ${
+                query.scope
+              } scope.`
             );
           }
           query.entityIds = [scopeEntityId];
         } else {
-          throwError(
-            `No ID is available for ${query.scope} scope in the current session.`
-          );
+          // No ID is available for ${query.scope} scope in the current session.
+
+          continue;
         }
       }
 
@@ -934,7 +1011,7 @@ export class VariableStorageCoordinator<
 
       if (query.classification || query.purposes) {
         const scopeVariables = resolver.variables[query.scope];
-        forEach2(scopeVariables, ([key, variable]) => {
+        forEach(scopeVariables, ([key, variable]) => {
           const usage = variable.usage;
           if (!usage) return;
           if (
@@ -967,7 +1044,7 @@ export class VariableStorageCoordinator<
         if (query.keys) {
           variableKeys = filterKeys(query.keys, variableKeys);
         }
-        if (variableKeys.length < keyCount2(scopeVariables)) {
+        if (variableKeys.length < keyCount(scopeVariables)) {
           query = {
             ...query,
             keys: variableKeys,
@@ -975,7 +1052,7 @@ export class VariableStorageCoordinator<
         }
       }
       const { scope, entityIds, keys, ifModifiedSince } = query;
-      const keyArray = array2(keys?.not ?? keys);
+      const keyArray = array(keys?.not ?? keys);
       mapped.push({
         scope,
         entityIds,
@@ -1013,10 +1090,10 @@ export class VariableStorageCoordinator<
       filters = [filters];
     }
 
-    filters = truish2(filters);
+    filters = truish(filters);
     if (
       (!bulk || !context.trusted) &&
-      some2(
+      some(
         filters,
         (filter: VariableQuery<VariableServerScope>) => !filter.entityIds
       )
@@ -1062,8 +1139,8 @@ export class VariableStorageCoordinator<
           this._assignResultSchemas(
             result.variables.map((variable) => [, variable])
           );
-          result.variables = map2(result.variables, (variable) => {
-            const variableType = this._getVariable(variable);
+          result.variables = map(result.variables, (variable) => {
+            const variableType = this._getSchemaVariable(variable);
             const censored = variableType?.censor(
               variable.value,
               validationContext
@@ -1073,7 +1150,7 @@ export class VariableStorageCoordinator<
                 ? variable.value !== censored
                   ? { ...variable, value: censored }
                   : variable
-                : skip2
+                : skip
               : variable;
           });
         }
@@ -1113,3 +1190,14 @@ export class VariableStorageCoordinator<
     await this._storage.initialize(environment);
   }
 }
+
+const removeLocalScopeIds = <T extends VariableKey>(
+  variable: T,
+  context: VariableStorageContext
+): boolean => {
+  if (context?.scope?.[variable.scope + "Id"]) {
+    variable.entityId = undefined!;
+    return true;
+  }
+  return false;
+};

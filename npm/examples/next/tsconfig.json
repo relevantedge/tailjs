@@ -19,7 +19,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@tailjs/react"]
   },
   "include": [
     "next-env.d.ts",

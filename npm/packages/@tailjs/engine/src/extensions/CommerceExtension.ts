@@ -4,11 +4,15 @@ import {
   Content,
   Order,
   OrderLine,
-  TrackedEvent,
   isCartEvent,
   isOrderEvent,
 } from "@tailjs/types";
-import type { NextPatchExtension, TrackerExtension } from "..";
+import type {
+  NextPatchExtension,
+  ParseResult,
+  TrackedEventBatch,
+  TrackerExtension,
+} from "..";
 
 function fillPriceDefaults(
   data: CommerceData,
@@ -82,10 +86,10 @@ function normalizeOrderLine<T extends OrderLine>(line: T): T {
 export class CommerceExtension implements TrackerExtension {
   public readonly id = "commerce";
 
-  patch?(
-    events: TrackedEvent[],
+  patch(
+    { events }: TrackedEventBatch,
     next: NextPatchExtension
-  ): Promise<TrackedEvent[]> {
+  ): Promise<ParseResult[]> {
     return next(
       events.map((event) =>
         isOrderEvent(event)
