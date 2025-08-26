@@ -30,9 +30,9 @@
   "module": "./index.mjs",
   "types": "./index.d.ts",
   "dependencies": {
-    "@tailjs/client": "github:relevantedge/tailjs#dist/0.42/client",
-    "@tailjs/types": "github:relevantedge/tailjs#dist/0.42/types",
-    "@tailjs/util": "github:relevantedge/tailjs#dist/0.42/util",
+    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42",
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42",
     "enhanced-resolve": "^5.18.1",
     "resolve-from": "^5.0.0"
   },

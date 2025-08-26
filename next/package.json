@@ -35,10 +35,10 @@
     "tailjs-init-next": "./cli/tailjs-init-next.cjs"
   },
   "dependencies": {
-    "@tailjs/client": "github:relevantedge/tailjs#dist/0.42/client",
-    "@tailjs/engine": "github:relevantedge/tailjs#dist/0.42/engine",
-    "@tailjs/node": "github:relevantedge/tailjs#dist/0.42/node",
-    "@tailjs/react": "github:relevantedge/tailjs#dist/0.42/react"
+    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42",
+    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?latest/0.42",
+    "@tailjs/node": "https://gitpkg.vercel.app/relevantedge/tailjs/node?latest/0.42",
+    "@tailjs/react": "https://gitpkg.vercel.app/relevantedge/tailjs/react?latest/0.42"
   },
   "peerDependencies": {
     "next": ">=14.2.0",

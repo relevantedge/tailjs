@@ -25,11 +25,11 @@
     "tailjs": "./cli/tailjs.cjs"
   },
   "dependencies": {
-    "@tailjs/client": "github:relevantedge/tailjs#dist/0.42/client",
-    "@tailjs/engine": "github:relevantedge/tailjs#dist/0.42/engine",
-    "@tailjs/transport": "github:relevantedge/tailjs#dist/0.42/transport",
-    "@tailjs/types": "github:relevantedge/tailjs#dist/0.42/types",
-    "@tailjs/util": "github:relevantedge/tailjs#dist/0.42/util",
+    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42",
+    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?latest/0.42",
+    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?latest/0.42",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42",
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42",
     "on-headers": "^1.0.2",
     "request-ip": "^3.3.0",
     "tar": "^7.4.3",

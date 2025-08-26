@@ -32,6 +32,6 @@
   "module": "./index.mjs",
   "types": "./index.d.ts",
   "dependencies": {
-    "@tailjs/util": "github:relevantedge/tailjs#dist/0.42/util"
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42"
   }
 }
