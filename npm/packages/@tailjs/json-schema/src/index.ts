@@ -1,1 +1,0 @@
-const nop = 1;
