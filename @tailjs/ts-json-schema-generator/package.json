@@ -1,0 +1,28 @@
+{
+  "name": "@tailjs/ts-json-schema-generator",
+  "version": "0.42.0-preview2",
+  "description": "Extensions and patches for ts-json-schema-generator for providing the JSON schema structure tail.js wants.",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "license": "LGPL3",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./index.d.ts",
+        "default": "./index.mjs"
+      },
+      "require": {
+        "types": "./index.d.ts",
+        "default": "./index.cjs"
+      }
+    }
+  },
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@tailjs/types": "github:relevantedge/tailjs#dist/0.42/types",
+    "@tailjs/util": "github:relevantedge/tailjs#dist/0.42/util"
+  }
+}

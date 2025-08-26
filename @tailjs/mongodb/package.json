@@ -1,0 +1,33 @@
+{
+  "name": "@tailjs/mongodb",
+  "version": "0.42.0-preview2",
+  "private": true,
+  "description": "tail.js MongoDB backend (including MongoDB compatible databases like Cosmos DB configured for MongoDB).",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "license": "LGPL3",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./index.d.ts",
+        "default": "./index.mjs"
+      },
+      "require": {
+        "types": "./index.d.ts",
+        "default": "./index.cjs"
+      }
+    }
+  },
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@tailjs/engine": "github:relevantedge/tailjs#dist/0.42/engine",
+    "@tailjs/types": "github:relevantedge/tailjs#dist/0.42/types",
+    "@tailjs/util": "github:relevantedge/tailjs#dist/0.42/util",
+    "@types/node": "^22.13.9",
+    "mongodb": "^6.14.1",
+    "semaphore-async-await": "^1.5.1"
+  }
+}

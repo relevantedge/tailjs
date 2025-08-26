@@ -1,0 +1,37 @@
+{
+  "name": "@tailjs/types",
+  "version": "0.42.0-preview2",
+  "description": "Default type definitions for tailjs.",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "license": "LGPL3",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./index.d.ts",
+        "default": "./index.mjs"
+      },
+      "require": {
+        "types": "./index.d.ts",
+        "default": "./index.cjs"
+      }
+    },
+    "./schema": {
+      "import": {
+        "types": "./schema/index.d.ts",
+        "default": "./schema/index.mjs"
+      },
+      "require": {
+        "types": "./schema/index.d.ts",
+        "default": "./schema/index.cjs"
+      }
+    }
+  },
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@tailjs/util": "github:relevantedge/tailjs#dist/0.42/util"
+  }
+}

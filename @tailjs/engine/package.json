@@ -1,0 +1,32 @@
+{
+  "name": "@tailjs/engine",
+  "version": "0.42.0-preview2",
+  "description": "tail.js server engine (@tailjs/server/external can be used directly from an external V8 engine without nodejs. This is how e.g. the .NET interop works).",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "license": "LGPL3",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./index.d.ts",
+        "default": "./index.mjs"
+      },
+      "require": {
+        "types": "./index.d.ts",
+        "default": "./index.cjs"
+      }
+    }
+  },
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@tailjs/client": "github:relevantedge/tailjs#dist/0.42/client",
+    "@tailjs/transport": "github:relevantedge/tailjs#dist/0.42/transport",
+    "@tailjs/types": "github:relevantedge/tailjs#dist/0.42/types",
+    "@tailjs/util": "github:relevantedge/tailjs#dist/0.42/util",
+    "short-unique-id": "^5.2.0",
+    "url-parse": "^1.5.10"
+  }
+}
