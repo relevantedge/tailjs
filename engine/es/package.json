@@ -1,0 +1,8 @@
+{
+  "name": "engine/ecma",
+  "private": true,
+  "description": "Pure ECMAScript without Node.js dependencies.",
+  "main": "index.cjs",
+  "module": "index.mjs",
+  "types": "index.d.ts"
+}

@@ -1,0 +1,37 @@
+{
+  "name": "@tailjs/sitecore-jss",
+  "version": "0.42.0-preview2",
+  "description": "tail.js integration for Sitecore XM Cloud/JSS.",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "license": "LGPL3",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./index.d.ts",
+        "default": "./index.mjs"
+      },
+      "require": {
+        "types": "./index.d.ts",
+        "default": "./index.cjs"
+      }
+    }
+  },
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@sitecore-jss/sitecore-jss": "^21.9.0",
+    "@sitecore-jss/sitecore-jss-nextjs": "^21.9.0",
+    "@types/request-ip": "^0.0.38",
+    "fs-extra": "^11.3.0",
+    "next": "^14.2.24",
+    "react": ">=18.3.1",
+    "request-ip": "^3.3.0"
+  },
+  "peerDependencies": {
+    "next": "^14.2.24",
+    "react": ">=18.3.1"
+  }
+}

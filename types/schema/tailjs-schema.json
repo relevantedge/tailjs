@@ -1,0 +1,3960 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tailjs:core",
+  "$defs": {
+    "ScopeInfo": {
+      "$anchor": "ScopeInfo",
+      "type": "object",
+      "not": {},
+      "x-abstract": true,
+      "x-privacy-class": "anonymous",
+      "x-privacy-access": [
+        "trusted-write"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "firstSeen": {
+          "type": "timestamp"
+        },
+        "lastSeen": {
+          "type": "timestamp"
+        },
+        "views": {
+          "type": "number"
+        },
+        "isNew": {
+          "type": "boolean"
+        },
+        "userAgent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "firstSeen",
+        "lastSeen",
+        "views"
+      ]
+    },
+    "SessionInfo": {
+      "$anchor": "SessionInfo",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ScopeInfo"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "x-privacy-access": [
+            "trusted-write"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "deviceSessionId": {
+              "type": "string"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "previousSession": {
+              "type": "timestamp"
+            },
+            "hasUserAgent": {
+              "type": "boolean"
+            },
+            "anonymous": {
+              "type": "boolean"
+            },
+            "anonymousSessionId": {
+              "type": "string"
+            },
+            "tabs": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "DeviceInfo": {
+      "$anchor": "DeviceInfo",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ScopeInfo"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "x-privacy-access": [
+            "trusted-write"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "sessions": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "sessions"
+          ]
+        }
+      ]
+    },
+    "UserConsent": {
+      "$anchor": "UserConsent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#DataUsage"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "source": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "DataUsage": {
+      "$anchor": "DataUsage",
+      "type": "object",
+      "description": "The combination of the classification and purposes it can be used for determines whether data can be stored or used when compared to an individual's consent.",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": [
+            "never",
+            "anonymous",
+            "indirect",
+            "direct",
+            "sensitive"
+          ]
+        },
+        "purposes": {
+          "$ref": "urn:tailjs:core#DataPurposes",
+          "x-privacy-class": "anonymous"
+        }
+      },
+      "required": [
+        "purposes"
+      ]
+    },
+    "DataPurposes": {
+      "$anchor": "DataPurposes",
+      "type": "object",
+      "description": "The purposes data can be used for. Non-necessary data requires an individual's consent to be collected and used.\n\nData categorized as \"anonymous\" will be stored regardless of consent since a consent only relates to \"personal data\", and anonymous data is just \"data\".\n\nWhether the two purposes \"personalization\" and \"security\" are considered separate purposes is configurable. The default is to consider \"personalization\" the same as \"functionality\", and \"security\" the same as \"necessary\".",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "performance": {
+          "type": "boolean"
+        },
+        "functionality": {
+          "type": "boolean"
+        },
+        "marketing": {
+          "type": "boolean"
+        },
+        "personalization": {
+          "type": "boolean"
+        },
+        "security": {
+          "type": "boolean"
+        }
+      }
+    },
+    "TrackedEvent": {
+      "$anchor": "TrackedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like a \"page view\", \"user location\" etc. the name should be that.\n- If the event indicates something that happened, like \"session started\", \"view ended\" etc. the name should end with a verb in the past tense.",
+          "not": {},
+          "x-abstract": true,
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "schema": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "timestamp": {
+              "type": "timestamp"
+            },
+            "clientId": {
+              "type": "string"
+            },
+            "patchTargetId": {
+              "type": "string"
+            },
+            "relatedEventId": {
+              "type": "string"
+            },
+            "view": {
+              "type": "string"
+            },
+            "metadata": {
+              "$ref": "urn:tailjs:core#EventMetadata",
+              "x-privacy-class": "anonymous"
+            },
+            "session": {
+              "$ref": "urn:tailjs:core#Session",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "x-system-type": "event",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "Tagged": {
+      "$anchor": "Tagged",
+      "type": "object",
+      "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details.",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:tailjs:core#Tag",
+            "x-privacy-class": "anonymous"
+          }
+        }
+      }
+    },
+    "Tag": {
+      "$anchor": "Tag",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "tag": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "score": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "tag"
+      ]
+    },
+    "EventMetadata": {
+      "$anchor": "EventMetadata",
+      "type": "object",
+      "description": "These properties are used to track the state of events as they get collected, and not stored.",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "passive": {
+          "type": "boolean"
+        },
+        "queued": {
+          "type": "boolean"
+        },
+        "posted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Session": {
+      "$anchor": "Session",
+      "type": "object",
+      "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "anonymousSessionId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "deviceId": {
+          "type": "string"
+        },
+        "deviceSessionId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "consent": {
+          "$ref": "urn:tailjs:core#UserConsent",
+          "x-privacy-class": "anonymous"
+        },
+        "clientIp": {
+          "type": "string"
+        },
+        "collision": {
+          "type": "boolean"
+        },
+        "anonymous": {
+          "type": "boolean"
+        },
+        "expiredDeviceSessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    },
+    "UserInteractionEvent": {
+      "$anchor": "UserInteractionEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "not": {},
+          "x-abstract": true,
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "ActivatedComponent": {
+      "$anchor": "ActivatedComponent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Component"
+        },
+        {
+          "type": "object",
+          "description": "The component definition related to a user activation.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedContent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "rect": {
+              "$ref": "urn:tailjs:core#Rectangle",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "Component": {
+      "$anchor": "Component",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "$ref": "urn:tailjs:core#Personalizable"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "typeName": {
+              "type": "string"
+            },
+            "instanceId": {
+              "type": "string"
+            },
+            "instanceNumber": {
+              "type": "integer"
+            },
+            "inferred": {
+              "type": "boolean"
+            },
+            "dataSource": {
+              "$ref": "urn:tailjs:core#DataSource",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "ExternalReference": {
+      "$anchor": "ExternalReference",
+      "type": "object",
+      "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenet is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "referenceType": {
+          "type": "string"
+        },
+        "isExternal": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "itemType": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "Personalizable": {
+      "$anchor": "Personalizable",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "personalization": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:tailjs:core#Personalization",
+            "x-privacy-class": "anonymous"
+          }
+        }
+      }
+    },
+    "Personalization": {
+      "$anchor": "Personalization",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "definition": {
+              "$ref": "urn:tailjs:core#ExternalReference",
+              "x-privacy-class": "anonymous"
+            },
+            "variants": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#PersonalizationVariant",
+                "x-privacy-class": "anonymous"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PersonalizationVariant": {
+      "$anchor": "PersonalizationVariant",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "description": "A reference to the data/content item related to a variant in personalization.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#PersonalizationSource",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "default": {
+              "type": "boolean"
+            },
+            "eligible": {
+              "type": "boolean"
+            },
+            "selected": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "PersonalizationSource": {
+      "$anchor": "PersonalizationSource",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } .",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "relatedVariable": {
+              "type": "string"
+            },
+            "personalizationType": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "DataSource": {
+      "$anchor": "DataSource",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {}
+        }
+      ]
+    },
+    "ActivatedContent": {
+      "$anchor": "ActivatedContent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Content"
+        },
+        {
+          "type": "object",
+          "description": "The content definition related to a user activation.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "rect": {
+              "$ref": "urn:tailjs:core#Rectangle",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "Content": {
+      "$anchor": "Content",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "commerce": {
+              "$ref": "urn:tailjs:core#CommerceData",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "CommerceData": {
+      "$anchor": "CommerceData",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "price": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "variation": {
+          "$ref": "urn:tailjs:core#ExternalReference",
+          "x-privacy-class": "anonymous"
+        },
+        "stock": {
+          "type": "number"
+        }
+      }
+    },
+    "Rectangle": {
+      "$anchor": "Rectangle",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Position"
+        },
+        {
+          "$ref": "urn:tailjs:core#Size"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {}
+        }
+      ]
+    },
+    "Position": {
+      "$anchor": "Position",
+      "type": "object",
+      "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio].",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Size": {
+      "$anchor": "Size",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ]
+    },
+    "ViewTimingData": {
+      "$anchor": "ViewTimingData",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "activeTime": {
+          "type": "duration"
+        },
+        "visibleTime": {
+          "type": "duration"
+        },
+        "totalTime": {
+          "type": "duration"
+        },
+        "activations": {
+          "type": "integer"
+        }
+      }
+    },
+    "ScreenPosition": {
+      "$anchor": "ScreenPosition",
+      "type": "object",
+      "description": "Represents a position where the units are percentages relative to an element or page.",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "xpx": {
+          "type": "integer"
+        },
+        "ypx": {
+          "type": "integer"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "pageFolds": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Viewport": {
+      "$anchor": "Viewport",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Rectangle"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "totalWidth": {
+              "type": "number"
+            },
+            "totalHeight": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "totalWidth",
+            "totalHeight"
+          ]
+        }
+      ]
+    },
+    "ElementInfo": {
+      "$anchor": "ElementInfo",
+      "type": "object",
+      "description": "Basic information about an HTML element.",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "tagName": {
+          "type": "string"
+        },
+        "className": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "href": {
+          "type": "string"
+        },
+        "rect": {
+          "$ref": "urn:tailjs:core#Rectangle",
+          "x-privacy-class": "anonymous"
+        }
+      }
+    },
+    "FormEvent": {
+      "$anchor": "FormEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "form"
+            },
+            "name": {
+              "type": "string"
+            },
+            "completed": {
+              "type": "boolean"
+            },
+            "activeTime": {
+              "type": "duration"
+            },
+            "totalTime": {
+              "type": "duration"
+            },
+            "fields": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "urn:tailjs:core#FormField",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "FormField": {
+      "$anchor": "FormField",
+      "type": "object",
+      "description": "A form field value in a  {@link  FormEvent } .",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "corrections": {
+          "type": "integer"
+        },
+        "activeTime": {
+          "type": "duration"
+        },
+        "totalTime": {
+          "type": "duration"
+        },
+        "value": {
+          "type": "string"
+        },
+        "fillOrder": {
+          "type": "integer"
+        },
+        "lastField": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "ComponentClickEvent": {
+      "$anchor": "ComponentClickEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_click"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ComponentClickIntentEvent": {
+      "$anchor": "ComponentClickIntentEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_click_intent"
+            },
+            "clicks": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#Position",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "elements": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ComponentElementInfo",
+                "x-privacy-class": "anonymous"
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ComponentElementInfo": {
+      "$anchor": "ComponentElementInfo",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ElementInfo"
+        },
+        {
+          "type": "object",
+          "description": "Basic information about an HTML element that is associated with a component.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "component": {
+              "$ref": "urn:tailjs:core#Component",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "ComponentViewEvent": {
+      "$anchor": "ComponentViewEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_view"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "NavigationEvent": {
+      "$anchor": "NavigationEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "navigation"
+            },
+            "clientId": {
+              "type": "string"
+            },
+            "href": {
+              "type": "string"
+            },
+            "exit": {
+              "type": "boolean"
+            },
+            "anchor": {
+              "type": "string"
+            },
+            "external": {
+              "type": "boolean"
+            },
+            "self": {
+              "type": "boolean"
+            },
+            "domain": {
+              "$ref": "urn:tailjs:core#Domain",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "required": [
+            "type",
+            "href",
+            "self"
+          ]
+        }
+      ]
+    },
+    "Domain": {
+      "$anchor": "Domain",
+      "type": "object",
+      "description": "Represents a domain name, e.g. https://www.foo.co.uk",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "scheme": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        }
+      }
+    },
+    "ScrollEvent": {
+      "$anchor": "ScrollEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "scroll"
+            },
+            "offset": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "scrollType": {
+              "type": "string",
+              "enum": [
+                "fold",
+                "article-end",
+                "page-middle",
+                "page-end",
+                "read",
+                "offset"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "offset"
+          ]
+        }
+      ]
+    },
+    "SearchEvent": {
+      "$anchor": "SearchEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "search"
+            },
+            "query": {
+              "type": "string"
+            },
+            "filters": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#SearchFilter",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "hits": {
+              "type": "integer"
+            },
+            "topHits": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#SearchResult",
+                "x-privacy-class": "anonymous"
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SearchFilter": {
+      "$anchor": "SearchFilter",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "type": "object",
+          "description": "A filter that applies to a field in a search query.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "group": {
+              "type": "number"
+            },
+            "reference": {
+              "$ref": "urn:tailjs:core#ExternalReference",
+              "x-privacy-class": "anonymous"
+            },
+            "comparison": {
+              "type": "string",
+              "enum": [
+                "<",
+                "<=",
+                "=",
+                "!=",
+                ">=",
+                ">"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "SearchResult": {
+      "$anchor": "SearchResult",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "rank": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "rank"
+          ]
+        }
+      ]
+    },
+    "SearchFieldReferenceFilter": {
+      "$anchor": "SearchFieldReferenceFilter",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#ExternalReference"
+        },
+        {
+          "type": "object",
+          "description": "A search filter that applies to a single field that must match a defined entity (e.g. \"manufacturer\").",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "references": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ExternalReference",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "comparison": {
+              "type": "string",
+              "enum": [
+                "eq",
+                "neq"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "SessionStartedEvent": {
+      "$anchor": "SessionStartedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "session_started"
+            },
+            "url": {
+              "type": "string"
+            },
+            "sessionNumber": {
+              "type": "integer"
+            },
+            "timeSinceLastSession": {
+              "type": "duration"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "UserAgentLanguage": {
+      "$anchor": "UserAgentLanguage",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "primary": {
+          "type": "boolean"
+        },
+        "preference": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "primary",
+        "preference"
+      ]
+    },
+    "UserAgentEvent": {
+      "$anchor": "UserAgentEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#SessionEvent"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "user_agent"
+            },
+            "hasTouch": {
+              "type": "boolean"
+            },
+            "deviceType": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "tablet",
+                "desktop"
+              ]
+            },
+            "userAgent": {
+              "type": "string"
+            },
+            "languages": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#UserAgentLanguage",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "timezone": {
+              "type": "object",
+              "x-privacy-class": "anonymous",
+              "properties": {
+                "iana": {
+                  "type": "string"
+                },
+                "offset": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "iana",
+                "offset"
+              ]
+            },
+            "screen": {
+              "type": "object",
+              "description": "Screen",
+              "x-privacy-class": "anonymous",
+              "properties": {
+                "dpr": {
+                  "type": "number"
+                },
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "landscape": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "dpr",
+                "width",
+                "height"
+              ]
+            },
+            "webdriver": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "userAgent",
+            "timezone"
+          ]
+        }
+      ]
+    },
+    "SessionEvent": {
+      "$anchor": "SessionEvent",
+      "type": "object",
+      "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened.",
+      "x-privacy-class": "anonymous",
+      "properties": {}
+    },
+    "ClickIds": {
+      "$anchor": "ClickIds",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "google": {
+          "type": "string"
+        },
+        "googleDoubleClick": {
+          "type": "string"
+        },
+        "facebook": {
+          "type": "string"
+        },
+        "microsoft": {
+          "type": "string"
+        },
+        "googleAnalytics": {
+          "type": "string"
+        }
+      }
+    },
+    "ViewEvent": {
+      "$anchor": "ViewEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "This event is sent a user navigates between views. (page, screen or similar).\n\nThis event does not",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "view"
+            },
+            "clientId": {
+              "type": "string"
+            },
+            "tab": {
+              "type": "string"
+            },
+            "href": {
+              "type": "string"
+            },
+            "hash": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "httpStatus": {
+              "type": "number"
+            },
+            "utm": {
+              "type": "object",
+              "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
+              "x-privacy-class": "anonymous",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "medium": {
+                  "type": "string"
+                },
+                "campaign": {
+                  "type": "string"
+                },
+                "term": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            },
+            "queryString": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "domain": {
+              "$ref": "urn:tailjs:core#Domain",
+              "x-privacy-class": "anonymous"
+            },
+            "landingPage": {
+              "type": "boolean"
+            },
+            "firstTab": {
+              "type": "boolean"
+            },
+            "tabNumber": {
+              "type": "integer"
+            },
+            "tabViewNumber": {
+              "type": "integer"
+            },
+            "redirects": {
+              "type": "integer"
+            },
+            "navigationType": {
+              "type": "string",
+              "enum": [
+                "navigate",
+                "back-forward",
+                "prerender",
+                "reload"
+              ]
+            },
+            "clientNavigation": {
+              "type": "string",
+              "enum": [
+                "push",
+                "replace"
+              ]
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "manual",
+                "automatic"
+              ]
+            },
+            "externalReferrer": {
+              "type": "object",
+              "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
+              "x-privacy-class": "anonymous",
+              "properties": {
+                "href": {
+                  "type": "string"
+                },
+                "domain": {
+                  "$ref": "urn:tailjs:core#Domain",
+                  "x-privacy-class": "anonymous"
+                }
+              }
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "viewType": {
+              "type": "string"
+            },
+            "definition": {
+              "$ref": "urn:tailjs:core#View",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "required": [
+            "type",
+            "href"
+          ]
+        }
+      ]
+    },
+    "View": {
+      "$anchor": "View",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Content"
+        },
+        {
+          "$ref": "urn:tailjs:core#Personalizable"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "preview": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "SessionLocationEvent": {
+      "$anchor": "SessionLocationEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#SessionEvent"
+        },
+        {
+          "type": "object",
+          "description": "This event is triggered whenever the user's location changes.",
+          "x-privacy-class": "indirect",
+          "x-privacy-purposes": [
+            "performance"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "session_location"
+            },
+            "accuracy": {
+              "type": "number"
+            },
+            "zip": {
+              "type": "string"
+            },
+            "lat": {
+              "type": "number"
+            },
+            "lng": {
+              "type": "number"
+            },
+            "continent": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            },
+            "country": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            },
+            "subdivision": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            },
+            "city": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "GeoEntity": {
+      "$anchor": "GeoEntity",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "geonames": {
+          "type": "integer"
+        },
+        "iso": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "AnchorNavigationEvent": {
+      "$anchor": "AnchorNavigationEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "anchor_navigation"
+            },
+            "anchor": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "anchor"
+          ]
+        }
+      ]
+    },
+    "ConsentEvent": {
+      "$anchor": "ConsentEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are expected to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "consent"
+            },
+            "consent": {
+              "$ref": "urn:tailjs:core#UserConsent",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "required": [
+            "type",
+            "consent"
+          ]
+        }
+      ]
+    },
+    "CommerceEvent": {
+      "$anchor": "CommerceEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "not": {},
+          "x-abstract": true,
+          "x-privacy-class": "anonymous",
+          "properties": {}
+        }
+      ]
+    },
+    "CartUpdatedEvent": {
+      "$anchor": "CartUpdatedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#CommerceEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#CartEventData"
+        },
+        {
+          "type": "object",
+          "description": "Indicates that a shopping cart was updated.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cart_updated"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "CartEventData": {
+      "$anchor": "CartEventData",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "$ref": "urn:tailjs:core#OrderQuantity"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "add",
+                "remove",
+                "update",
+                "clear"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "OrderQuantity": {
+      "$anchor": "OrderQuantity",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#CommerceData"
+        },
+        {
+          "type": "object",
+          "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } .",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "units": {
+              "type": "integer"
+            },
+            "item": {
+              "$ref": "urn:tailjs:core#ExternalReference",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "OrderEvent": {
+      "$anchor": "OrderEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#CommerceEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#Order"
+        },
+        {
+          "type": "object",
+          "description": "An order submitted by a user.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "Order": {
+      "$anchor": "Order",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "description": "Represents an order for tracking purposes.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "internalId": {
+              "type": "string"
+            },
+            "orderId": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#OrderLine",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "discount": {
+              "type": "number"
+            },
+            "delivery": {
+              "type": "number"
+            },
+            "vat": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            },
+            "paymentMethod": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "orderId"
+          ]
+        }
+      ]
+    },
+    "OrderLine": {
+      "$anchor": "OrderLine",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#OrderQuantity"
+        },
+        {
+          "$ref": "urn:tailjs:core#Tagged"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "lineId": {
+              "type": "string"
+            },
+            "vat": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "CartAbandonedEvent": {
+      "$anchor": "CartAbandonedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#CommerceEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#Order"
+        },
+        {
+          "type": "object",
+          "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cart_abandoned"
+            },
+            "lastCartEvent": {
+              "type": "timestamp"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "OrderStatusEvent": {
+      "$anchor": "OrderStatusEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Base event for events that related to an order changing status.",
+          "not": {},
+          "x-abstract": true,
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "order": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "order"
+          ]
+        }
+      ]
+    },
+    "OrderConfirmedEvent": {
+      "$anchor": "OrderConfirmedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#OrderStatusEvent"
+        },
+        {
+          "type": "object",
+          "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_confirmed"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "OrderCancelledEvent": {
+      "$anchor": "OrderCancelledEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#OrderStatusEvent"
+        },
+        {
+          "type": "object",
+          "description": "An order was cancelled.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_cancelled"
+            },
+            "cancelledByUser": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "OrderCompletedEvent": {
+      "$anchor": "OrderCompletedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#OrderStatusEvent"
+        },
+        {
+          "type": "object",
+          "description": "An order was cancelled.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_completed"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "PaymentEvent": {
+      "$anchor": "PaymentEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#CommerceEvent"
+        },
+        {
+          "type": "object",
+          "description": "Events related to order payments.",
+          "not": {},
+          "x-abstract": true,
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "orderReference": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "paymentMethod": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "orderReference",
+            "amount"
+          ]
+        }
+      ]
+    },
+    "PaymentAcceptedEvent": {
+      "$anchor": "PaymentAcceptedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#PaymentEvent"
+        },
+        {
+          "type": "object",
+          "description": "The payment for an order was accepted.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "payment_accepted"
+            },
+            "finalPayment": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "PaymentRejectedEvent": {
+      "$anchor": "PaymentRejectedEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#PaymentEvent"
+        },
+        {
+          "type": "object",
+          "description": "A payment for the order was rejected.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "payment_rejected"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "AuthenticationEvent": {
+      "$anchor": "AuthenticationEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Events related to users signing in, out etc..",
+          "not": {},
+          "x-abstract": true,
+          "x-privacy-class": "anonymous",
+          "properties": {}
+        }
+      ]
+    },
+    "SignInEvent": {
+      "$anchor": "SignInEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#AuthenticationEvent"
+        },
+        {
+          "type": "object",
+          "description": "A user signed in.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sign_in"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "userId"
+          ]
+        }
+      ]
+    },
+    "SignOutEvent": {
+      "$anchor": "SignOutEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#AuthenticationEvent"
+        },
+        {
+          "type": "object",
+          "description": "A user actively signed out. (Session expiry doesn't count).",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sign_out"
+            },
+            "userId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SystemEvent": {
+      "$anchor": "SystemEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics.",
+          "not": {},
+          "x-abstract": true,
+          "x-privacy-class": "anonymous",
+          "properties": {}
+        }
+      ]
+    },
+    "ImpressionTextStats": {
+      "$anchor": "ImpressionTextStats",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "length": {
+          "type": "number"
+        },
+        "characters": {
+          "type": "number"
+        },
+        "words": {
+          "type": "number"
+        },
+        "sentences": {
+          "type": "number"
+        },
+        "lix": {
+          "type": "number"
+        },
+        "readTime": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "text",
+        "length",
+        "characters",
+        "words",
+        "sentences",
+        "lix",
+        "readTime"
+      ]
+    },
+    "ImpressionEvent": {
+      "$anchor": "ImpressionEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "description": "The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.\n\n\nThis only gets tracked for components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "impression"
+            },
+            "impressions": {
+              "type": "integer"
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "regions": {
+              "type": "object",
+              "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
+              "x-privacy-class": "anonymous",
+              "properties": {
+                "top": {
+                  "$ref": "urn:tailjs:core#ImpressionRegionStats",
+                  "x-privacy-class": "anonymous"
+                },
+                "middle": {
+                  "$ref": "urn:tailjs:core#ImpressionRegionStats",
+                  "x-privacy-class": "anonymous"
+                },
+                "bottom": {
+                  "$ref": "urn:tailjs:core#ImpressionRegionStats",
+                  "x-privacy-class": "anonymous"
+                }
+              }
+            },
+            "text": {
+              "$ref": "urn:tailjs:core#ImpressionTextStats",
+              "x-privacy-class": "anonymous"
+            },
+            "seen": {
+              "type": "number"
+            },
+            "read": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ImpressionRegionStats": {
+      "$anchor": "ImpressionRegionStats",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "duration": {
+          "type": "duration"
+        },
+        "impressions": {
+          "type": "integer"
+        },
+        "seen": {
+          "type": "number"
+        },
+        "read": {
+          "type": "number"
+        }
+      }
+    },
+    "ResetEvent": {
+      "$anchor": "ResetEvent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#SystemEvent"
+        },
+        {
+          "type": "object",
+          "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends.",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "reset"
+            },
+            "includeDevice": {
+              "type": "boolean"
+            },
+            "includeConsent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ConfiguredComponent": {
+      "$anchor": "ConfiguredComponent",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#Component"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "track": {
+              "$ref": "urn:tailjs:core#ComponentTrackingBehavior",
+              "x-privacy-class": "anonymous"
+            }
+          }
+        }
+      ]
+    },
+    "ComponentTrackingBehavior": {
+      "$anchor": "ComponentTrackingBehavior",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackingBehavior"
+        },
+        {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "promote": {
+              "type": "boolean"
+            },
+            "secondary": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "TrackingBehavior": {
+      "$anchor": "TrackingBehavior",
+      "type": "object",
+      "x-privacy-class": "anonymous",
+      "properties": {
+        "disable": {
+          "type": "boolean"
+        },
+        "region": {
+          "type": "boolean"
+        },
+        "clicks": {
+          "type": "boolean"
+        },
+        "forms": {
+          "type": "boolean"
+        },
+        "formFields": {
+          "type": "object",
+          "x-privacy-class": "anonymous",
+          "properties": {
+            "privacy": {
+              "type": "string",
+              "enum": [
+                "never",
+                "anonymous",
+                "indirect",
+                "direct",
+                "sensitive"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "FormEvent_patch": {
+      "$anchor": "FormEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#FormEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "form_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "name": {
+              "type": "string"
+            },
+            "completed": {
+              "type": "boolean"
+            },
+            "activeTime": {
+              "type": "duration"
+            },
+            "totalTime": {
+              "type": "duration"
+            },
+            "fields": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "urn:tailjs:core#FormField",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "ref": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ComponentClickEvent_patch": {
+      "$anchor": "ComponentClickEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ComponentClickEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_click_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ComponentClickIntentEvent_patch": {
+      "$anchor": "ComponentClickIntentEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ComponentClickIntentEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_click_intent_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "clicks": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#Position",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "elements": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ComponentElementInfo",
+                "x-privacy-class": "anonymous"
+              }
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ComponentViewEvent_patch": {
+      "$anchor": "ComponentViewEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ComponentViewEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_view_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "NavigationEvent_patch": {
+      "$anchor": "NavigationEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#NavigationEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "navigation_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "href": {
+              "type": "string"
+            },
+            "exit": {
+              "type": "boolean"
+            },
+            "anchor": {
+              "type": "string"
+            },
+            "external": {
+              "type": "boolean"
+            },
+            "self": {
+              "type": "boolean"
+            },
+            "domain": {
+              "$ref": "urn:tailjs:core#Domain",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ScrollEvent_patch": {
+      "$anchor": "ScrollEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ScrollEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "scroll_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "offset": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "scrollType": {
+              "type": "string",
+              "enum": [
+                "fold",
+                "article-end",
+                "page-middle",
+                "page-end",
+                "read",
+                "offset"
+              ]
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SearchEvent_patch": {
+      "$anchor": "SearchEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#SearchEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "search_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "query": {
+              "type": "string"
+            },
+            "filters": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#SearchFilter",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "hits": {
+              "type": "integer"
+            },
+            "topHits": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#SearchResult",
+                "x-privacy-class": "anonymous"
+              }
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SessionStartedEvent_patch": {
+      "$anchor": "SessionStartedEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#SessionStartedEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "session_started_patch"
+            },
+            "url": {
+              "type": "string"
+            },
+            "sessionNumber": {
+              "type": "integer"
+            },
+            "timeSinceLastSession": {
+              "type": "duration"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "UserAgentEvent_patch": {
+      "$anchor": "UserAgentEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#UserAgentEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "user_agent_patch"
+            },
+            "hasTouch": {
+              "type": "boolean"
+            },
+            "deviceType": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "tablet",
+                "desktop"
+              ]
+            },
+            "userAgent": {
+              "type": "string"
+            },
+            "languages": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#UserAgentLanguage",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "timezone": {
+              "type": "object",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": [
+                "necessary"
+              ],
+              "x-privacy-access": [
+                "public"
+              ],
+              "properties": {
+                "iana": {
+                  "type": "string"
+                },
+                "offset": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "iana",
+                "offset"
+              ]
+            },
+            "screen": {
+              "type": "object",
+              "description": "Screen",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": [
+                "necessary"
+              ],
+              "x-privacy-access": [
+                "public"
+              ],
+              "properties": {
+                "dpr": {
+                  "type": "number"
+                },
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "landscape": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "dpr",
+                "width",
+                "height"
+              ]
+            },
+            "webdriver": {
+              "type": "boolean"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ViewEvent_patch": {
+      "$anchor": "ViewEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ViewEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "view_patch"
+            },
+            "tab": {
+              "type": "string"
+            },
+            "href": {
+              "type": "string"
+            },
+            "hash": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "httpStatus": {
+              "type": "number"
+            },
+            "utm": {
+              "type": "object",
+              "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": [
+                "necessary"
+              ],
+              "x-privacy-access": [
+                "public"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "medium": {
+                  "type": "string"
+                },
+                "campaign": {
+                  "type": "string"
+                },
+                "term": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            },
+            "queryString": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "domain": {
+              "$ref": "urn:tailjs:core#Domain",
+              "x-privacy-class": "anonymous"
+            },
+            "landingPage": {
+              "type": "boolean"
+            },
+            "firstTab": {
+              "type": "boolean"
+            },
+            "tabNumber": {
+              "type": "integer"
+            },
+            "tabViewNumber": {
+              "type": "integer"
+            },
+            "redirects": {
+              "type": "integer"
+            },
+            "navigationType": {
+              "type": "string",
+              "enum": [
+                "navigate",
+                "back-forward",
+                "prerender",
+                "reload"
+              ]
+            },
+            "clientNavigation": {
+              "type": "string",
+              "enum": [
+                "push",
+                "replace"
+              ]
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "manual",
+                "automatic"
+              ]
+            },
+            "externalReferrer": {
+              "type": "object",
+              "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": [
+                "necessary"
+              ],
+              "x-privacy-access": [
+                "public"
+              ],
+              "properties": {
+                "href": {
+                  "type": "string"
+                },
+                "domain": {
+                  "$ref": "urn:tailjs:core#Domain",
+                  "x-privacy-class": "anonymous"
+                }
+              }
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "viewType": {
+              "type": "string"
+            },
+            "definition": {
+              "$ref": "urn:tailjs:core#View",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SessionLocationEvent_patch": {
+      "$anchor": "SessionLocationEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#SessionLocationEvent.",
+          "x-privacy-class": "indirect",
+          "x-privacy-purposes": [
+            "performance"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "session_location_patch"
+            },
+            "accuracy": {
+              "type": "number"
+            },
+            "zip": {
+              "type": "string"
+            },
+            "lat": {
+              "type": "number"
+            },
+            "lng": {
+              "type": "number"
+            },
+            "continent": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            },
+            "country": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            },
+            "subdivision": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            },
+            "city": {
+              "$ref": "urn:tailjs:core#GeoEntity",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "AnchorNavigationEvent_patch": {
+      "$anchor": "AnchorNavigationEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#AnchorNavigationEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "anchor_navigation_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "anchor": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ConsentEvent_patch": {
+      "$anchor": "ConsentEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ConsentEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "consent_patch"
+            },
+            "consent": {
+              "$ref": "urn:tailjs:core#UserConsent",
+              "x-privacy-class": "anonymous"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "CartUpdatedEvent_patch": {
+      "$anchor": "CartUpdatedEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#CartUpdatedEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cart_updated_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "price": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "variation": {
+              "$ref": "urn:tailjs:core#ExternalReference",
+              "x-privacy-class": "anonymous"
+            },
+            "stock": {
+              "type": "number"
+            },
+            "units": {
+              "type": "integer"
+            },
+            "item": {
+              "$ref": "urn:tailjs:core#ExternalReference",
+              "x-privacy-class": "anonymous"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "add",
+                "remove",
+                "update",
+                "clear"
+              ]
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "OrderEvent_patch": {
+      "$anchor": "OrderEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#OrderEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_patch"
+            },
+            "internalId": {
+              "type": "string"
+            },
+            "orderId": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#OrderLine",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "discount": {
+              "type": "number"
+            },
+            "delivery": {
+              "type": "number"
+            },
+            "vat": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            },
+            "paymentMethod": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "CartAbandonedEvent_patch": {
+      "$anchor": "CartAbandonedEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#CartAbandonedEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cart_abandoned_patch"
+            },
+            "internalId": {
+              "type": "string"
+            },
+            "orderId": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#OrderLine",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "discount": {
+              "type": "number"
+            },
+            "delivery": {
+              "type": "number"
+            },
+            "vat": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            },
+            "paymentMethod": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "lastCartEvent": {
+              "type": "timestamp"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "OrderConfirmedEvent_patch": {
+      "$anchor": "OrderConfirmedEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#OrderConfirmedEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_confirmed_patch"
+            },
+            "order": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "OrderCancelledEvent_patch": {
+      "$anchor": "OrderCancelledEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#OrderCancelledEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_cancelled_patch"
+            },
+            "order": {
+              "type": "string"
+            },
+            "cancelledByUser": {
+              "type": "boolean"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "OrderCompletedEvent_patch": {
+      "$anchor": "OrderCompletedEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#OrderCompletedEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_completed_patch"
+            },
+            "order": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "PaymentAcceptedEvent_patch": {
+      "$anchor": "PaymentAcceptedEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#PaymentAcceptedEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "payment_accepted_patch"
+            },
+            "orderReference": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "paymentMethod": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "finalPayment": {
+              "type": "boolean"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "PaymentRejectedEvent_patch": {
+      "$anchor": "PaymentRejectedEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#PaymentRejectedEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "payment_rejected_patch"
+            },
+            "orderReference": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "paymentMethod": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SignInEvent_patch": {
+      "$anchor": "SignInEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#SignInEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sign_in_patch"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SignOutEvent_patch": {
+      "$anchor": "SignOutEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#SignOutEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sign_out_patch"
+            },
+            "userId": {
+              "type": "string"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ImpressionEvent_patch": {
+      "$anchor": "ImpressionEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ImpressionEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "impression_patch"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#ActivatedComponent",
+                "x-privacy-class": "anonymous"
+              }
+            },
+            "area": {
+              "type": "string"
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#ScreenPosition",
+              "x-privacy-class": "anonymous"
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#Viewport",
+              "x-privacy-class": "anonymous"
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#ElementInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "impressions": {
+              "type": "integer"
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#ViewTimingData",
+              "x-privacy-class": "anonymous"
+            },
+            "regions": {
+              "type": "object",
+              "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": [
+                "necessary"
+              ],
+              "x-privacy-access": [
+                "public"
+              ],
+              "properties": {
+                "top": {
+                  "$ref": "urn:tailjs:core#ImpressionRegionStats",
+                  "x-privacy-class": "anonymous"
+                },
+                "middle": {
+                  "$ref": "urn:tailjs:core#ImpressionRegionStats",
+                  "x-privacy-class": "anonymous"
+                },
+                "bottom": {
+                  "$ref": "urn:tailjs:core#ImpressionRegionStats",
+                  "x-privacy-class": "anonymous"
+                }
+              }
+            },
+            "text": {
+              "$ref": "urn:tailjs:core#ImpressionTextStats",
+              "x-privacy-class": "anonymous"
+            },
+            "seen": {
+              "type": "number"
+            },
+            "read": {
+              "type": "number"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "ResetEvent_patch": {
+      "$anchor": "ResetEvent_patch",
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#TrackedEvent"
+        },
+        {
+          "type": "object",
+          "description": "Patch type for urn:tailjs:core#ResetEvent.",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purposes": [
+            "necessary"
+          ],
+          "x-privacy-access": [
+            "public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "reset_patch"
+            },
+            "includeDevice": {
+              "type": "boolean"
+            },
+            "includeConsent": {
+              "type": "boolean"
+            }
+          },
+          "x-system-type": "patch",
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    }
+  }
+}
