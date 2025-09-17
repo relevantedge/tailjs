@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/ts-json-schema-generator",
-  "version": "0.42.0-preview3",
+  "version": "0.42.0-preview2",
   "description": "Extensions and patches for ts-json-schema-generator for providing the JSON schema structure tail.js wants.",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",

@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/types",
-  "version": "0.42.0-preview3",
+  "version": "0.42.0-preview2",
   "description": "Default type definitions for tailjs.",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",

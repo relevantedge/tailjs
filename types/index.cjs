@@ -1006,7 +1006,7 @@ const parseJsonType = (context, root, forVariable = false)=>{
 };
 
 const getJsonRef = (entity)=>`${entity.schema.namespace}#${entity.name}`;
-const serializeProperty = (type, property)=>{
+const serializeProperty = (type)=>{
     let jsonProperty;
     if ("primitive" in type) {
         const source = type.source;
@@ -1076,9 +1076,6 @@ const serializeProperty = (type, property)=>{
     if ("usageOverrides" in type) {
         var _serializeAnnotations;
         Object.assign(jsonProperty, (_serializeAnnotations = serializeAnnotations(type)) !== null && _serializeAnnotations !== void 0 ? _serializeAnnotations : {});
-    }
-    if (property) {
-        Object.assign(jsonProperty, serializeAnnotations(property));
     }
     return jsonProperty;
 };

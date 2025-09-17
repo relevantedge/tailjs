@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/engine",
-  "version": "0.42.0-preview3",
+  "version": "0.42.0-preview2",
   "description": "tail.js server engine (@tailjs/server/external can be used directly from an external V8 engine without nodejs. This is how e.g. the .NET interop works).",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",
