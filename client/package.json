@@ -52,9 +52,9 @@
   "module": "./index.mjs",
   "types": "./index.d.ts",
   "dependencies": {
-    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?latest/0.42.3",
-    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42.3",
-    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42.3",
+    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?dist/0.42.3",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?dist/0.42.3",
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?dist/0.42.3",
     "@ygoe/msgpack": "github:nielskuhnel/msgpack.js#feature/big-float-fix"
   }
 }

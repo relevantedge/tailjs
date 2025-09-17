@@ -22,10 +22,10 @@
   "module": "./index.mjs",
   "types": "./index.d.ts",
   "dependencies": {
-    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42.3",
-    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?latest/0.42.3",
-    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42.3",
-    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42.3",
+    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?dist/0.42.3",
+    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?dist/0.42.3",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?dist/0.42.3",
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?dist/0.42.3",
     "short-unique-id": "^5.2.0",
     "url-parse": "^1.5.10"
   }

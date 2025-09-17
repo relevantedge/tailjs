@@ -23,9 +23,9 @@
   "types": "./index.d.ts",
   "dependencies": {
     "@maxmind/geoip2-node": "^3.5.0",
-    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?latest/0.42.3",
-    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42.3",
-    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42.3",
+    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?dist/0.42.3",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?dist/0.42.3",
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?dist/0.42.3",
     "@types/node": ">=20",
     "maxmind": "^4.3.19",
     "memfs": "^3.5.3",

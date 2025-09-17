@@ -22,7 +22,7 @@
   "module": "./index.mjs",
   "types": "./index.d.ts",
   "dependencies": {
-    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?latest/0.42.3",
-    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42.3"
+    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?dist/0.42.3",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?dist/0.42.3"
   }
 }
