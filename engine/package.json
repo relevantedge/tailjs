@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/engine",
-  "version": "0.42.0-preview2",
+  "version": "0.42.0-preview3",
   "description": "tail.js server engine (@tailjs/server/external can be used directly from an external V8 engine without nodejs. This is how e.g. the .NET interop works).",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",
@@ -22,10 +22,10 @@
   "module": "./index.mjs",
   "types": "./index.d.ts",
   "dependencies": {
-    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42",
-    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?latest/0.42",
-    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42",
-    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42",
+    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42.3",
+    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?latest/0.42.3",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42.3",
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42.3",
     "short-unique-id": "^5.2.0",
     "url-parse": "^1.5.10"
   }

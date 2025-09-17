@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/node",
-  "version": "0.42.0-preview2",
+  "version": "0.42.0-preview3",
   "description": "A node.js native engine host for tail.js.",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",
@@ -25,11 +25,11 @@
     "tailjs": "./cli/tailjs.cjs"
   },
   "dependencies": {
-    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42",
-    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?latest/0.42",
-    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?latest/0.42",
-    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42",
-    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42",
+    "@tailjs/client": "https://gitpkg.vercel.app/relevantedge/tailjs/client?latest/0.42.3",
+    "@tailjs/engine": "https://gitpkg.vercel.app/relevantedge/tailjs/engine?latest/0.42.3",
+    "@tailjs/transport": "https://gitpkg.vercel.app/relevantedge/tailjs/transport?latest/0.42.3",
+    "@tailjs/types": "https://gitpkg.vercel.app/relevantedge/tailjs/types?latest/0.42.3",
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42.3",
     "on-headers": "^1.0.2",
     "request-ip": "^3.3.0",
     "tar": "^7.4.3",

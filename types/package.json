@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/types",
-  "version": "0.42.0-preview2",
+  "version": "0.42.0-preview3",
   "description": "Default type definitions for tailjs.",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",
@@ -32,6 +32,6 @@
   "module": "./index.mjs",
   "types": "./index.d.ts",
   "dependencies": {
-    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42"
+    "@tailjs/util": "https://gitpkg.vercel.app/relevantedge/tailjs/util?latest/0.42.3"
   }
 }
