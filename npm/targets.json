@@ -12,21 +12,31 @@
   //     "transport"
   //   ]
   // },
-  "lt": {
+  "0.42": {
     "enabled": true,
     "npm": true,
-    "path": "D:/projects/rlvedge/customers/liontrust/github/src/liontrust/_tailjs",
-    "libs": [
-      "client",
-      "cosmosdb",
-      "engine",
-      "next",
-      "node",
-      "react",
-      "sitecore-jss",
-      "transport",
-      "types",
-      "util"
-    ]
+    "path": "C:\\Projects\\rlvedge\\github\\tailjs-dist\\0.42",
+    "libs": ["*"],
+    "root": false,
+    "rewrite": "https://gitpkg.vercel.app/relevantedge/tailjs/${package}?latest/0.42"
   }
+
+  // "lt": {
+  //   "enabled": true,
+  //   "npm": true,
+  //   "path": "D:/projects/rlvedge/customers/liontrust/github/src/liontrust/_tailjs",
+  //   "libs": [
+  //     "client",
+  //     "cosmosdb",
+  //     "maxmind",
+  //     "engine",
+  //     "next",
+  //     "node",
+  //     "react",
+  //     "sitecore-jss",
+  //     "transport",
+  //     "types",
+  //     "util"
+  //   ]
+  // }
 }

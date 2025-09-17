@@ -22,5 +22,6 @@ export const postUserAgentEvent = (tracker: Tracker) =>
       iana: Intl.DateTimeFormat().resolvedOptions().timeZone,
       offset: new Date().getTimezoneOffset(),
     },
+    webdriver: navigator.webdriver,
     ...detectDeviceType(),
   } satisfies UserAgentEvent);

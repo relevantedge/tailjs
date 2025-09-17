@@ -89,7 +89,7 @@ export const getElementInfo = (el: Element, includeRect = false) =>
       attr(el, "title")?.trim() ||
         attr(el, "alt")?.trim() ||
         (el as HTMLElement).innerText?.trim(),
-      100
+      50
     ),
     className: el.className || undefined,
     href: (el as any).href?.toString(),

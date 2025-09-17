@@ -72,16 +72,19 @@ const FINAL_COOKIES = Symbol();
 export const createServerContext: {
   (
     settings?: TailJsMiddlewareConfigurationSource,
-    initializeOnFirstRequest?: false
+    initializeOnFirstRequest?: false,
+    defaults?: Partial<TailJsMiddlewareConfiguration>
   ): Promise<TailJsServerContext>;
   (
     settings: TailJsMiddlewareConfigurationSource,
-    initializeOnFirstRequest: true
+    initializeOnFirstRequest: true,
+    defaults?: Partial<TailJsMiddlewareConfiguration>
   ): TailJsServerContext;
   (requestHandler: RequestHandler): TailJsServerContext;
 } = (
   config: TailJsMiddlewareConfigurationSource,
-  initializeOnFirstRequest = true
+  initializeOnFirstRequest = true,
+  defaults?: Partial<TailJsMiddlewareConfiguration>
 ): any => {
   const trackerSymbol = Symbol();
   const tailCookies = Symbol();
@@ -91,6 +94,9 @@ export const createServerContext: {
 
   const initializeRequestHandler = async () => {
     finalConfig = await resolveConfig([globalResolvers, config], {});
+    if (defaults) {
+      finalConfig = Object.assign(finalConfig ?? {}, defaults);
+    }
     globalResolversSealed = true;
 
     const host = new NativeHost({

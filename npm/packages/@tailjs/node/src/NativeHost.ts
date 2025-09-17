@@ -1,9 +1,9 @@
 import fs from "fs";
 import http from "http";
 import https, { RequestOptions } from "https";
-import { basename, dirname, join, resolve } from "path";
-import { v4 as uuid } from "uuid";
 import * as zlib from "node:zlib";
+import * as nodePath from "path";
+import { v4 as uuid } from "uuid";
 
 import {
   detectPfx,
@@ -16,6 +16,7 @@ import {
 } from "@tailjs/engine";
 import { MaybePromise, MINUTE, now, Nullish, obj, skip } from "@tailjs/util";
 import { DefaultLogger, DefaultLoggerSettings } from "./DefaultLogger";
+import { decompress } from "./decompress";
 
 export type NativeHostLogger = {
   initialize?(rootPath: string | null): MaybePromise<void>;
@@ -37,7 +38,7 @@ export class NativeHost implements EngineHost {
   private readonly _logger: NativeHostLogger | null;
 
   constructor({ rootPath, logger = {} }: NativeHostSettings) {
-    this._rootPath = rootPath ? resolve(rootPath) : null;
+    this._rootPath = rootPath ? nodePath.resolve(rootPath) : null;
     if (logger === "console") {
       logger = { basePath: false, console: "info" };
     }
@@ -49,12 +50,12 @@ export class NativeHost implements EngineHost {
       : new DefaultLogger(logger);
   }
 
-  async ls(path: string): Promise<ResourceEntry[] | null> {
+  public async ls(path: string): Promise<ResourceEntry[] | null> {
     if (!this._rootPath) {
       return [];
     }
 
-    path = join(this._rootPath, path);
+    path = nodePath.join(this._rootPath, path);
     if (!path.startsWith(this._rootPath)) {
       throw new Error(`Invalid path (it is outside the root scope).`);
     }
@@ -84,7 +85,7 @@ export class NativeHost implements EngineHost {
         path: path.substring(this._rootPath.length),
         readonly: false,
         type,
-        name: basename(path),
+        name: nodePath.basename(path),
       });
     }
     return resources;
@@ -133,32 +134,43 @@ export class NativeHost implements EngineHost {
     this._logger?.log(message);
   }
 
-  read(
+  public read(
     path: string,
     changeHandler?: ChangeHandler<Uint8Array>
   ): Promise<Uint8Array | null> {
     return this._read(path, false, changeHandler);
   }
-  readText(
+  public readText(
     path: string,
     changeHandler?: ChangeHandler<string>
   ): Promise<string | null> {
     return this._read(path, true, changeHandler);
   }
 
-  async write(path: string, data: Uint8Array): Promise<void> {
+  public async write(path: string, data: Uint8Array): Promise<void> {
     const fullPath = this._resolvePath(path);
     if (!fullPath) {
       return;
     }
 
+    const dir = nodePath.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
     await fs.promises.writeFile(fullPath, data);
   }
-  async writeText(path: string, data: string): Promise<void> {
+  public async writeText(path: string, data: string): Promise<void> {
     const fullPath = this._resolvePath(path);
     if (!fullPath) {
       return;
     }
+
+    const dir = nodePath.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
     await fs.promises.writeFile(fullPath, data, "utf-8");
   }
 
@@ -187,7 +199,11 @@ export class NativeHost implements EngineHost {
     if (path === "js/tail.debug.map.js") {
       try {
         const resolved = require.resolve("@tailjs/client");
-        return join(dirname(resolved), "iife", path.substring(3));
+        return nodePath.join(
+          nodePath.dirname(resolved),
+          "iife",
+          path.substring(3)
+        );
       } catch (e) {
         console.log(
           `${path} is not available - it requires the @tailjs/client package to be installed explicitly.`
@@ -195,7 +211,7 @@ export class NativeHost implements EngineHost {
       }
     }
 
-    const fullPath = resolve(join(this._rootPath, path));
+    const fullPath = nodePath.resolve(nodePath.join(this._rootPath, path));
 
     if (!fullPath.startsWith(this._rootPath)) {
       throw new Error("The requested path is outside the root.");
@@ -340,7 +356,14 @@ export class NativeHost implements EngineHost {
     });
   }
 
-  async compress(
+  public decompress(
+    data: Uint8Array,
+    algorithm: "tar" | "zip" | "tar.gz"
+  ): Promise<{ name: string; data: Uint8Array }[]> {
+    return decompress(data, algorithm);
+  }
+
+  public async compress(
     data: Uint8Array | string,
     algorithm: "br" | "gzip"
   ): Promise<Uint8Array | Nullish> {
@@ -367,7 +390,7 @@ export class NativeHost implements EngineHost {
         });
   }
 
-  nextId(scope: string): Promise<string> | string {
+  public nextId(scope: string): Promise<string> | string {
     // UUID v4, remove hyphens, re-encode as if radix 16 with radix 36 to reduce number of characters further.
     return uuid()
       .replaceAll("-", "")

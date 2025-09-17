@@ -13,7 +13,6 @@ export interface ResourceEntry {
 export interface EngineHost {
   log(message: LogMessage): void;
 
-  /** Returns */
   ls(path: string): Promise<ResourceEntry[] | null>;
 
   read(
@@ -39,4 +38,9 @@ export interface EngineHost {
     data: Uint8Array | string,
     algorithm: "br" | "gzip"
   ): MaybePromise<Uint8Array | Nullish>;
+
+  decompress(
+    data: Uint8Array,
+    algorithm: "tar" | "zip" | "tar.gz"
+  ): Promise<{ name: string; data: Uint8Array }[]>;
 }

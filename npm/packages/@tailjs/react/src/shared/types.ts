@@ -25,7 +25,7 @@ export type UpdateStateOptions = {
 
 export type StateMapper = (
   /** The result from the previous state mapper, when state mappers are chained in the configuration. */
-  currentState: ExtendedTrackingBoundaryData | undefined,
+  currentState: ExtendedTrackingBoundaryData<true> | undefined,
   /** The type of the rendering component. */
   type: ComponentType,
   /** The properties of the rendering component.  */

@@ -10,9 +10,23 @@ import { SessionLocationEvent, TrackedEvent } from "@tailjs/types";
 import { Reader } from "maxmind";
 import type { CityResponse } from "mmdb-lib";
 
+type MmdbUrl = {
+  fileName?: string;
+  url: string;
+  headers?: Record<string, string>;
+};
+export type ClientLocationConfiguration = {
+  language?: string;
+  mmdb?: string;
+  source?: MmdbUrl;
+
+  accountId?: string;
+  apiKey?: string;
+};
 export class ClientLocation implements TrackerExtension {
   private readonly _language: string;
-  private readonly _mmdb: string;
+  private readonly _mmdbPath: string;
+  private readonly _mmdbSource: undefined | MmdbUrl;
 
   private _initialized = false;
   private _reader: Reader<CityResponse> | null;
@@ -22,9 +36,11 @@ export class ClientLocation implements TrackerExtension {
   constructor({
     language = "en",
     mmdb = "maxmind/GeoLite2-City.mmdb",
-  }: { language?: string; mmdb?: string } = {}) {
+    source,
+  }: ClientLocationConfiguration = {}) {
     this._language = language;
-    this._mmdb = mmdb;
+    this._mmdbPath = mmdb;
+    this._mmdbSource = source;
   }
 
   registerTypes(schema: SchemaBuilder): void {
@@ -164,17 +180,63 @@ export class ClientLocation implements TrackerExtension {
     if (this._initialized == (this._initialized = true)) {
       return;
     }
+
     const createReader = async (watch: boolean) => {
-      const data = await host.read(
-        this._mmdb,
-        watch ? async () => await createReader(false) : undefined
-      );
+      let data = this._mmdbPath
+        ? await host.read(
+            this._mmdbPath,
+            watch ? async () => await createReader(false) : undefined
+          )
+        : null;
+
+      if (data == null) {
+        if (this._mmdbSource) {
+          const {
+            fileName = "GeoLite2-City.mmdb",
+            url,
+            headers,
+          } = this._mmdbSource;
+          host.log(
+            this,
+            `'${this._mmdbPath}' could not be loaded, downloading from ${url}.`
+          );
+
+          const responseData = await host.request({
+            url,
+            headers,
+            binary: true,
+          });
+          if (responseData == null) {
+            host.error(this, `Downloading mmdb from ${url} failed.`);
+            return;
+          }
+
+          data =
+            (await host.decompress(responseData.body, "tar.gz"))?.find(
+              (entry) => entry.name.endsWith(fileName)
+            )?.data ?? null;
+          if (data == null) {
+            host.error(
+              this,
+              `The downloaded file from ${url} is not a valid tar.gz file, or does not contain the mmdb file '${fileName}'.`
+            );
+            return;
+          }
+        }
+        if (this._mmdbPath) {
+          if (data === null) {
+            host.error(this, `'${this._mmdbPath}' could not be loaded.`);
+            return;
+          }
+          await host.write(this._mmdbPath, data);
+        }
+      }
 
       this._reader = data ? new Reader<CityResponse>(Buffer.from(data)) : null;
       if (this._reader == null) {
-        host.error(
+        host.warn(
           this,
-          `'${this._mmdb}' could not be loaded from the environment host.`
+          "The mmdb file could not be loaded. Geo information will not be available."
         );
       }
     };

@@ -95,7 +95,7 @@ export const forms: TrackerExtensionFactory = {
 
     // Trap fetch() to check whether there are pending (AJAX) submit requests when the user leaves the page.
     const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
+    window.fetch = async function (...args) {
       const pendingFormSubmit = last(pendingFormSubmits);
       if (
         !pendingFormSubmit ||
@@ -103,13 +103,14 @@ export const forms: TrackerExtensionFactory = {
         now() - pendingFormSubmit.started > 100 // More than 100 ms must be something else.
       ) {
         // This request is probably about something else.
-        return await originalFetch(...args);
+        return await originalFetch.apply(this, args);
       }
 
       pendingFormSubmit.requestState = 1;
 
       try {
-        const response = await originalFetch(...args);
+        const response = (await originalFetch.apply(this, args)) as Response;
+
         if (!response.ok) {
           debug(
             `Request for pending form failed (status ${
@@ -122,7 +123,8 @@ export const forms: TrackerExtensionFactory = {
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
           try {
-            const json = await response.json();
+            const responseClone = response.clone();
+            const json = await responseClone.json();
             if (
               // Qualified guessing
               json?.error ||
@@ -392,7 +394,15 @@ export const forms: TrackerExtensionFactory = {
 
         let pendingFormSubmit: FormSubmitState | null = null;
 
-        listen(formElement.ownerDocument.body, "submit", (submitEvent) => {
+        let currentFormSubmitEvent: null | SubmitEvent = null;
+        const submitHandler = (submitEvent: SubmitEvent) => {
+          if (submitEvent.target === formElement) {
+            currentFormSubmitEvent = submitEvent;
+          }
+          if (state[3] !== FormFillState.Pending) {
+            return;
+          }
+
           capturedContext = getComponentContext(formElement, {
             eventType: "form",
           });
@@ -458,10 +468,14 @@ export const forms: TrackerExtensionFactory = {
 
           // Add a short timeout make sure we get the correct value of event.defaultPrevent if we are not the last event handler.
           setTimeout(() => {
-            if (submitEvent.defaultPrevented) {
+            if (
+              submitEvent.defaultPrevented ||
+              currentFormSubmitEvent?.defaultPrevented
+            ) {
               if (pendingFormSubmit) {
                 pendingFormSubmit.defaultPrevented = true;
               }
+              currentFormSubmitEvent = null;
 
               // Might be XHR. If so, the default would have been prevented.
               // However, we must wait and see if the form disappears, otherwise, it could also be validation errors.
@@ -580,7 +594,17 @@ export const forms: TrackerExtensionFactory = {
               }
             }
           }, 1);
-        });
+        };
+
+        listen(formElement.ownerDocument.body, "submit", submitHandler);
+        forEach(
+          formElement.querySelectorAll("BUTTON,INPUT"),
+          (el: HTMLButtonElement | HTMLInputElement) => {
+            if (el.type === "submit") {
+              listen(el, "click", submitHandler as any);
+            }
+          }
+        );
 
         return (state = [
           ev,

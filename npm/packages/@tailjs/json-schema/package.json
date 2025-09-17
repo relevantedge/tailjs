@@ -2,6 +2,7 @@
   "name": "@tailjs/json-schema",
   "description": "This package is no longer used.",
   "license": "LGPL3",
+  "private": true,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

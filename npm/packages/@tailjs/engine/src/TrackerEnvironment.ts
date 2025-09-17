@@ -12,6 +12,7 @@ import ShortUniqueId from "short-unique-id";
 import {
   ClientCertificate,
   LogLevel,
+  ResourceEntry,
   serializeLogMessage,
   VariableStorageCoordinator,
   type ChangeHandler,
@@ -273,6 +274,42 @@ export class TrackerEnvironment {
       cookies,
       body: response.body,
     };
+  }
+
+  public ls(path: string): Promise<ResourceEntry[] | null> {
+    return this._host.ls(path);
+  }
+  public write(path: string, data: Uint8Array): Promise<void> {
+    return this._host.write(path, data);
+  }
+
+  writeText(path: string, text: string): Promise<void> {
+    return this._host.writeText(path, text);
+  }
+
+  delete(path: string): Promise<boolean> {
+    return this._host.delete(path);
+  }
+
+  public compress(
+    data: Uint8Array | string,
+    algorithm: "br" | "gzip"
+  ): MaybePromise<Uint8Array | Nullish> {
+    if (!this._host.compress) {
+      return null;
+    }
+
+    return this._host.compress(data, algorithm);
+  }
+
+  public async decompress(
+    data: Uint8Array,
+    algorithm: "tar" | "zip" | "tar.gz"
+  ): Promise<{ name: string; data: Uint8Array }[] | null> {
+    if (!this._host.decompress) {
+      return null;
+    }
+    return await this._host.decompress(data, algorithm);
   }
 
   // #region LogShortcuts

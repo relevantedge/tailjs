@@ -24,10 +24,13 @@ export const build = async (
     buildEndActions.push(async () => {
       const pkg = await env();
       for (const target of pkg.externalTargets) {
-        if (!target.npm) {
+        if (!target.npm || pkg.config.private) {
           continue;
         }
-        const targetPath = path.join(target.path, pkg.qualifiedName);
+        const targetPath = path.join(
+          target.path,
+          target.root ? pkg.qualifiedName : pkg.name
+        );
         if (fs.existsSync(targetPath)) {
           await fs.promises.rm(targetPath, { recursive: true });
         }
@@ -39,16 +42,24 @@ export const build = async (
             await fs.promises.readFile(pkgJsonPath, "utf-8")
           );
           const dependencies = pkgJson.dependencies;
+          const rewrite = target.rewrite;
           for (const lib in target.libs) {
             if (lib === "*") {
               for (const key in dependencies) {
-                if (key.startsWith("@tailjs/")) {
-                  delete dependencies[key];
+                const packageId = key.match(/^@tailjs\/([^\/]+)/)?.[1];
+                if (packageId) {
+                  const rewritten = rewrite?.(packageId);
+                  rewritten
+                    ? (dependencies[key] = rewritten)
+                    : delete dependencies[key];
                 }
               }
               continue;
             }
-            delete dependencies[`@tailjs/${lib}`];
+            const rewritten = rewrite?.(lib);
+            rewritten
+              ? (dependencies[`@tailjs/${lib}`] = rewritten)
+              : delete dependencies[`@tailjs/${lib}`];
           }
           await fs.promises.writeFile(
             pkgJsonPath,

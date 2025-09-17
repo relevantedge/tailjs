@@ -4,13 +4,17 @@ import {
   Schema,
   SchemaObjectType,
   SchemaPrimitiveTypeDefinition,
+  SchemaProperty,
   SchemaPropertyType,
 } from "../../..";
 
 const getJsonRef = (entity: SchemaObjectType) =>
   `${entity.schema.namespace}#${entity.name}`;
 
-const serializeProperty = (type: SchemaPropertyType) => {
+const serializeProperty = (
+  type: SchemaPropertyType,
+  property?: SchemaProperty
+) => {
   let jsonProperty: any;
   if ("primitive" in type) {
     const source = type.source as SchemaPrimitiveTypeDefinition;
@@ -84,6 +88,9 @@ const serializeProperty = (type: SchemaPropertyType) => {
 
   if ("usageOverrides" in type) {
     Object.assign(jsonProperty, serializeAnnotations(type) ?? {});
+  }
+  if (property) {
+    Object.assign(jsonProperty, serializeAnnotations(property));
   }
   return jsonProperty;
 };

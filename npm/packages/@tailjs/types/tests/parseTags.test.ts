@@ -1,4 +1,4 @@
-import { mapTags, uniqueTags } from "../src";
+import { mapTags, Tag, TagMap, uniqueTags } from "../src";
 
 describe("parseTagString.ts", () => {
   it("Parses tags", () => {
@@ -129,6 +129,24 @@ describe("parseTagString.ts", () => {
       { tag: "tag2:nested2:level3" },
       { tag: "namespace::tag2:yes" },
       { tag: "namespace::tag2:ok:x", value: "30" },
+    ]);
+
+    expect(
+      mapTags({
+        tag1: "ok",
+        tag2: ["a", false, "b"],
+        tag3: {
+          tag31: { value: "ok" },
+          tag32: [{ value: "foo" }, { value: "bar" }],
+        },
+      })
+    ).toEqual([
+      { tag: "tag1", value: "ok" },
+      { tag: "tag2", value: "a" },
+      { tag: "tag2", value: "b" },
+      { tag: "tag3:tag31", value: "ok" },
+      { tag: "tag3:tag32", value: "foo" },
+      { tag: "tag3:tag32", value: "bar" },
     ]);
 
     expect(

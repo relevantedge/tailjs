@@ -43,6 +43,16 @@
         "types": "./dist/script/index.d.ts",
         "default": "./dist/script/index.cjs"
       }
+    },
+    "./version": {
+      "import": {
+        "types": "./dist/version/index.d.ts",
+        "default": "./dist/version/index.mjs"
+      },
+      "require": {
+        "types": "./dist/version/index.d.ts",
+        "default": "./dist/version/index.cjs"
+      }
     }
   },
   "dependencies": {

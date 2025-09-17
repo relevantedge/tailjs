@@ -19,6 +19,7 @@
     "@tailjs/ravendb": "workspace:*",
     "@tailjs/react": "workspace:*",
     "@tailjs/types": "workspace:*",
+    "@tailjs/maxmind": "workspace:*",
     "framer-motion": "11.2.10",
     "next": "^14.2.24",
     "react": "^18.3.0",

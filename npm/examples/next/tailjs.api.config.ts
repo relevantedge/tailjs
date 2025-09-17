@@ -1,6 +1,7 @@
 import { createApi } from "@tailjs/next/server";
 import { DefaultLogger } from "@tailjs/node";
 import { CosmosDbExtension } from "@tailjs/cosmosdb";
+import { ClientLocation } from "@tailjs/maxmind";
 
 let cosmosDb: CosmosDbExtension | undefined;
 if (process.env.COSMOS_ENDPOINT) {
@@ -15,14 +16,22 @@ if (process.env.COSMOS_ENDPOINT) {
   );
 }
 
+const maxmind = process.env.GEO_DB_URL
+  ? new ClientLocation({
+      source: {
+        url: process.env.GEO_DB_URL,
+      },
+    })
+  : undefined;
+
 export default createApi({
   debugScript: true,
   json: true,
-  extensions: [cosmosDb],
+  extensions: [maxmind, cosmosDb],
 
   logger: new DefaultLogger({
     basePath: false,
-    console: "error",
+    console: "warn",
   }),
 
   sessionTimeout: 30,

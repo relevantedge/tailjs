@@ -89,6 +89,11 @@ export interface UserAgentEvent extends TrackedEvent, SessionEvent {
      */
     landscape?: boolean;
   };
+
+  /**
+   * The browser is being controlled by automation (e.g., Selenium or Puppeteer).
+   */
+  webdriver?: boolean;
 }
 
 export const isUserAgentEvent = typeTest<UserAgentEvent>("user_agent");

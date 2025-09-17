@@ -1,6 +1,7 @@
 import {
   Falsish,
   forEach,
+  isArray,
   isIterable,
   isString,
   match,
@@ -8,7 +9,7 @@ import {
   Nullish,
   tryCatch,
 } from "@tailjs/util";
-import { BoundaryDataTag, ParsableTags, Tag, TagMap, uniqueTags } from "..";
+import { BoundaryDataTag, Tag, uniqueTags } from "..";
 
 const ESCAPED_CHAR = /%[A-F0-9]{2}/i;
 const maybeDecode = <S extends string | Nullish>(s: S): S =>
@@ -22,13 +23,55 @@ export type MapTagOptions = {
   eventType?: string;
 };
 
+export type TagMap = {
+  [tag: string]: TagMapEntry;
+} & { [P in keyof BoundaryDataTag]?: never };
+
+export type TagValue = Falsish | string | boolean | Omit<Tag, "tag">;
+
+export type TagMapEntry = TagValue | TagValue[] | TagMap;
+
+export type ParsableTags =
+  | TagMap
+  | Tag
+  | Iterable<ParsableTags>
+  | string
+  | string[]
+  | Falsish;
+
+// Need to duplicate since a generic TagMap<TagType extends Tag> construct confuses TypeScript so validation doesn't work.
+export type BoundaryTagMap = {
+  [tag: string]: BoundaryTagMapEntry;
+} & { [P in keyof BoundaryDataTag]?: never };
+
+export type BoundaryTagValue =
+  | Falsish
+  | string
+  | boolean
+  | Omit<BoundaryDataTag, "tag">;
+
+export type BoundaryTagMapEntry =
+  | BoundaryTagValue
+  | BoundaryTagValue[]
+  | BoundaryTagMap;
+
+export type ParsableBoundaryTags =
+  | BoundaryTagMap
+  | BoundaryDataTag
+  | Iterable<ParsableBoundaryTags>
+  | string
+  | string[]
+  | Falsish;
+
 export const mapTags: {
-  (
-    tags: ParsableTags<Tag>,
-    options?: MapTagOptions & { eventType?: undefined }
-  ): Tag[] | undefined;
-  (tags: ParsableTags, options?: MapTagOptions): BoundaryDataTag[] | undefined;
-} = (tags: ParsableTags<BoundaryDataTag>, options?: MapTagOptions) =>
+  (tags: ParsableTags, options?: MapTagOptions & { eventType?: undefined }):
+    | Tag[]
+    | undefined;
+
+  (tags: ParsableBoundaryTags, options?: MapTagOptions):
+    | BoundaryDataTag[]
+    | undefined;
+} = (tags: ParsableTags, options?: MapTagOptions) =>
   uniqueTags(collectTags(tags, options), false) as any;
 
 const TAG_GRAMMAR =
@@ -119,8 +162,7 @@ export const encodeTag = <T extends Tag | null | undefined>(
 
 const parseTagName = (
   qualifiedName: string,
-  appendPrefix?: string,
-  nsOnly = false
+  appendPrefix?: string
 ): [ns: string | undefined, localName: string] => {
   let [_, ns, localName] = qualifiedName.match(NS_AND_TAG)!;
   return [
@@ -165,7 +207,18 @@ const extractTags = (
   prefix: string
 ) => {
   if (map) {
-    if ("value" in map || "score" in map || "eventType" in map) {
+    if (isArray(map)) {
+      for (const item of map) {
+        target = extractTags(target, item, ns, eventType, prefix);
+      }
+    } else if (typeof map !== "object") {
+      target = addValidatedTag(
+        target,
+        { tag: "", value: typeof map === "string" ? map : undefined },
+        prefix,
+        ns
+      );
+    } else if ("value" in map || "score" in map || "eventType" in map) {
       target = addValidatedTag(
         target,
         { tag: "", eventType, ...map },
@@ -180,26 +233,13 @@ const extractTags = (
         }
 
         const [localNs = ns, localName] = parseTagName(prop);
-        if (typeof value === "object") {
-          target = extractTags(
-            target,
-            value as any,
-            localNs,
-            eventType,
-            `${prefix}:${localName}`
-          );
-        } else {
-          target = addValidatedTag(
-            target,
-            {
-              tag: localName,
-              value: value === true ? undefined : value,
-              eventType,
-            },
-            prefix,
-            localNs
-          );
-        }
+        target = extractTags(
+          target,
+          value as any,
+          localNs,
+          eventType,
+          `${prefix}:${localName}`
+        );
       }
     }
   }

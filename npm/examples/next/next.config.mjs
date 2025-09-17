@@ -6,6 +6,7 @@ const nextConfig = {
   },
   webpack: (config) => {
     config.plugins = [...(config.plugins ?? []), new TailJsPlugin()];
+    config.resolve
     return config;
   },
 };

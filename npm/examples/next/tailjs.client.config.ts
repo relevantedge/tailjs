@@ -10,7 +10,6 @@ export default createClientConfiguration({
       let updates: (typeof state)[] | undefined;
 
       if (type === ImpressionTest) {
-        console.log("IMPT");
         (updates ??= []).push({
           components: props.tall ? undefined : [{ id: "ImpressionTest" }],
           track: { impressions: true },

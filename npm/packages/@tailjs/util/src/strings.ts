@@ -280,7 +280,7 @@ export const getTextStats = (
   } while (match);
 
   return {
-    text,
+    text: ellipsis(text, 50),
     length: text.length,
     characters: chars,
     words,

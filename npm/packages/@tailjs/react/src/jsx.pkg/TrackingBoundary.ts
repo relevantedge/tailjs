@@ -40,21 +40,33 @@ export const mapChildComponentState = (fiber: any) => {
   }
 };
 
-export const findRelatedDomNodes = (fiber: any, collected?: any[]) => {
-  let root = collected === undefined;
-  collected ??= [];
-  if (root && !validateFiber(fiber)) {
+const findRelatedDomNodes = (fiber: any) => {
+  const collected: any = [];
+  if (!validateFiber(fiber)) {
     return collected;
   }
+  collectedRelatedTreeDomNodes(fiber, true, collected);
+  if (fiber.alternate) {
+    // The alternate (supposedly, work-in-progress) tree may sometimes contain the current dom nodes.
+    // Scan that too.
+    collectedRelatedTreeDomNodes(fiber.alternate, true, collected);
+  }
+  return collected;
+};
 
-  if (fiber.stateNode?.nodeType === 1) {
+const collectedRelatedTreeDomNodes = (
+  fiber: any,
+  root = true,
+  collected: any[]
+) => {
+  if (fiber.stateNode?.nodeType === 1 && fiber.stateNode.isConnected) {
     collected.push(fiber.stateNode);
   } else if (fiber.child) {
-    findRelatedDomNodes(fiber.child, collected);
+    collectedRelatedTreeDomNodes(fiber.child, false, collected);
   }
 
   if (!root && fiber.sibling) {
-    findRelatedDomNodes(fiber.sibling, collected);
+    collectedRelatedTreeDomNodes(fiber.sibling, false, collected);
   }
   return collected;
 };
@@ -84,7 +96,7 @@ export class TrackingBoundary extends React.Component<TrackingBoundaryProps> {
     this._bindState();
   }
 
-  componentDidUpdate(prevProps: TrackingBoundaryProps): void {
+  componentDidUpdate(): void {
     this._bindState();
   }
 }

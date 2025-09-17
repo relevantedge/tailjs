@@ -1,9 +1,22 @@
+import { appendClientScriptRevision } from "@tailjs/client/version";
 import type { JsxConfiguration } from "@tailjs/react";
 
 export type NextJsxConfiguration =
   | Omit<JsxConfiguration, "tracker"> & {
       tracker: Omit<JsxConfiguration["tracker"], "script"> & {
-        script?: boolean;
+        /**
+         * The route for the script.
+         * @default "/api/tailjs"
+         */
+        script?:
+          | boolean
+          | string
+          | {
+              /** @default "/api/tailjs" */
+              route?: string;
+              /** Whether `_rev=(client script revision)` gets appended to the route to avoid caching issues. */
+              appendRevision?: boolean;
+            };
       };
     };
 export const createClientConfiguration = (
@@ -11,21 +24,21 @@ export const createClientConfiguration = (
 ): JsxConfiguration => {
   config.tracker ??= {};
 
-  const script = config.tracker.script;
+  let script = config.tracker.script;
+  let appendRevision = true;
+  if (typeof script === "object") {
+    appendRevision = script.appendRevision ?? true;
+    script = script.route;
+  }
   if (script !== false) {
-    (config.tracker as JsxConfiguration["tracker"]).script = {
-      src: "/api/tailjs",
-    };
-    // (config as JsxConfiguration).tracker.script = () => ({
-    //   type: import("next/script.js") as any,
-    //   props: {
-    //     src: "/api/tailjs",
-    //     strategy: "beforeInteractive",
-    //     async: true,
+    if (!script || typeof script !== "string") {
+      script = "/api/tailjs";
+    }
 
-    //     ...(typeof script === "object" ? script : {}),
-    //   } satisfies ScriptProps,
-    // });
+    if (appendRevision) {
+      script = appendClientScriptRevision(script);
+    }
+    (config.tracker as JsxConfiguration["tracker"]).script = { src: script };
   }
 
   return config as JsxConfiguration;

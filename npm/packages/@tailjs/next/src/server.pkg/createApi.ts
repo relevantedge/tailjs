@@ -35,11 +35,13 @@ export const createApi = (
   addTailJsConfiguration(config);
   const { routeHandler, middleware, resolveTracker } = createServerContext(
     { matchAnyPath: true },
-    true
+    true,
+    { resourcesPath: "/tmp" }
   );
   return Object.assign(middleware, {
     api: middleware,
     routeHandler,
+
     resolveTracker: async (req?: any, res?: any) => {
       if (!req) {
         // For server actions. Use NextJs' headers and cookies functions to

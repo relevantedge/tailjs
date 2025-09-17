@@ -351,7 +351,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
                 () => ({
                   duration,
                   impressions: state.impressions,
-                  regions: regions && {
+                  regions: regions?.[0] && {
                     top: regions[0][0],
                     middle: regions[1][0],
                     bottom: regions[2][0],
@@ -409,25 +409,28 @@ export const createImpressionObserver = (tracker: Tracker) => {
                 const offset = rect.top;
 
                 if (boundaryIndex < 3) {
-                  updateRegion(
-                    0,
-                    top - offset,
-                    bottom - offset,
-                    boundaries[1].readTime
-                  );
-                } else {
-                  updateRegion(
-                    1,
-                    regions[0][4],
-                    top - offset,
-                    boundaries[2].readTime
-                  );
-                  updateRegion(
-                    2,
-                    top - offset,
-                    bottom - offset,
-                    boundaries[3].readTime
-                  );
+                  boundaries[1] &&
+                    updateRegion(
+                      0,
+                      top - offset,
+                      bottom - offset,
+                      boundaries[1].readTime
+                    );
+                } else if (regions[0]?.[4]) {
+                  boundaries[2] &&
+                    updateRegion(
+                      1,
+                      regions[0][4],
+                      top - offset,
+                      boundaries[2].readTime
+                    );
+                  boundaries[3] &&
+                    updateRegion(
+                      2,
+                      top - offset,
+                      bottom - offset,
+                      boundaries[3].readTime
+                    );
                 }
               }
             }

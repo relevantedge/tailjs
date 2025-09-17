@@ -132,6 +132,10 @@ export const createEventQueue = (
     initialPost = false,
     relatedNode?: Node
   ) => {
+    if (initialPost) {
+      post(sourceEvent);
+    }
+
     let unbinding = false;
     const unbind = (): undefined => {
       unbinding = true;
@@ -159,9 +163,7 @@ export const createEventQueue = (
       return [undefined, unbinding];
     };
     get(patchSources, sourceEvent, () => new Set()).add(factory);
-    if (initialPost) {
-      post(sourceEvent);
-    }
+
     return unbind;
   };
 

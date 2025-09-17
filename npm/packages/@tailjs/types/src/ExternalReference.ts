@@ -68,14 +68,14 @@ export interface ExternalReference {
   path?: string;
 }
 
-export const getExternalReferenceKey = (
-  reference: ExternalReference | undefined
-): string | undefined =>
+export const getExternalReferenceKey: {
+  (reference: ExternalReference): string;
+  (reference: ExternalReference | undefined): string | undefined;
+} = (reference: any) =>
   reference &&
-  reference.id +
-    ((reference as Component).dataSource?.id || "") +
-    (reference.source || "") +
-    (reference.name || "");
+  `${reference.id}\0${(reference as Component).dataSource?.id || ""}\0${
+    reference.source || ""
+  }\0${reference.name || ""}`;
 
 export const externalReferencesEqual = (
   reference: ExternalReference | Nullish,
