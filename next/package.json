@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/next",
-  "version": "0.42.0-preview2",
+  "version": "0.42.0-preview3",
   "description": "tail.js NextJS integration.",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",

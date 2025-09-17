@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/maxmind",
-  "version": "0.42.0-preview2",
+  "version": "0.42.0-preview3",
   "description": "tail.js extension for client location based on MaxMind GeoIP.",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",

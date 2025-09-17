@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/react",
-  "version": "0.42.0-preview2",
+  "version": "0.42.0-preview3",
   "description": "tail.js preact/react integration.",
   "homepage": "https://github.com/relevantedge/tailjs",
   "license": "LGPL3",

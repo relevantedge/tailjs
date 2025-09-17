@@ -1508,7 +1508,7 @@ const createImpressionObserver = (tracker)=>{
                         state.unbindPassiveEventSource = tracker.events.registerEventPatchSource(state.impressionEvent, ()=>({
                                 duration,
                                 impressions: state.impressions,
-                                regions: regions && {
+                                regions: (regions === null || regions === void 0 ? void 0 : regions[0]) && {
                                     top: regions[0][0],
                                     middle: regions[1][0],
                                     bottom: regions[2][0]
@@ -1545,13 +1545,14 @@ const createImpressionObserver = (tracker)=>{
                             // While loop because two boundaries may have the same offset.
                             probeRange[boundaryIndex % 2 ? "setEnd" : "setStart"](node, boundaries[boundaryIndex].offset - length + nodeLength);
                             if (boundaryIndex++ % 2) {
+                                var _regions_;
                                 const { top, bottom } = probeRange.getBoundingClientRect();
                                 const offset = rect.top;
                                 if (boundaryIndex < 3) {
-                                    updateRegion(0, top - offset, bottom - offset, boundaries[1].readTime);
-                                } else {
-                                    updateRegion(1, regions[0][4], top - offset, boundaries[2].readTime);
-                                    updateRegion(2, top - offset, bottom - offset, boundaries[3].readTime);
+                                    boundaries[1] && updateRegion(0, top - offset, bottom - offset, boundaries[1].readTime);
+                                } else if ((_regions_ = regions[0]) === null || _regions_ === void 0 ? void 0 : _regions_[4]) {
+                                    boundaries[2] && updateRegion(1, regions[0][4], top - offset, boundaries[2].readTime);
+                                    boundaries[3] && updateRegion(2, top - offset, bottom - offset, boundaries[3].readTime);
                                 }
                             }
                         }
@@ -2695,16 +2696,16 @@ const forms = {
         const pendingFormSubmits = [];
         // Trap fetch() to check whether there are pending (AJAX) submit requests when the user leaves the page.
         const originalFetch = window.fetch;
-        window.fetch = async (...args)=>{
+        window.fetch = async function(...args) {
             const pendingFormSubmit = last(pendingFormSubmits);
             if (!pendingFormSubmit || pendingFormSubmit.requestState || now() - pendingFormSubmit.started > 100 // More than 100 ms must be something else.
             ) {
                 // This request is probably about something else.
-                return await originalFetch(...args);
+                return await originalFetch.apply(this, args);
             }
             pendingFormSubmit.requestState = 1;
             try {
-                const response = await originalFetch(...args);
+                const response = await originalFetch.apply(this, args);
                 if (!response.ok) {
                     debug(`Request for pending form failed (status ${response.status}). ${ansi("Form not submitted", 1)}.`);
                     pendingFormSubmit.cancel(false);
@@ -2714,7 +2715,8 @@ const forms = {
                     try {
                         var // GraphQL
                         _json_errors;
-                        const json = await response.json();
+                        const responseClone = response.clone();
+                        const json = await responseClone.json();
                         if (// Qualified guessing
                         (json === null || json === void 0 ? void 0 : json.error) || (json === null || json === void 0 ? void 0 : (_json_errors = json.errors) === null || _json_errors === void 0 ? void 0 : _json_errors.length)) {
                             debug(`Request for pending form (presumably) failed with an error response ('${stringify(json)}'). ${ansi("Form not submitted", 1)}.`);
