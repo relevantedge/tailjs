@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>{{PackageName}}</id>
+    <version>{{Version}}</version>
+    <authors>Tail.js (@nielskuhnel)</authors>
+    <description>This is an umbrella package that automatically adds a dependency to the the platform-specific package (win-x64, linux-x64, etc.) that contains the corresponding Bun executable. The package version is the same as the Bun version the package contains.</description>
+    <license type="expression">MIT</license>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/relevantedge/tailjs</projectUrl>
+  </metadata>
+  <files>
+    <file src="build/{{PackageName}}.targets" target="build/{{PackageName}}.targets" />
+    <file src="README.md" target="README.md" />
+  </files>
+</package>

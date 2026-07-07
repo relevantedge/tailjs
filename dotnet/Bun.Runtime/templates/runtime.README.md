@@ -1,0 +1,1 @@
+This is an umbrella package that automatically adds a dependency to the the platform-specific package (win-x64, linux-x64, etc.) that contains the corresponding [Bun](https://bun.sh/) executable. The package version is the same as the [Bun](https://bun.sh/) version the package contains.

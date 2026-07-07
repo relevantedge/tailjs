@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>{{PackageName}}</id>
+    <version>{{Version}}</version>
+    <authors>Tail.js (@nielskuhnel)</authors>
+    <description>Native Bun binaries for {{Rid}}. The package version follows the Bun version.</description>
+    <license type="file">LICENSE.txt</license>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/relevantedge/tailjs</projectUrl>
+  </metadata>
+  <files>    
+    <file src="build/{{PackageName}}.targets" target="build/native/{{PackageName}}.targets" />
+    <file src="runtimes/{{Rid}}/native/{{ExeName}}" target="runtimes/{{Rid}}/native/{{ExeName}}" />
+    <file src="LICENSE.txt" target="LICENSE.txt" />
+    <file src="README.md" target="README.md" />
+  </files>
+</package>
